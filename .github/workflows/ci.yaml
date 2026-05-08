@@ -535,7 +535,7 @@ jobs:
           popd
 
       - name: Upload WASM build to GitHub 
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with: 
           name: sophis-wasm32-sdk-${{ env.SHORT_SHA }}
           path: wasm/release/
