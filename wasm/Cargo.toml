@@ -1,0 +1,80 @@
+[package]
+name = "sophis-wasm"
+description = "Sophis WASM bindings"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+repository.workspace = true
+# wasm-pack requires this value to be a string
+# (it can not be derived from the workspace)
+license = "ISC"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+cfg-if.workspace = true
+js-sys.workspace = true
+sophis-addresses.workspace = true
+sophis-bip32.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-wasm.workspace = true
+sophis-core.workspace = true
+sophis-math.workspace = true
+sophis-pow.workspace = true
+sophis-txscript.workspace = true
+sophis-rpc-core.workspace = true
+sophis-utils.workspace = true
+sophis-wasm-core.workspace = true
+sophis-wallet-core.workspace = true
+sophis-wallet-keys.workspace = true
+sophis-wrpc-client.workspace = true
+sophis-wrpc-wasm.workspace = true
+num.workspace = true
+wasm-bindgen.workspace = true
+workflow-log.workspace = true
+workflow-core.workspace = true
+workflow-wasm.workspace = true
+
+[features]
+wasm32-sdk = [
+    "sophis-wallet-core/wasm32-sdk",
+    "sophis-pow/wasm32-sdk",
+    "sophis-txscript/wasm32-sdk",
+]
+wasm32-core = [
+    "sophis-wallet-core/wasm32-core",
+    "sophis-pow/wasm32-sdk",
+    "sophis-txscript/wasm32-sdk",
+]
+wasm32-rpc = [
+    "sophis-consensus-core/wasm32-sdk",
+    "sophis-consensus-wasm/wasm32-sdk",
+    "sophis-wrpc-client/wasm32-sdk",
+    "sophis-wrpc-wasm/wasm32-sdk",
+]
+wasm32-keygen = []
+default = []
+
+[package.metadata.docs.rs]
+targets = ["wasm32-unknown-unknown"]
+
+[package.metadata.emanate.wasm]
+targets = [
+    { target = "nodejs", out-dir = "nodejs/sophis" },
+    { target = "web", out-dir = "web/sophis" },
+]
+folder = "setup"
+
+# Workaround for Rust 1.87.0
+# https://github.com/rust-lang/rust/issues/141048
+[package.metadata.wasm-pack.profile.release]
+# This optimization configuration requires "-Ctarget-cpu=mvp" Rustflag (only enable W3C MVP feature set)
+# This flag is automatically used either via (release optimized) build script at root
+#   or via .cargo/config.toml when executing the build from /wasm
+wasm-opt = ["-O","--enable-bulk-memory"]
+
+[lints]
+workspace = true

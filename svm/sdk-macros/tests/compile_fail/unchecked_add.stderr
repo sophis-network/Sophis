@@ -1,0 +1,5 @@
+error: unchecked arithmetic is forbidden in #[sophis_contract]; use `.checked_add()` and handle the `None` overflow case explicitly
+ --> tests/compile_fail/unchecked_add.rs:6:12
+  |
+6 |     height + 1000 > 5000
+  |            ^

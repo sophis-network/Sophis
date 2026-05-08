@@ -1,0 +1,33 @@
+[package]
+name = "sophis-addressmanager"
+description = "Sophis address manager"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+borsh.workspace = true
+igd-next.workspace = true
+itertools.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-database.workspace = true
+sophis-utils.workspace = true
+local-ip-address.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+rocksdb.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+rv.workspace = true
+
+[lints]
+workspace = true

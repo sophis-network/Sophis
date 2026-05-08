@@ -1,0 +1,14 @@
+[package]
+name = "example-time-lock"
+description = "Example: Sophis time-lock contract — UTXO unspendable until a given block height"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk.workspace = true

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Block — Sophis Explorer</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{color:var(--accent);text-decoration:none;font-size:18px;font-weight:700;white-space:nowrap}
+.search-bar{display:flex;flex:1;min-width:200px;max-width:640px;gap:8px}
+.search-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;cursor:pointer;font-size:14px}
+main{max-width:1280px;margin:0 auto;padding:24px 16px}
+.page-title{font-size:20px;font-weight:600;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
+.card h3{font-size:14px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:180px 1fr;row-gap:10px;column-gap:16px;font-size:13px}
+.key{color:var(--muted)}
+.val{word-break:break-all}
+.mono{font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;font-size:12px}
+.pill{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:500;display:inline-block}
+.pill-blue{background:#1a2d3d;color:var(--accent)}
+.pill-red{background:#3d1a1a;color:var(--red)}
+.pill-green{background:#1a3d20;color:var(--green)}
+.hashes{display:flex;flex-wrap:wrap;gap:6px}
+.hash-chip{background:#0d1117;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'Cascadia Code','JetBrains Mono',monospace;font-size:11px}
+.hash-chip a{color:var(--accent);text-decoration:none}
+.hash-chip a:hover{text-decoration:underline}
+section{margin-bottom:24px}
+section h2{font-size:16px;font-weight:600;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);text-align:left;padding:10px 14px;font-weight:500;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:#1c2128}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.error{color:var(--red);padding:24px;text-align:center;font-size:15px}
+.loading{color:var(--muted);padding:24px;text-align:center}
+.nav-links{display:flex;gap:12px;margin-bottom:20px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="brand">⬡ Sophis Explorer</a>
+  <div class="search-bar">
+    <input id="searchInput" placeholder="Block hash / TX ID / Address (sophis…)">
+    <button onclick="doSearch()">Search</button>
+  </div>
+</header>
+<main>
+  <div class="nav-links"><a href="/">← Home</a></div>
+  <div id="content"><div class="loading">Loading block…</div></div>
+</main>
+<script>
+function fmt(h){if(!h)return'—';return h.length>20?h.slice(0,10)+'…'+h.slice(-8):h}
+function numFmt(n){return n.toLocaleString()}
+function tsStr(ms){return ms?new Date(ms).toISOString().replace('T',' ').slice(0,19)+' UTC':'—'}
+function sphs(s){return(s/1e8).toFixed(8)+' SPHS'}
+function hashChip(h,href){return`<span class="hash-chip"><a href="${href}">${fmt(h)}</a></span>`}
+function hashChips(arr,prefix){return arr.length?arr.map(h=>hashChip(h,prefix+h)).join(''):'<span style="color:var(--muted)">none</span>'}
+
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  if(/^[0-9a-fA-F]{64}$/i.test(q)){fetch('/api/blocks/'+q).then(r=>{if(r.ok)window.location='/block?hash='+q;else window.location='/tx?txid='+q;}).catch(()=>window.location='/tx?txid='+q);return;}
+  if(/^sophis/.test(q)){window.location='/address?address='+encodeURIComponent(q);return;}
+  alert('Unknown format');
+}
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+
+async function load(){
+  const hash=new URLSearchParams(location.search).get('hash');
+  if(!hash){document.getElementById('content').innerHTML='<div class="error">No block hash provided.</div>';return;}
+  document.title='Block '+hash.slice(0,12)+'… — Sophis Explorer';
+  try{
+    const r=await fetch('/api/blocks/'+hash);
+    if(!r.ok){const e=await r.json();document.getElementById('content').innerHTML=`<div class="error">Block not found: ${e.error}</div>`;return;}
+    const b=await r.json();
+    const isChain=b.isChainBlock??b.is_chain_block;
+    const statusPill=isChain?'<span class="pill pill-blue">Chain Block</span>':'<span class="pill pill-red">Orphan Block</span>';
+    const prevHash=b.selectedParent??b.selected_parent;
+    const children=(b.children??[]);
+    const blues=(b.mergeSetBlues??b.merge_set_blues??[]);
+    const reds=(b.mergeSetReds??b.merge_set_reds??[]);
+    const parents=(b.parents??[]);
+
+    const txRows=(b.transactions??[]).map(tx=>{
+      const txId=tx.txId??tx.tx_id;
+      const isCb=tx.isCoinbase??tx.is_coinbase;
+      const total=tx.totalOutSompi??tx.total_out_sompi??0;
+      return`<tr>
+        <td class="mono"><a href="/tx?txid=${txId}">${fmt(txId)}</a></td>
+        <td>${isCb?'<span class="pill pill-green">Coinbase</span>':''}</td>
+        <td>${tx.inputCount??tx.input_count}</td>
+        <td>${tx.outputCount??tx.output_count}</td>
+        <td>${sphs(total)}</td>
+        <td>${numFmt(tx.mass)}</td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="6" style="color:var(--muted);text-align:center">No transactions</td></tr>';
+
+    document.getElementById('content').innerHTML=`
+    <div class="page-title">Block ${statusPill}</div>
+    <div class="card">
+      <h3>Block Header</h3>
+      <div class="grid">
+        <span class="key">Hash</span><span class="val mono">${b.hash}</span>
+        <span class="key">DAA Score</span><span class="val">${numFmt(b.daaScore??b.daa_score)}</span>
+        <span class="key">Blue Score</span><span class="val">${numFmt(b.blueScore??b.blue_score)}</span>
+        <span class="key">Timestamp</span><span class="val">${tsStr(b.timestampMs??b.timestamp_ms)}</span>
+        <span class="key">Difficulty</span><span class="val">${Number(b.difficulty).toExponential(6)}</span>
+        <span class="key">Bits</span><span class="val mono">${(b.bits??0).toString(16).padStart(8,'0')}</span>
+        <span class="key">Nonce</span><span class="val mono">${b.nonce}</span>
+        <span class="key">Blue Work</span><span class="val mono">${b.blueWork??b.blue_work}</span>
+        <span class="key">Merkle Root</span><span class="val mono">${b.hashMerkleRoot??b.hash_merkle_root}</span>
+        <span class="key">Version</span><span class="val">${b.version}</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>DAG Links</h3>
+      <div class="grid">
+        <span class="key">Selected Parent</span>
+        <span class="val hashes">${hashChip(prevHash,'/block?hash='+prevHash)}</span>
+        <span class="key">Parents</span>
+        <span class="val hashes">${hashChips(parents,'/block?hash=')}</span>
+        <span class="key">Children</span>
+        <span class="val hashes">${hashChips(children,'/block?hash=')}</span>
+        <span class="key">Merge Set Blues</span>
+        <span class="val hashes">${hashChips(blues,'/block?hash=')}</span>
+        <span class="key">Merge Set Reds</span>
+        <span class="val hashes">${hashChips(reds,'/block?hash=')}</span>
+      </div>
+    </div>
+    <section>
+      <h2>Transactions (${(b.transactions??[]).length})</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table>
+          <thead><tr>
+            <th>TX ID</th><th>Type</th><th>Inputs</th><th>Outputs</th><th>Total Out</th><th>Mass</th>
+          </tr></thead>
+          <tbody>${txRows}</tbody>
+        </table>
+      </div>
+    </section>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="error">Error: ${e.message}</div>`;}
+}
+load();
+</script>
+</body>
+</html>

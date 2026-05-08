@@ -1,0 +1,81 @@
+[package]
+name = "sophis-testing-integration"
+publish = false
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-alloc.workspace = true            # This changes the global allocator for all of the next dependencies so should be kept first
+
+sophis-addresses.workspace = true
+sophis-bip32.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-notify.workspace = true
+sophis-consensus.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-core.workspace = true
+sophis-database.workspace = true
+sophis-grpc-client.workspace = true
+sophis-grpc-core.workspace = true
+sophis-grpc-server.workspace = true
+sophis-hashes.workspace = true
+sophis-index-processor.workspace = true
+sophis-math.workspace = true
+sophis-merkle.workspace = true
+sophis-muhash.workspace = true
+sophis-notify.workspace = true
+sophis-pow = { workspace = true, features = ["randomx"] }
+sophis-rpc-core.workspace = true
+sophis-rpc-service.workspace = true
+sophis-txscript.workspace = true
+sophis-utils.workspace = true
+sophis-utxoindex.workspace = true
+sophis-wrpc-server.workspace = true
+sophisd.workspace = true
+
+async-channel.workspace = true
+async-trait.workspace = true
+bincode.workspace = true
+clap.workspace = true
+chrono.workspace = true
+crossbeam-channel.workspace = true
+dhat = { workspace = true, optional = true }
+faster-hex.workspace = true
+flate2.workspace = true
+futures-util.workspace = true
+indexmap.workspace = true
+itertools.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+rand_distr.workspace = true
+rand.workspace = true
+rayon.workspace = true
+rocksdb.workspace = true
+libcrux-ml-dsa.workspace = true
+secp256k1.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+smallvec.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+workflow-perf-monitor.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+rand = { workspace = true, features = ["small_rng"] }
+tokio = { workspace = true, features = ["rt", "macros", "process"] }
+sophis-txscript-errors.workspace = true
+
+[features]
+heap = ["dhat"]
+html_reports = []
+devnet-prealloc = ["sophisd/devnet-prealloc"]
+
+[lints]
+workspace = true

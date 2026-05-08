@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Transaction — Sophis Explorer</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{color:var(--accent);text-decoration:none;font-size:18px;font-weight:700;white-space:nowrap}
+.search-bar{display:flex;flex:1;min-width:200px;max-width:640px;gap:8px}
+.search-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;cursor:pointer;font-size:14px}
+main{max-width:1280px;margin:0 auto;padding:24px 16px}
+.page-title{font-size:20px;font-weight:600;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
+.card h3{font-size:14px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:160px 1fr;row-gap:10px;column-gap:16px;font-size:13px}
+.key{color:var(--muted)}
+.val{word-break:break-all}
+.mono{font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;font-size:12px}
+.pill{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:500;display:inline-block}
+.pill-green{background:#1a3d20;color:var(--green)}
+.pill-yellow{background:#3d2f1a;color:var(--yellow)}
+section{margin-bottom:24px}
+section h2{font-size:16px;font-weight:600;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);text-align:left;padding:10px 14px;font-weight:500;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:#1c2128}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.error{color:var(--red);padding:24px;text-align:center;font-size:15px}
+.loading{color:var(--muted);padding:24px;text-align:center}
+.notice{background:#1c2128;border:1px solid var(--border);border-radius:8px;padding:16px;font-size:13px;color:var(--muted);margin-bottom:20px}
+.nav-links{display:flex;gap:12px;margin-bottom:20px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="brand">⬡ Sophis Explorer</a>
+  <div class="search-bar">
+    <input id="searchInput" placeholder="Block hash / TX ID / Address (sophis…)">
+    <button onclick="doSearch()">Search</button>
+  </div>
+</header>
+<main>
+  <div class="nav-links"><a href="/">← Home</a></div>
+  <div id="content"><div class="loading">Loading transaction…</div></div>
+</main>
+<script>
+function fmt(h){if(!h)return'—';return h.length>20?h.slice(0,10)+'…'+h.slice(-8):h}
+function numFmt(n){return n.toLocaleString()}
+function sphs(s){return(s/1e8).toFixed(8)+' SPHS'}
+
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  if(/^[0-9a-fA-F]{64}$/i.test(q)){fetch('/api/blocks/'+q).then(r=>{if(r.ok)window.location='/block?hash='+q;else window.location='/tx?txid='+q;}).catch(()=>window.location='/tx?txid='+q);return;}
+  if(/^sophis/.test(q)){window.location='/address?address='+encodeURIComponent(q);return;}
+  alert('Unknown format');
+}
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+
+async function load(){
+  const txid=new URLSearchParams(location.search).get('txid');
+  if(!txid){document.getElementById('content').innerHTML='<div class="error">No transaction ID provided.</div>';return;}
+  document.title='TX '+txid.slice(0,12)+'… — Sophis Explorer';
+  try{
+    const r=await fetch('/api/transactions/'+txid);
+    if(!r.ok){
+      const e=await r.json();
+      document.getElementById('content').innerHTML=`
+        <div class="page-title">Transaction</div>
+        <div class="notice">${e.error||'Transaction not found.'}<br><br>
+        This explorer only shows <strong>mempool transactions</strong>. Confirmed transactions can be found by looking up the block they were included in.</div>
+        <div class="card">
+          <h3>TX ID</h3>
+          <div class="mono" style="word-break:break-all">${txid}</div>
+        </div>`;
+      return;
+    }
+    const tx=await r.json();
+    const txId=tx.txId??tx.tx_id;
+    const isCb=tx.isCoinbase??tx.is_coinbase;
+    const inMempool=tx.inMempool??tx.in_mempool;
+    const inputs=tx.inputs??[];
+    const outputs=tx.outputs??[];
+
+    const inputRows=isCb
+      ?'<tr><td colspan="4" style="color:var(--muted);text-align:center">Coinbase — no previous outputs</td></tr>'
+      :inputs.map(i=>{
+        const prevId=i.previousTxId??i.previous_tx_id;
+        const prevIdx=i.previousIndex??i.previous_index;
+        return`<tr>
+          <td class="mono"><a href="/tx?txid=${prevId}">${fmt(prevId)}</a> : ${prevIdx}</td>
+          <td>${numFmt(i.sequence)}</td>
+          <td>${i.sigOpCount??i.sig_op_count}</td>
+        </tr>`;
+      }).join('')||'<tr><td colspan="3" style="color:var(--muted)">None</td></tr>';
+
+    const totalOut=outputs.reduce((s,o)=>s+(o.amountSompi??o.amount_sompi??0),0);
+    const outputRows=outputs.map((o,idx)=>{
+      const addr=o.address;
+      const amount=o.amountSompi??o.amount_sompi??0;
+      const stype=o.scriptType??o.script_type??'';
+      return`<tr>
+        <td>${idx}</td>
+        <td>${addr?`<a href="/address?address=${encodeURIComponent(addr)}" class="mono">${fmt(addr)}</a>`:'<span style="color:var(--muted)">—</span>'}</td>
+        <td>${stype}</td>
+        <td>${sphs(amount)}</td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="4" style="color:var(--muted)">None</td></tr>';
+
+    document.getElementById('content').innerHTML=`
+    <div class="page-title">Transaction ${isCb?'<span class="pill pill-green">Coinbase</span>':''} ${inMempool?'<span class="pill pill-yellow">Mempool</span>':''}</div>
+    <div class="card">
+      <h3>Summary</h3>
+      <div class="grid">
+        <span class="key">TX ID</span><span class="val mono">${txId}</span>
+        <span class="key">Version</span><span class="val">${tx.version}</span>
+        <span class="key">Mass</span><span class="val">${numFmt(tx.mass)} g</span>
+        <span class="key">Lock Time</span><span class="val">${numFmt(tx.lockTime??tx.lock_time)}</span>
+        <span class="key">Total Output</span><span class="val">${sphs(totalOut)}</span>
+        <span class="key">Status</span><span class="val">${inMempool?'<span class="pill pill-yellow">Unconfirmed (mempool)</span>':'Confirmed'}</span>
+      </div>
+    </div>
+    <section>
+      <h2>Inputs (${inputs.length})</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table>
+          <thead><tr><th>Previous Outpoint</th><th>Sequence</th><th>SigOps</th></tr></thead>
+          <tbody>${inputRows}</tbody>
+        </table>
+      </div>
+    </section>
+    <section>
+      <h2>Outputs (${outputs.length})</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table>
+          <thead><tr><th>#</th><th>Address</th><th>Script Type</th><th>Amount</th></tr></thead>
+          <tbody>${outputRows}</tbody>
+        </table>
+      </div>
+    </section>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="error">Error: ${e.message}</div>`;}
+}
+load();
+</script>
+</body>
+</html>

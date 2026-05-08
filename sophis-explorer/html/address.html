@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Address — Sophis Explorer</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{color:var(--accent);text-decoration:none;font-size:18px;font-weight:700;white-space:nowrap}
+.search-bar{display:flex;flex:1;min-width:200px;max-width:640px;gap:8px}
+.search-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;cursor:pointer;font-size:14px}
+main{max-width:1280px;margin:0 auto;padding:24px 16px}
+.page-title{font-size:20px;font-weight:600;margin-bottom:6px}
+.address-str{font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;font-size:13px;color:var(--muted);word-break:break-all;margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
+.card h3{font-size:14px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:16px}
+.balance-row{display:flex;align-items:baseline;gap:8px}
+.balance-big{font-size:32px;font-weight:700;color:var(--text)}
+.balance-unit{font-size:16px;color:var(--muted)}
+.balance-sub{font-size:13px;color:var(--muted)}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:16px}
+.stat{border-top:1px solid var(--border);padding-top:12px}
+.stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.stat-value{font-size:18px;font-weight:600}
+section{margin-bottom:24px}
+section h2{font-size:16px;font-weight:600;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);text-align:left;padding:10px 14px;font-weight:500;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:#1c2128}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;font-size:12px}
+.pill{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:500;display:inline-block}
+.pill-green{background:#1a3d20;color:var(--green)}
+.pill-yellow{background:#3d2f1a;color:var(--yellow)}
+.error{color:var(--red);padding:24px;text-align:center;font-size:15px}
+.loading{color:var(--muted);padding:24px;text-align:center}
+.nav-links{display:flex;gap:12px;margin-bottom:20px;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="brand">⬡ Sophis Explorer</a>
+  <div class="search-bar">
+    <input id="searchInput" placeholder="Block hash / TX ID / Address (sophis…)">
+    <button onclick="doSearch()">Search</button>
+  </div>
+</header>
+<main>
+  <div class="nav-links"><a href="/">← Home</a></div>
+  <div id="content"><div class="loading">Loading address…</div></div>
+</main>
+<script>
+function fmt(h){if(!h)return'—';return h.length>20?h.slice(0,10)+'…'+h.slice(-8):h}
+function numFmt(n){return n.toLocaleString()}
+function sphs(s){return(s/1e8).toFixed(8)}
+
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  if(/^[0-9a-fA-F]{64}$/i.test(q)){fetch('/api/blocks/'+q).then(r=>{if(r.ok)window.location='/block?hash='+q;else window.location='/tx?txid='+q;}).catch(()=>window.location='/tx?txid='+q);return;}
+  if(/^sophis/.test(q)){window.location='/address?address='+encodeURIComponent(q);return;}
+  alert('Unknown format');
+}
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+
+async function load(){
+  const addr=new URLSearchParams(location.search).get('address');
+  if(!addr){document.getElementById('content').innerHTML='<div class="error">No address provided.</div>';return;}
+  document.title=addr.slice(0,20)+'… — Sophis Explorer';
+  try{
+    const r=await fetch('/api/address/'+encodeURIComponent(addr));
+    if(!r.ok){const e=await r.json();document.getElementById('content').innerHTML=`<div class="error">${e.error||'Address not found.'}</div>`;return;}
+    const data=await r.json();
+    const balance=data.balanceSompi??data.balance_sompi??0;
+    const utxos=data.utxos??[];
+    const utxoCount=data.utxoCount??data.utxo_count??utxos.length;
+    const coinbaseCount=utxos.filter(u=>u.isCoinbase??u.is_coinbase).length;
+
+    const utxoRows=utxos.length
+      ?utxos.map(u=>{
+        const txId=u.txId??u.tx_id;
+        const idx=u.index;
+        const amount=u.amountSompi??u.amount_sompi??0;
+        const daa=u.blockDaaScore??u.block_daa_score;
+        const isCb=u.isCoinbase??u.is_coinbase;
+        return`<tr>
+          <td class="mono"><a href="/tx?txid=${txId}">${fmt(txId)}</a> : ${idx}</td>
+          <td>${sphs(amount)} SPHS</td>
+          <td>${numFmt(daa)}</td>
+          <td>${isCb?'<span class="pill pill-yellow">Coinbase</span>':''}</td>
+        </tr>`;
+      }).join('')
+      :'<tr><td colspan="4" style="color:var(--muted);text-align:center">No UTXOs</td></tr>';
+
+    document.getElementById('content').innerHTML=`
+    <div class="page-title">Address</div>
+    <div class="address-str">${addr}</div>
+    <div class="card">
+      <h3>Balance</h3>
+      <div class="balance-row">
+        <span class="balance-big">${sphs(balance)}</span>
+        <span class="balance-unit">SPHS</span>
+      </div>
+      <div class="balance-sub">${numFmt(balance)} sompi</div>
+      <div class="stat-row">
+        <div class="stat"><div class="stat-label">UTXOs</div><div class="stat-value">${numFmt(utxoCount)}</div></div>
+        <div class="stat"><div class="stat-label">Coinbase UTXOs</div><div class="stat-value">${numFmt(coinbaseCount)}</div></div>
+      </div>
+      <div class="note">Requires node started with <code>--utxoindex</code> flag.</div>
+    </div>
+    <section>
+      <h2>UTXOs (${utxoCount})</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+        <table>
+          <thead><tr><th>Outpoint (TX : index)</th><th>Amount</th><th>DAA Score</th><th>Type</th></tr></thead>
+          <tbody>${utxoRows}</tbody>
+        </table>
+      </div>
+    </section>`;
+  }catch(e){document.getElementById('content').innerHTML=`<div class="error">Error: ${e.message}</div>`;}
+}
+load();
+</script>
+</body>
+</html>

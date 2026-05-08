@@ -1,0 +1,25 @@
+[package]
+name = "sophis-wrpc-example-subscriber"
+description = "Sophis wRPC subscription example"
+publish = false
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures.workspace = true
+sophis-consensus-core.workspace = true
+sophis-rpc-core.workspace = true
+sophis-wrpc-client.workspace = true
+sophis-notify.workspace = true
+tokio.workspace = true
+workflow-core.workspace = true
+workflow-log.workspace = true
+ctrlc.workspace = true
+
+[lints]
+workspace = true

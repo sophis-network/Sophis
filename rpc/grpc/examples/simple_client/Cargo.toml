@@ -1,0 +1,21 @@
+[package]
+name = "sophis-grpc-simple-client-example"
+description = "Sophis GRPC simple client example"
+publish = false
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures.workspace = true
+sophis-rpc-core.workspace = true
+sophis-grpc-client.workspace = true
+tokio.workspace = true
+
+
+[lints]
+workspace = true

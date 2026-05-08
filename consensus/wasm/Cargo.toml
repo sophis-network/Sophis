@@ -1,0 +1,39 @@
+[package]
+name = "sophis-consensus-wasm"
+description = "Sophis consensus core WASM bindings"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+wasm32-sdk = []
+wasm32-types = []
+
+[dependencies]
+sophis-consensus-core.workspace = true
+sophis-consensus-client.workspace = true
+sophis-addresses.workspace = true
+sophis-txscript.workspace = true
+sophis-hashes.workspace = true
+sophis-utils.workspace = true
+
+cfg-if.workspace = true
+faster-hex.workspace = true
+js-sys.workspace = true
+rand.workspace = true
+secp256k1.workspace = true
+serde_json.workspace = true
+serde-wasm-bindgen.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+wasm-bindgen.workspace = true
+
+workflow-wasm.workspace = true
+workflow-log.workspace = true
+
+[lints]
+workspace = true

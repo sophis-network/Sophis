@@ -1,0 +1,40 @@
+[package]
+name = "sophis-rpc-service"
+description = "Sophis RPC service"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-notify.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-core.workspace = true
+sophis-hashes.workspace = true
+sophis-index-core.workspace = true
+sophis-math.workspace = true
+sophis-mining.workspace = true
+sophis-notify.workspace = true
+sophis-p2p-flows.workspace = true
+sophis-p2p-lib.workspace = true
+sophis-p2p-mining.workspace = true
+sophis-perf-monitor.workspace = true
+sophis-rpc-core.workspace = true
+sophis-txscript.workspace = true
+sophis-utils.workspace = true
+sophis-utils-tower.workspace = true
+sophis-utxoindex.workspace = true
+
+async-trait.workspace = true
+log.workspace = true
+tokio.workspace = true
+triggered.workspace = true
+workflow-rpc.workspace = true
+
+[lints]
+workspace = true

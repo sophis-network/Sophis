@@ -1,0 +1,80 @@
+[package]
+name = "sophisd"
+description = "Sophis full node daemon"
+keywords = ["sophis", "blockdag"]
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "sophisd_lib"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+sophis-alloc.workspace = true # This changes the global allocator for all of the next dependencies so should be kept first
+
+sophis-addresses.workspace = true
+sophis-addressmanager.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-notify.workspace = true
+sophis-consensus.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-core.workspace = true
+sophis-database.workspace = true
+sophis-grpc-server.workspace = true
+sophis-hashes.workspace = true
+sophis-index-processor.workspace = true
+sophis-mining.workspace = true
+sophis-notify.workspace = true
+sophis-p2p-flows.workspace = true
+sophis-p2p-lib.workspace = true
+sophis-p2p-mining.workspace = true
+sophis-perf-monitor.workspace = true
+sophis-rpc-core.workspace = true
+sophis-rpc-service.workspace = true
+sophis-txscript.workspace = true
+sophis-utils.workspace = true
+sophis-utils-tower.workspace = true
+sophis-utxoindex.workspace = true
+sophis-wrpc-server.workspace = true
+
+async-channel.workspace = true
+cfg-if.workspace = true
+clap = { workspace = true, features = ["env"]}
+dhat = { workspace = true, optional = true }
+dirs.workspace = true
+futures-util.workspace = true
+itertools.workspace = true
+log.workspace = true
+num_cpus.workspace = true
+rand.workspace = true
+rayon.workspace = true
+rocksdb.workspace = true
+serde.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }
+workflow-log.workspace = true
+serde_json.workspace = true
+
+toml = "0.8.10"
+serde_with = "3.7.0"
+
+[features]
+heap = ["dhat", "sophis-alloc/heap"]
+devnet-prealloc = ["sophis-consensus/devnet-prealloc"]
+semaphore-trace = ["sophis-utils/semaphore-trace"]
+# Enables Risc0 STARK verification in the sVM host. REQUIRED for any node
+# that participates in consensus on testnet/mainnet (where Phase 3
+# ZK-Rollup state-update claims appear). The official Docker image builds
+# with this feature. Lite builds without it can sync, serve RPC, and run
+# wallets — but will panic if asked to validate a rollup state-update
+# contract. See sophis-svm-host/src/lib.rs for the consensus-fork rationale.
+svm-zk = ["sophis-consensus/svm-zk"]
+
+[lints]
+workspace = true

@@ -1,0 +1,51 @@
+[package]
+name = "sophis-notify"
+description = "Sophis notification subsystem"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-channel.workspace = true
+async-trait.workspace = true
+borsh.workspace = true
+derive_more.workspace = true
+futures-util.workspace = true
+futures.workspace = true
+indexmap.workspace = true
+itertools.workspace = true
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-hashes.workspace = true
+sophis-txscript-errors.workspace = true
+sophis-txscript.workspace = true
+sophis-utils.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+paste.workspace = true
+rand.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+triggered.workspace = true
+workflow-core.workspace = true
+workflow-log.workspace = true
+workflow-serializer.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+sophis-alloc.workspace = true
+sophis-math.workspace = true
+tokio = { workspace = true, features = ["rt", "macros"] }
+workflow-perf-monitor.workspace = true
+
+[[bench]]
+name = "bench"
+harness = false
+
+[lints]
+workspace = true

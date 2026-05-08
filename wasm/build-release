@@ -1,0 +1,87 @@
+#!/bin/bash
+# This script builds the Rusty Sophis WASM32 SDK release.
+
+# make the script fail for any failed command
+set -e
+
+# Workaround for Rust 1.87.0
+# https://github.com/rust-lang/rust/issues/141048
+export RUSTFLAGS=-Ctarget-cpu=mvp
+
+rm -rf release/*
+rm -rf web/*
+rm -rf nodejs/*
+rm -rf docs/*
+rm -rf examples/nodejs/typescript/lib
+
+mkdir -p release/sophis-wasm32-sdk/web
+mkdir -p release/sophis-wasm32-sdk/nodejs
+mkdir -p release/sophis-wasm32-sdk/docs
+
+# pushd .
+# cd ../rpc/wrpc/wasm
+# wasm-pack build --target web --out-name sophis-rpc --out-dir web/sophis-rpc --features wasm32-sdk $@
+# popd
+
+wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-keygen --features wasm32-keygen $@
+wasm-pack build --weak-refs --dev --target web --out-name sophis --out-dir web/sophis-keygen-dev --features wasm32-keygen $@
+
+wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-rpc --features wasm32-rpc $@
+wasm-pack build --weak-refs --dev --target web --out-name sophis --out-dir web/sophis-rpc-dev --features wasm32-rpc $@
+
+wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-core --features wasm32-core $@
+wasm-pack build --weak-refs --dev --target web --out-name sophis --out-dir web/sophis-core-dev --features wasm32-core $@
+
+wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis --features wasm32-sdk $@
+wasm-pack build --weak-refs --dev --target web --out-name sophis --out-dir web/sophis-dev --features wasm32-sdk $@
+
+wasm-pack build --weak-refs --target nodejs --out-name sophis --out-dir nodejs/sophis --features wasm32-sdk $@
+wasm-pack build --weak-refs --dev --target nodejs --out-name sophis --out-dir nodejs/sophis-dev --features wasm32-sdk $@
+
+# wasm-pack build --target web --dev --out-name sophis --out-dir build/docs/sophis --features wasm32-sdk $@
+typedoc --name "Sophis WASM32 SDK - Key Generation" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out docs/sophis-keygen ./build/docs/sophis-keygen.ts
+typedoc --name "Sophis WASM32 SDK - RPC" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out docs/sophis-rpc ./build/docs/sophis-rpc.ts
+typedoc --name "Sophis WASM32 SDK - Core" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out docs/sophis-core ./build/docs/sophis-core.ts
+typedoc --name "Sophis WASM32 SDK" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out docs/sophis ./build/docs/sophis.ts
+
+# cp -r ../rpc/wrpc/wasm/web/sophis-rpc release/sophis-wasm32-sdk/web/sophis-rpc
+cp -r web/sophis-keygen release/sophis-wasm32-sdk/web/sophis-keygen
+cp -r web/sophis-keygen-dev release/sophis-wasm32-sdk/web/sophis-keygen-dev
+
+cp -r web/sophis-rpc release/sophis-wasm32-sdk/web/sophis-rpc
+cp -r web/sophis-rpc-dev release/sophis-wasm32-sdk/web/sophis-rpc-dev
+
+cp -r web/sophis-core release/sophis-wasm32-sdk/web/sophis-core
+cp -r web/sophis-core-dev release/sophis-wasm32-sdk/web/sophis-core-dev
+
+cp -r web/sophis release/sophis-wasm32-sdk/web/sophis
+cp -r web/sophis-dev release/sophis-wasm32-sdk/web/sophis-dev
+
+cp -r nodejs/sophis release/sophis-wasm32-sdk/nodejs/sophis
+cp -r nodejs/sophis-dev release/sophis-wasm32-sdk/nodejs/sophis-dev
+
+cp -r docs/sophis-keygen release/sophis-wasm32-sdk/docs/sophis-keygen
+cp -r docs/sophis-rpc release/sophis-wasm32-sdk/docs/sophis-rpc
+cp -r docs/sophis-core release/sophis-wasm32-sdk/docs/sophis-core
+cp -r docs/sophis release/sophis-wasm32-sdk/docs/sophis
+
+cp -r examples/nodejs release/sophis-wasm32-sdk/examples/
+cp -r examples/web release/sophis-wasm32-sdk/examples/
+cp -r examples/init.js release/sophis-wasm32-sdk/examples/
+cp -r examples/jsconfig.json release/sophis-wasm32-sdk/examples/
+cp -r examples/package.json release/sophis-wasm32-sdk/examples/
+
+pushd .
+cd release/sophis-wasm32-sdk/examples
+npm install
+popd
+
+# tsc release/sophis-wasm32-sdk/examples/nodejs/typescript/
+
+cp index.html release/sophis-wasm32-sdk/index.html
+cp README.md release/sophis-wasm32-sdk/README.md
+cp CHANGELOG.md release/sophis-wasm32-sdk/CHANGELOG.md
+cp LICENSE release/sophis-wasm32-sdk/LICENSE
+
+node build/package-sizes.js
+cp package-sizes.js release/sophis-wasm32-sdk/package-sizes.js

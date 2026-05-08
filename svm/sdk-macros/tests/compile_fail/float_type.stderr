@@ -1,0 +1,5 @@
+error: `f64` is forbidden in #[sophis_contract]; use `u64`/`u128` with basis-point scaling — IEEE 754 floats are non-deterministic across platforms
+ --> tests/compile_fail/float_type.rs:9:16
+  |
+9 |     let _rate: f64 = bps_to_float(100);
+  |                ^^^

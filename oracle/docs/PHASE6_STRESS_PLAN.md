@@ -1,0 +1,252 @@
+# Sophis Phase 6 — pre-mainnet stress plan (sub-fase 6.8)
+
+This document specifies the **72-hour devnet stress run** that must pass
+before Phase 6 can ship on mainnet. It covers the test scenario, the
+metrics to capture, the acceptance gates, and a step-by-step operator
+recipe.
+
+**Status:** v1, drafted at sub-fase 6.8 (2026-05-06). The plan ships
+with `devnet/da_stress_check.py` (observability helper). The traffic
+generator depends on sub-fase 6.4.b (gRPC client binding for V5
+carrier submission); when 6.4.b lands, this plan can be executed
+end-to-end.
+
+---
+
+## 1. Goal
+
+Validate that the V5 DA carrier path holds up under 72 hours of
+sustained 50%-block-mass saturation by carriers, with the Phase 3
+rollup sequencer + Phase 5 oracle relayer concurrently active.
+
+A pass certifies:
+
+- The DA store does not grow unboundedly outside of accepted
+  carrier inputs.
+- Indexation latency stays bounded (no GC / cache pathology).
+- Pruning works correctly: pruned-body lookups behave per the design
+  doc §8.
+- No consensus regressions, no stuck mempool, no node crash.
+
+## 2. Scenario
+
+5-node devnet, all nodes co-located on a single host or split across
+two machines (no public internet exposure). Networking via the standard
+devnet ports (46611 + offsets, see `CLAUDE.md` Devnet section).
+
+### 2.1 Producer profile
+
+Three concurrent producers, all running for the full 72h:
+
+| Producer | Domain bit | Target rate |
+|---|---|---|
+| Phase 3 rollup sequencer | `CARRIER_FLAG_DOMAIN_ROLLUP` (0x10) | 1 batch / 30 s, ≤ 8 fragments/tx |
+| Phase 5 oracle relayer with `da_publish=true` | `CARRIER_FLAG_DOMAIN_ORACLE` (0x20) | 1 carrier / 30 s |
+| Synthetic stress generator | `CARRIER_FLAG_DOMAIN_USER` (0x40) | tuned to fill remaining mass |
+
+The synthetic generator is the load knob; rollup + relayer represent
+realistic background traffic. The generator targets:
+
+```
+target_per_block_bytes = 0.5 × max_block_mass_bytes
+                       = 0.5 × (max_block_mass / TRANSIENT_BYTE_TO_MASS_FACTOR)
+                       = 0.5 × (500_000 / 4)
+                       = 62_500 bytes
+```
+
+At 10 BPS, that's **~625 KB/s of carrier bytes**, ~50 GB over 72 hours
+(before any pruning).
+
+### 2.2 Carrier composition
+
+The generator publishes a mix:
+
+- **70% single-fragment, 1-32 KiB random** — exercises the common path
+- **20% 5-fragment bundles, ~64 KiB each** — exercises reassembly + by_domain bucketing
+- **10% 32-fragment, 64 KiB each (= 2 MiB max bundle)** — exercises MAX_FRAGMENTS edge
+
+Generator must drop to zero submissions on observed mempool back-pressure
+(use `get_mempool_entries`); the stress is sustained, not bursty.
+
+## 3. Metrics
+
+Every 60 s the observability helper (`devnet/da_stress_check.py`)
+captures one row of metrics from each node and appends to a CSV file:
+
+| Metric | How |
+|---|---|
+| `accepting_blue_score` | gRPC `get_block_dag_info` → `virtual_daa_score` (proxy until 6.5.b lands) |
+| `da_store_bytes` | du(`<data_dir>/<network>/consensus`) — coarse but consistent |
+| `payloads_count` | RocksDB property `rocksdb.estimate-num-keys` for prefix 196 |
+| `bundles_count` | same, prefix 197 |
+| `by_block_count` | same, prefix 198 |
+| `by_domain_count` | same, prefix 199 |
+| `indexation_lag_blocks` | `current_blue_score` minus highest `blue_score` in `payloads` |
+| `process_rss_mb` | `psutil.Process(pid).memory_info().rss` for sophisd |
+| `process_cpu_pct` | `psutil.Process(pid).cpu_percent(interval=1.0)` |
+| `mempool_entries` | gRPC `get_mempool_entries` len |
+
+Plus, at the **end** of the 72h run, a one-shot prune-correctness
+report:
+
+- For 1000 random pre-prune-horizon `payload_id`s, query
+  `da_get_payload`. Expected: 0 hits (all pruned).
+- For 1000 random post-prune-horizon `payload_id`s, query
+  `da_get_payload`. Expected: ≥ 99.9% hits (transient writes may have
+  been re-orged out).
+
+## 4. Acceptance gates
+
+A run **passes** iff all gates below clear simultaneously:
+
+| Gate | Threshold |
+|---|---|
+| **G1 — no panics** | sophisd, sequencer, relayer log files have zero `panic!`/`thread 'main' panicked` lines |
+| **G2 — no stuck consensus** | `accepting_blue_score` advances by ≥ 60 every 60 s (= ≥ 1 block/sec on average; loose to absorb hiccups) |
+| **G3 — no DA index error** | log files have zero lines matching `WARN.*DA carrier indexing failed` |
+| **G4 — bounded RAM** | `process_rss_mb` (sophisd) stays under 8 GB; no monotonic growth past hour 4 |
+| **G5 — bounded indexation lag** | `indexation_lag_blocks` stays under 100 (= 10 s of DAG-time at 10 BPS) for ≥ 99% of samples |
+| **G6 — DA store growth tracks input** | `da_store_bytes` growth in any 1-hour window is within ±20% of `bytes_submitted` |
+| **G7 — no DB corruption** | sophisd restarts cleanly at hour 24, 48, 72 (operator-triggered) and replays the chain without `KeyNotFound` errors |
+| **G8 — pruning correctness** | the post-run report meets the §3 expectation |
+| **G9 — mempool drains** | after submissions stop at hour 72:00, mempool reaches 0 entries within 5 minutes |
+
+A failure on any gate blocks the mainnet ship. Operators triage:
+
+- G1, G3, G7 → file a bug; rerun after fix.
+- G2, G5 → likely cache / RocksDB tuning; consult perf params.
+- G4, G6 → memory leak or store bloat; bisect against 6.2.b commits.
+- G8 → pruning bug; do not ship.
+- G9 → mempool back-pressure not honored; tune generator.
+
+## 5. Operator recipe
+
+> **Pre-requisite:** sub-fase 6.4.b (gRPC carrier submission for the
+> stress generator) and sub-fase 6.5.b (real `current_blue_score` so
+> indexation lag is meaningful). Without these, the 72h run is not
+> meaningful — partial-run smoke tests are still useful.
+
+### 5.1 Setup (T-30 min)
+
+```bash
+# 1. Ensure no stale data
+cd "G:\Meu Drive\Claude\Sophis\devnet"
+python orchestrator.py purge
+
+# 2. Start 5 nodes
+python orchestrator.py start
+
+# 3. Wait for coinbase maturity on node-0
+python orchestrator.py wait-mature
+```
+
+### 5.2 Baseline capture (T-15 min)
+
+```bash
+# Capture the pre-stress baseline metrics for comparison
+python da_stress_check.py --once --out baseline.csv
+```
+
+### 5.3 Producers
+
+In separate terminals:
+
+```bash
+# Phase 3 rollup sequencer (already wired by 6.3 — runs auto with mining)
+# (no extra command — the rollup-node binary kicks in when devnet is up)
+
+# Phase 5 oracle relayer with da_publish=true
+cd C:\Projetos\sophis
+copy oracle\relayer\stress.toml relayer.toml  # da_publish=true variant
+cargo run --release --features grpc-submit -p sophis-oracle-relayer -- daemon
+
+# Synthetic stress generator (REQUIRES 6.4.b)
+cargo run --release -p sophis-da-stress -- --target-mb-per-s 0.625 --duration 72h
+```
+
+### 5.4 Observability loop
+
+```bash
+# Sample every 60 s, append to stress.csv, run for 72h
+python da_stress_check.py --interval 60 --duration 72h --out stress.csv
+```
+
+### 5.5 Restarts (G7 gate)
+
+At T+24h, T+48h:
+
+```bash
+python orchestrator.py restart-node 0   # rolling, one node at a time
+# Wait for resync, confirm no KeyNotFound errors in node-0.log
+```
+
+### 5.6 Post-run analysis
+
+```bash
+python da_stress_check.py --report stress.csv
+# emits a stress-report.txt with one row per gate, PASS/FAIL
+```
+
+### 5.7 Cleanup
+
+```bash
+python orchestrator.py stop
+# Archive: stress.csv, stress-report.txt, node-{0..4}.log, relayer.log
+```
+
+## 6. Reporting template
+
+The `--report` flag produces a markdown summary like:
+
+```text
+# Phase 6 stress report — <ISO timestamp>
+
+Duration:        <hours>h <mins>m
+Nodes:           5
+Producers:       rollup, oracle (da_publish=on), synthetic (0.625 MB/s)
+
+Gate results:
+  G1 no panics                  PASS
+  G2 consensus advance          PASS  (avg 9.7 blocks/sec, min 7.1)
+  G3 no DA index error          PASS
+  G4 bounded RAM                PASS  (peak 4.2 GB at T+18h)
+  G5 indexation lag             PASS  (99.4% under 100 blocks)
+  G6 DA store growth            PASS  (within ±12% per hour)
+  G7 restart cleanliness        PASS  (3/3 restarts clean)
+  G8 prune correctness          PASS  (1000/1000 prune-horizon hits, 0/1000 pre-horizon)
+  G9 mempool drains             PASS  (0 entries within 3m20s)
+
+Overall:                        PASS — Phase 6 cleared for mainnet ship.
+```
+
+## 7. What this plan does NOT validate
+
+- **Multi-region latency** — the run is local. WAN consensus is a
+  separate test (deferred to bootstrap-node setup).
+- **Adversarial / Byzantine** — covered by sub-fase 6.7 unit tests, not
+  here. Multi-node Byzantine simulation is post-mainnet hardening.
+- **Hard fork upgrades mid-run** — Phase 6 ships at genesis; no upgrade
+  path test needed.
+- **Light-client behavior** — there is no light-client implementation
+  in v1 (see PHASE6_DA_DESIGN §14.1).
+
+## 8. Pending dependencies
+
+| Dep | Sub-fase | Required for |
+|---|---|---|
+| `sophis-da-stress` binary | future (post 6.4.b) | §5.3 generator |
+| Real `current_blue_score` plumbing | 6.5.b | §3 `indexation_lag_blocks`, §4 G5 |
+| `GrpcClient::get_da_payload` real impl | 6.4.b | §3 `payloads_count` reads (alternative: read RocksDB directly via `rocksdb` crate from da_stress_check.py) |
+| Synthetic carrier generator | new | actually drive the load |
+
+Until those land, `da_stress_check.py` can run in **observe-only mode**
+against a regular devnet — it captures everything except the
+carrier-specific metrics, which become available as 6.4.b ships.
+
+## 9. Reference
+
+- Design freeze: `oracle/docs/PHASE6_DA_DESIGN.md`
+- Operator manual: `oracle/docs/PHASE6_RUNBOOK.md`
+- Adversarial matrix: `devnet/test_phase6_da_attacks.py`
+- Observability helper: `devnet/da_stress_check.py` (this sub-fase)
+- Mainnet acceptance gates: this document, §4.

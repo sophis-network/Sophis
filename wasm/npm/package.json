@@ -1,0 +1,28 @@
+{
+  "name": "sophis",
+  "version": "0.13.5",
+  "description": "Sophis SDK",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sophisnet/rusty-sophis.git"
+  },
+  "keywords": [
+    "sophis",
+    "wasm",
+    "sdk"
+  ],
+  "author": "Sophis developers",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sophisnet/rusty-sophis/issues"
+  },
+  "homepage": "https://github.com/sophisnet/rusty-sophis#readme",
+  "dependencies": {
+    "websocket": "1.0.34",
+    "sophis-wasm": "0.13.5"
+  }
+}

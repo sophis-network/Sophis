@@ -1,0 +1,6 @@
+/target
+/Cargo.lock
+/web/sophis-rpc
+/nodejs/sophis-rpc
+/nodejs/node_modules
+/nodejs/package-lock.json

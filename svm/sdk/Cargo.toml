@@ -1,0 +1,22 @@
+[package]
+name = "sophis-sdk"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Sophis smart contract SDK — compile-to-WASM library for sVM contracts"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+sophis-sdk-macros = { version = "1.1.0", path = "../sdk-macros" }
+borsh = { workspace = true }
+
+[dev-dependencies]
+sophis-consensus-core = { workspace = true }
+smallvec = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,42 @@
+[package]
+name = "sophis-p2p-flows"
+description = "Sophis p2p flows"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-core.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-notify.workspace = true
+sophis-p2p-lib.workspace = true
+sophis-p2p-mining.workspace = true
+sophis-utils.workspace = true
+sophis-utils-tower.workspace = true
+sophis-hashes.workspace = true
+sophis-muhash.workspace = true
+sophis-connectionmanager.workspace = true
+sophis-addressmanager.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-mining.workspace = true
+sophis-notify.workspace = true
+
+async-trait.workspace = true
+futures = { workspace = true, features = ["alloc"] }
+indexmap.workspace = true
+itertools.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-stream = { workspace = true, features = ["net"] }
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
+chrono.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,21 @@
+[package]
+name = "sophis-dnsseeder"
+description = "DNS seeder for the Sophis P2P network — crawls peers via wRPC and serves A records over UDP/53"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-dnsseeder"
+path = "src/main.rs"
+
+[dependencies]
+sophis-rpc-core.workspace = true
+sophis-wrpc-client.workspace = true
+
+clap = { workspace = true }
+tokio = { workspace = true, features = ["net", "time", "macros", "rt-multi-thread"] }

@@ -1,0 +1,32 @@
+# Cargo configuration for musl builds
+# This configures linker flags to handle mimalloc conflicts with libstdc++
+# Since sophis-alloc uses mimalloc with 'override' feature (which conflicts with
+# libstdc++'s operator new/delete in musl static builds), we use linker flags
+# to allow multiple definitions. The linker will use the first definition it encounters.
+
+[target.x86_64-unknown-linux-musl]
+rustflags = [
+    "-C", "link-arg=-Wl,--allow-multiple-definition",
+]
+
+# Static link CRT on Windows to avoid VCRedist dependency
+# (similar to how we use musl on Linux for portable binaries)
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# ---------------------------------------------------------------------------
+# Aliases
+# ---------------------------------------------------------------------------
+
+[alias]
+# Run sophis-lint (dylint) against all contract crates compiled to WASM32.
+# Prerequisites: cargo install cargo-dylint dylint-link
+sophis-lint = "dylint sophis_lint --manifest-path svm/lint/Cargo.toml --"
+
+# Clippy with the subset of lints that work on stable (no dylint needed).
+# Catches arithmetic_side_effects and float_arithmetic for the whole workspace.
+sophis-clippy = "clippy --target wasm32-unknown-unknown -- -D clippy::arithmetic_side_effects -D clippy::float_arithmetic -D unsafe_code"
+
+# Kani formal verification — run all sVM proof harnesses.
+# Prerequisites: cargo install --locked kani-verifier && cargo kani setup
+kani-proofs = "kani --package sophis-kani-proofs"

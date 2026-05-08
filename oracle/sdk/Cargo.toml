@@ -1,0 +1,34 @@
+[package]
+name = "sophis-oracle-sdk"
+description = "Phase 5 ZK-Oracle: consumer-side SDK. Read FeedSnapshot {price, exponent, publish_time, sequence, publisher} from L1 oracle contract state."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# Production reader path: opens a fresh gRPC connection to sophisd and
+# fetches the contract's feed-state UTXO. When OFF, only MockBackend is
+# usable (good for unit tests in apps that consume the SDK).
+grpc-read = [
+    "dep:sophis-grpc-client",
+    "dep:sophis-rpc-core",
+    "dep:sophis-addresses",
+    "dep:sophis-notify",
+]
+
+[dependencies]
+sophis-oracle-core      = { workspace = true }
+async-trait             = { workspace = true }
+borsh                   = { workspace = true }
+log                     = { workspace = true }
+thiserror               = { workspace = true }
+tokio                   = { workspace = true, features = ["sync", "macros"] }
+
+# Optional — pulled in only by the `grpc-read` feature.
+sophis-grpc-client      = { workspace = true, optional = true }
+sophis-rpc-core         = { workspace = true, optional = true }
+sophis-addresses        = { workspace = true, optional = true }
+sophis-notify           = { workspace = true, optional = true }

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Sophis Mainnet — Public Launch Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #131720;
+    --border: #1f2530;
+    --text: #d8dfe7;
+    --muted: #6c7785;
+    --accent: #4dd0a1;
+    --warning: #ffb454;
+    --danger: #f06a6a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    line-height: 1.45;
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  main {
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .banner {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+  }
+  .banner.in-window {
+    border-color: var(--warning);
+    background: linear-gradient(90deg, rgba(255,180,84,0.10), var(--panel));
+  }
+  .banner .label {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .banner .value {
+    font-size: 32px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .banner .value.ok { color: var(--accent); }
+  .banner .value.warning { color: var(--warning); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .card .label {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .card .value {
+    font-size: 22px;
+    font-weight: 500;
+    margin-top: 6px;
+    word-break: break-all;
+  }
+  .card .sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .countdown {
+    font-variant-numeric: tabular-nums;
+  }
+  footer {
+    color: var(--muted);
+    font-size: 11px;
+    padding: 24px 32px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+  .status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: 2px;
+  }
+  .status.ok { background: var(--accent); }
+  .status.bad { background: var(--danger); }
+  code {
+    color: var(--muted);
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sophis Mainnet — Public Launch Dashboard</h1>
+  <div class="subtitle">Auto-refresh a cada 10 segundos · <span id="rpc-status"><span class="status bad"></span>aguardando primeiro poll…</span></div>
+</header>
+
+<main>
+  <div id="founder-banner" class="banner">
+    <div class="label">Founder share / 24h wait window</div>
+    <div class="value ok" id="founder-share-headline">—</div>
+    <div class="sub" id="founder-share-sub" style="color: var(--muted); font-size: 13px; margin-top: 8px;">aguardando dados…</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Tempo desde o gênese</div>
+      <div class="value countdown" id="time-since-genesis">—</div>
+      <div class="sub" id="genesis-sub">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Hashrate total da rede</div>
+      <div class="value" id="hashrate">—</div>
+      <div class="sub">derivado de difficulty × 10 BPS</div>
+    </div>
+    <div class="card">
+      <div class="label">Supply emitido</div>
+      <div class="value" id="supply">—</div>
+      <div class="sub">de 210.000.000 SPHS (teto rígido)</div>
+    </div>
+    <div class="card">
+      <div class="label">Balanço do endereço do fundador</div>
+      <div class="value" id="founder-balance">—</div>
+      <div class="sub">cap auto-imposto: 5% lifetime</div>
+    </div>
+    <div class="card">
+      <div class="label">DAA score / blocos</div>
+      <div class="value" id="daa-score">—</div>
+      <div class="sub" id="block-count">—</div>
+    </div>
+    <div class="card">
+      <div class="label">Endereço de mineração do fundador</div>
+      <div class="value" id="founder-address" style="font-size: 13px;">—</div>
+      <div class="sub">declarado publicamente em T-72h, imutável</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div>Sophis ($SPHS) · BlockDAG L1 pós-quântico de fair-launch</div>
+  <div>Dashboard auto-hospedado · <code>GET /metrics</code> retorna JSON cru</div>
+</footer>
+
+<script>
+function fmtSecs(secs) {
+  if (secs < 0) return "—";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function fmtSompi(v) {
+  if (typeof v !== "number") return "—";
+  const sphs = v / 1e8;
+  return `${sphs.toLocaleString('pt-BR', { maximumFractionDigits: 8 })} SPHS`;
+}
+function fmtHashrate(hps) {
+  if (typeof hps !== "number" || hps <= 0) return "—";
+  if (hps >= 1e12) return (hps / 1e12).toFixed(2) + " TH/s";
+  if (hps >= 1e9) return (hps / 1e9).toFixed(2) + " GH/s";
+  if (hps >= 1e6) return (hps / 1e6).toFixed(2) + " MH/s";
+  if (hps >= 1e3) return (hps / 1e3).toFixed(2) + " KH/s";
+  return hps + " H/s";
+}
+function fmtPercent(r) {
+  if (typeof r !== "number") return "—";
+  return (r * 100).toFixed(4) + "%";
+}
+
+async function poll() {
+  try {
+    const res = await fetch("/metrics");
+    if (!res.ok) throw new Error("status " + res.status);
+    const m = await res.json();
+
+    document.getElementById("rpc-status").innerHTML = m.rpc_healthy
+      ? '<span class="status ok"></span>RPC saudável'
+      : `<span class="status bad"></span>RPC offline${m.last_rpc_error ? ' — ' + m.last_rpc_error : ''}`;
+
+    // Founder banner: in 24h window → show countdown + share = 0%; após → share atual.
+    const banner = document.getElementById("founder-banner");
+    const headline = document.getElementById("founder-share-headline");
+    const sub = document.getElementById("founder-share-sub");
+    if (m.founder_in_wait_window) {
+      banner.classList.add("in-window");
+      headline.className = "value warning";
+      headline.textContent = "founder share = " + fmtPercent(m.founder_share_ratio);
+      const remain = m.seconds_until_founder_window_ends;
+      sub.textContent = `Janela de 24h em curso. Tempo restante: ${fmtSecs(remain)}. Founder não minera durante esta janela.`;
+    } else {
+      banner.classList.remove("in-window");
+      headline.className = "value " + (m.founder_share_ratio < 0.05 ? "ok" : "warning");
+      headline.textContent = "founder share = " + fmtPercent(m.founder_share_ratio);
+      sub.textContent = `Janela de 24h encerrada. Cap auto-imposto: 5% lifetime (script público faz auto-pause em 4.9%).`;
+    }
+
+    // Cards
+    document.getElementById("time-since-genesis").textContent =
+      m.genesis_unix_ms > 0 ? fmtSecs(m.seconds_since_genesis) : "—";
+    document.getElementById("genesis-sub").textContent =
+      m.genesis_unix_ms > 0
+        ? `gênese em ${new Date(m.genesis_unix_ms).toISOString()}`
+        : "gênese ainda não configurado";
+    document.getElementById("hashrate").textContent = fmtHashrate(m.hashrate_hps);
+    document.getElementById("supply").textContent = fmtSompi(m.total_supply_sompi);
+    document.getElementById("founder-balance").textContent = fmtSompi(m.founder_balance_sompi);
+    document.getElementById("daa-score").textContent = (m.virtual_daa_score || 0).toLocaleString();
+    document.getElementById("block-count").textContent = (m.block_count || 0).toLocaleString() + " blocos";
+    document.getElementById("founder-address").textContent = m.founder_address || "—";
+  } catch (e) {
+    document.getElementById("rpc-status").innerHTML = '<span class="status bad"></span>erro ao buscar /metrics: ' + e;
+  }
+}
+
+poll();
+setInterval(poll, 10000);
+</script>
+</body>
+</html>

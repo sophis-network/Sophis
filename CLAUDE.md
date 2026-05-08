@@ -1,0 +1,141 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+# Build
+cargo build --workspace
+cargo build --release -p sophisd        # node binary
+cargo build --release -p sophis-miner   # miner binary
+
+# Check (lint + fmt) — run before every commit
+./check          # Linux/Mac
+./check.ps1      # Windows PowerShell
+
+# Test
+cargo test --workspace --lib            # all lib tests (fast, use this most)
+cargo test -p sophis-consensus --lib    # single crate
+cargo test -p sophis-consensus test_name  # single test by name
+
+# Clippy (included in ./check)
+cargo clippy --workspace --tests --benches
+
+# Custom lint (dylint — requires cargo-dylint + dylint-link)
+cargo sophis-lint
+```
+
+**Build environment (Windows):** Code must be at `C:\Projetos\sophis`. Do NOT use paths under Google Drive — Rust hard links are unsupported there and break builds. Use Unix shell syntax (bash) for commands even on Windows.
+
+**Build dependencies:** Rust 1.88+, MSVC toolchain, LLVM/Clang, `protoc`, `cmake` (required by RandomX).
+
+## Architecture
+
+### Consensus layer (`consensus/`, `consensus/core/`)
+
+BlockDAG with GhostDAG ordering. Key parameters in `consensus/core/src/config/params.rs`:
+- 10 BPS, k=124 (blue set size)
+- `ForkActivation` struct gates all protocol upgrades by DAA score
+- Three networks share a unified `Params` struct with `ParamsOverrides` for per-network tuning
+
+Transaction dispatch in `consensus/src/processes/transaction_validator/tx_validation_in_utxo_context.rs` branches on **script version** (`ScriptPublicKey.version()`):
+- `0` → standard txscript (Dilithium P2SH)
+- `SCRIPT_VERSION_CONTRACT = 1` → sVM contract execution
+- `SCRIPT_VERSION_TOKEN = 2` → native token spend + Transfer Policy
+
+### Cryptography — Dilithium only
+
+**secp256k1/Schnorr/ECDSA have been completely removed.** The sole signing scheme is ML-DSA-44 (CRYSTALS-Dilithium, NIST FIPS 204) via `libcrux-ml-dsa`.
+
+- **Signing key:** 2560 bytes; **Signature:** 2420 bytes
+- **Opcode:** `OpCheckSigDilithium (0xc4)` in `crypto/txscript/src/opcodes/mod.rs`
+- **Transaction hash function:** `calc_signature_hash()` in `consensus/core/src/hashing/sighash.rs` (algorithm-agnostic; formerly `calc_schnorr_signature_hash`)
+- **Signing function:** `sign_input_dilithium()` in `consensus/core/src/sign.rs`
+
+### Address system (`crypto/addresses/`)
+
+Bech32 format. Active versions:
+- `Version::PubKeyDilithium = 2` — 32-byte Blake2b hash of the Dilithium public key; input-side only
+- `Version::ScriptHash = 8` — P2SH; what the script engine returns when extracting an address from a script
+
+**Critical:** Dilithium addresses (`PubKeyDilithium`) are stored as P2SH scripts. When a UTXO is queried back through `extract_script_pub_key_address()`, it always returns `Version::ScriptHash`, not `Version::PubKeyDilithium`. In tests that roundtrip through the script layer, use `Version::ScriptHash` for expected values.
+
+Network prefixes: `sophis:` (mainnet) · `sophistest:` (testnet) · `sophisdev:` (devnet) · `sophissim:` (simnet)
+
+### Script engine (`crypto/txscript/`)
+
+`ScriptClass` has two active variants: `NonStandard` and `ScriptHash`. `TxScriptEngine` handles Dilithium via `OpCheckSigDilithium`. The Dilithium redeem script and P2SH script builders are in `crypto/txscript/src/standard.rs` (`dilithium_redeem_script()`, `dilithium_address()`).
+
+### PoW (`consensus/pow/`)
+
+RandomX (`randomx-rs` crate). Thread-local VM with epoch key (`EPOCH_LENGTH = 2048` blocks). Fast mode (10× faster, used in tests) enabled via `--fast-mode`. The epoch key derivation prevents pre-computation across epoch boundaries.
+
+### Mass / fee system (`consensus/core/src/mass/`)
+
+Three mass types (all must fit within `max_block_mass`):
+- **Compute mass** — size × `mass_per_tx_byte` + SPK size × `mass_per_script_pub_key_byte` + sig ops × `mass_per_sig_op`
+- **Transient mass** — size × `TRANSIENT_BYTE_TO_MASS_FACTOR`
+- **Storage mass** — KIP-0009 generalized formula; `MassCalculator` in `consensus/core/src/mass/mod.rs`
+
+Dilithium transactions have large signatures (~2420 bytes), so `max_block_mass` for devnet/simnet is set to `10_000_000` (vs `500_000` for mainnet) to accommodate them in tests.
+
+### sVM (`svm/`)
+
+Four crates:
+- `svm/core` — types: `ContractManifest`, `NativeTokenUtxoData`, `TokenId`, `Capability`, `GasConfig`, `UpgradePolicy`
+- `svm/runtime` — Wasmtime engine; `DbContractStore` (RocksDB); bytecode validator (rejects floats, SIMD); fuel metering
+- `svm/host` — `SophisHostCrypto`; host functions exposed to WASM contracts
+- `svm/sdk` — `#[sophis_contract]` macro, `Env`, `Resource<T>`, borsh types for contract authors
+
+`Resource<T>` is a linear type: panics if dropped without calling `.consume()`. This enforces explicit accounting of token amounts in contract logic.
+
+### Coinbase (`consensus/src/processes/coinbase.rs`)
+
+100% of block subsidy + fees goes to the miner. **No on-chain devfund** — eliminated 2026-05-04 by regulatory pivot (see `G:\Meu Drive\Claude\Sophis\DECISOES_2026-05-04.md`). `params.rs` no longer carries `dev_fund_address`. Do not reintroduce coinbase split, devfund schedule, or compulsory multisig recipient — committed compromise: no hard fork will reintroduce devfund.
+
+### Network ports
+
+| Protocol | Port  |
+|----------|-------|
+| P2P      | 46111 |
+| gRPC     | 46110 |
+| Borsh RPC | 47110 |
+| JSON RPC | 48110 |
+
+### ZK-Rollup L2 (`rollup/`)
+
+Phase 3 complete. Seven crates:
+- `rollup/core` — shared types: `L2Tx`, `L2Utxo`, `Batch`, `BatchJournal`, `StateRoot`, `hash_withdrawals`
+- `rollup/guest` — Risc0 guest (RISC-V workspace, isolated from main target): state transition function
+- `rollup/host` — Risc0 host: orchestrates proof generation, produces STARK proof
+- `rollup/verifier` — sVM WASM contract: verifies `BatchJournal` on-chain (8 tests)
+- `rollup/sequencer` — mempool, `Sequencer<C>`, `BatchTrigger`, `L1Client` trait, HTTP RPC (19 tests)
+- `rollup/node` — CLI binary: `start` + `gen-key`; HTTP :9944; key file = 3872 bytes (2560 SK ‖ 1312 VK)
+- `rollup/bridge/deposit` — `DepositRecord`, `BRIDGE_VAULT_VERSION=3`; L1 vault UTXO helpers
+- `rollup/bridge/withdrawal` — sVM WASM contract: validates `WithdrawalClaim` before releasing SPHS (11 tests)
+
+`rollup/guest/` is a **separate Cargo workspace** (RISC-V target isolated from the main workspace). Build it with its own `cargo build` inside `rollup/guest/`.
+
+Sequencer selection: miner of block N×100 becomes sequencer. Batch trigger: 100 txs OR 30 s. `WrpcL1Client` in rollup-node is a stub — full L1 wRPC integration is Phase 3b.
+
+Journal serialization uses **borsh** (never serde). `BRIDGE_VAULT_VERSION=3` (deposit) and `BRIDGE_CLAIM_VERSION=4` (withdrawal) are protocol constants — do not change without a hard fork.
+
+L2 key derivation: same BIP-39 mnemonic, path `m/44'/111111'/0'/1/0` (distinct from L1 `…/0/0`).
+
+### Branch convention
+
+Active development uses `phase3-stable-v0.X.Y`. Create feature branches from the latest stable branch before committing, not after.
+
+## Key invariants
+
+- **No secp256k1/Schnorr/ECDSA.** If you see these imported anywhere, it is a bug.
+- `calc_signature_hash()` is the transaction hash function for all signature types — do not rename or create a Schnorr-specific variant.
+- `SCRIPT_VERSION_CONTRACT = 1` and `SCRIPT_VERSION_TOKEN = 2` are consensus constants — changing them requires a hard fork.
+- `max_block_mass` for simnet/devnet is intentionally 20× mainnet to support oversized Dilithium test transactions.
+- `cargo test --workspace --lib` should always pass with zero failures before any commit. The `daemon_integration_tests` binary test has a known pre-existing race condition and is excluded from the required pass.
+- **sVM `Capability` enum:** only `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`. Never re-add `VerifySchnorr`.
+- **WASM memory:** contracts must declare `maximum`; validator rejects unbounded or > 256 pages (16 MiB).
+- **`UpgradePolicy::is_valid()`** is called in `validate_contract_deploy()`. For `MultisigTimelock`: `threshold > 0`, `threshold <= keys.len()`, `keys.len() <= 16`.
+- When adding a new host function: (1) add to `HostCrypto` trait, (2) register in linker in `host.rs`, (3) create matching `Capability`, (4) expose in `Env` in the SDK, (5) add Kani harness.
+- `BRIDGE_VAULT_VERSION=3` and `BRIDGE_CLAIM_VERSION=4` are protocol constants — changing them requires a hard fork.

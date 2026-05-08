@@ -1,0 +1,14 @@
+[package]
+name = "example-transfer-policy"
+description = "Example: Sophis transfer policy — enforces value conservation (inputs >= outputs)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk.workspace = true

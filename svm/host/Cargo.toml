@@ -1,0 +1,52 @@
+[package]
+name = "sophis-svm-host"
+description = "Sophis sVM host functions — real Schnorr, Dilithium and SHA3-384 implementations"
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+include.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-svm-core.workspace = true
+sophis-svm-runtime.workspace = true
+secp256k1.workspace = true
+libcrux-ml-dsa.workspace = true
+sha3.workspace = true
+log.workspace = true
+# Phase 3 ZK-Rollup — STARK proof verification for sVM contracts.
+# Gated behind the `risc0` feature: builds without it cannot validate
+# rollup state-update contracts. Production releases MUST enable this feature
+# (Docker images do so via `--features svm-zk` upstream); the no-feature
+# build exists only for local Windows dev where MSVC cannot compile
+# risc0-circuit-*-sys (see CLAUDE.md "Caminho 2" decision 2026-05-04).
+risc0-zkvm = { version = "3.0", default-features = false, features = ["std"], optional = true }
+bincode    = { workspace = true, optional = true }
+# Phase 5 ZK-Oracle — Plonky3 STARK proof verification for sVM contracts.
+# Gated behind the `plonky3` feature for symmetry with `risc0`. Production
+# releases MUST enable this (Docker images do so via `--features svm-zk`).
+# Builds without it cannot validate oracle journal-binding contracts and
+# panic loudly on invocation to prevent silent consensus forks.
+sophis-oracle-host = { workspace = true, optional = true }
+sophis-oracle-core = { workspace = true, optional = true }
+borsh              = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enables real Risc0 STARK proof verification. Required for any node that
+# participates in consensus on networks where ETH→Sophis bridge claims exist.
+# Without this feature, `verify_risc0_proof` panics on invocation rather than
+# silently returning false (which would cause undetected consensus forks).
+risc0 = ["dep:risc0-zkvm", "dep:bincode"]
+# Enables real Plonky3 STARK proof verification for Phase 5 ZK-Oracle.
+# Required for any node that participates in consensus on networks where
+# oracle journal-binding contracts exist. Same loud-panic policy as `risc0`.
+plonky3 = ["dep:sophis-oracle-host", "dep:sophis-oracle-core", "dep:borsh"]
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "sophis-wrpc-vcc-v2"
+description = "Sophis VCCV2 example"
+publish = false
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures.workspace = true
+sophis-rpc-core.workspace = true
+sophis-wrpc-client.workspace = true
+sophis-addresses.workspace = true
+tokio.workspace = true
+
+
+[lints]
+workspace = true

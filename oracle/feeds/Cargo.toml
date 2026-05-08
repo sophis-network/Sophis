@@ -1,0 +1,22 @@
+[package]
+name = "sophis-oracle-feeds"
+description = "Phase 5 ZK-Oracle: Pythnet pull adapter (singleton publisher). Sub-phase 5.1."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-oracle-core = { workspace = true }
+borsh              = { workspace = true }
+thiserror          = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+base64             = { workspace = true }
+reqwest            = { workspace = true }
+tokio              = { workspace = true }
+async-trait        = { workspace = true }
+
+[dev-dependencies]
+tokio              = { workspace = true, features = ["macros", "rt"] }

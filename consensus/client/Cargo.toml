@@ -1,0 +1,42 @@
+[package]
+name = "sophis-consensus-client"
+description = "Sophis consensus client data structures"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+wasm32-sdk = []
+wasm32-types = []
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-hashes.workspace = true
+sophis-math.workspace = true
+sophis-txscript.workspace = true
+sophis-utils.workspace = true
+sophis-wasm-core.workspace = true
+
+ahash.workspace = true
+cfg-if.workspace = true
+faster-hex.workspace = true
+hex.workspace = true
+js-sys.workspace = true
+rand.workspace = true
+secp256k1.workspace = true
+serde_json.workspace = true
+serde-wasm-bindgen.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+wasm-bindgen.workspace = true
+itertools.workspace = true
+
+workflow-wasm.workspace = true
+workflow-log.workspace = true
+
+[lints]
+workspace = true

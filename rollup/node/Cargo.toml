@@ -1,0 +1,27 @@
+[package]
+name = "rollup-node"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "rollup-node"
+path = "src/main.rs"
+
+[dependencies]
+sophis-rollup-core      = { workspace = true }
+sophis-rollup-sequencer = { workspace = true }
+tokio                   = { workspace = true, features = ["full"] }
+axum                    = { workspace = true }
+clap                    = { workspace = true, features = ["env"] }
+toml                    = { workspace = true }
+serde                   = { workspace = true }
+hex                     = { workspace = true }
+libcrux-ml-dsa          = { workspace = true }
+rand                    = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

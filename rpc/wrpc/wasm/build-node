@@ -1,0 +1,3 @@
+#!/bin/bash
+
+wasm-pack build --target nodejs --out-name sophis-rpc --out-dir nodejs/sophis-rpc --features wasm32-sdk

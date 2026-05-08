@@ -1,0 +1,18 @@
+[package]
+name = "sophis-oracle-contract"
+description = "Phase 5 ZK-Oracle: sVM WASM contract. Verifies Plonky3 proof + relayer Dilithium sig, writes price state. Sub-phase 5.3 fills this in."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+# cdylib = .wasm for sVM deployment; rlib = native for `cargo test`
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk             = { workspace = true }
+sophis-oracle-core     = { workspace = true }
+sophis-oracle-verifier = { workspace = true }
+borsh                  = { workspace = true }
