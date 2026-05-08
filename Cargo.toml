@@ -246,7 +246,7 @@ heapless = "0.8.0"
 hex = { version = "0.4.3", features = ["serde"] }
 hex-literal = "0.4.1"
 hexplay = "0.3.0"
-hmac = { version = "0.12.1", default-features = false }
+hmac = { version = "0.13.0", default-features = false }
 home = "0.5.5"
 http-body = "1.0.1"
 http-body-util = "0.1.2"
