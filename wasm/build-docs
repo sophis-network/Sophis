@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+./build-web $@
+
+if [ "$1" == "--keygen" ]; then
+    echo "building keygen"
+    typedoc --name "Sophis WASM32 SDK - Key Generation" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-keygen ./build/docs/sophis-keygen.ts
+elif [ "$1" == "--rpc" ]; then
+    echo "building rpc"
+    typedoc --name "Sophis WASM32 SDK - RPC" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-rpc ./build/docs/sophis-rpc.ts
+elif [ "$1" == "--core" ]; then
+    echo "building core"
+    typedoc --name "Sophis WASM32 SDK - Core" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-core ./build/docs/sophis-core.ts
+elif [ "$1" == "--sdk" ]; then
+    echo "building full"
+    typedoc --name "Sophis WASM32 SDK" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis ./build/docs/sophis.ts
+else
+    echo "building keygen"
+    typedoc --name "Sophis WASM32 SDK - Key Generation" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-keygen ./build/docs/sophis-keygen.ts
+    echo "building rpc"
+    typedoc --name "Sophis WASM32 SDK - RPC" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-rpc ./build/docs/sophis-rpc.ts
+    echo "building core"
+    typedoc --name "Sophis WASM32 SDK - Core" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis-core ./build/docs/sophis-core.ts
+    echo "building full"
+    typedoc --name "Sophis WASM32 SDK" --sourceLinkExternal --readme ./README.md --options ./build/docs/ --out ./docs/sophis ./build/docs/sophis.ts
+
+fi

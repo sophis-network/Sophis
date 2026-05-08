@@ -1,0 +1,173 @@
+name: Build Linux Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Core + sVM (no risc0 prove) ──────────────────────────────────────────
+  test-no-risc0:
+    name: Tests (no risc0-prove)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            clang \
+            libclang-dev \
+            protobuf-compiler \
+            libssl-dev \
+            pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Test sophis-svm-core (Capability::VerifyRisc0Proof)
+        run: cargo test --package sophis-svm-core
+
+      - name: Test sophis-svm-runtime (host functions)
+        run: cargo test --package sophis-svm-runtime
+
+  # ── Rollup host (risc0 prove) ────────────────────────────────────────────
+  test-risc0-prove:
+    name: Tests (risc0-prove, Linux only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            clang \
+            libclang-dev \
+            protobuf-compiler \
+            libssl-dev \
+            pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry + risc0 toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.risc0
+          key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-risc0-
+
+      - name: Install risc0 toolchain via rzup
+        run: |
+          curl -fsSL https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          # v3.0+ requires the risc0-groth16 artifact in addition to rust+cpp.
+          $HOME/.risc0/bin/rzup install rust
+          $HOME/.risc0/bin/rzup install cpp
+          $HOME/.risc0/bin/rzup install risc0-groth16
+
+      - name: Test sophis-rollup-host (Phase 3 ZK-Rollup prover)
+        run: cargo test --package sophis-rollup-host
+        env:
+          RISC0_DEV_MODE: "1"
+
+  # ── Mainnet binaries ──────────────────────────────────────────────────────
+  build:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            clang \
+            libclang-dev \
+            protobuf-compiler \
+            libssl-dev \
+            pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry + risc0 toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.risc0
+          key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-risc0-
+
+      - name: Install risc0 toolchain via rzup
+        run: |
+          curl -fsSL https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          # v3.0+ requires the risc0-groth16 artifact in addition to rust+cpp.
+          $HOME/.risc0/bin/rzup install rust
+          $HOME/.risc0/bin/rzup install cpp
+          $HOME/.risc0/bin/rzup install risc0-groth16
+
+      # Production sophisd MUST include svm-zk so it can verify Risc0 STARK
+      # proofs from the Phase 3 ZK-Rollup. A node without the feature would
+      # panic on rollup state-update contracts (see sophis-svm-host/src/lib.rs
+      # for the consensus-fork rationale).
+      - name: Build sophisd (with svm-zk for Phase 3 ZK-Rollup verification)
+        run: cargo build --release --bin sophisd --features svm-zk
+
+      - name: Build sophis-miner
+        run: cargo build --release --bin sophis-miner
+
+      - name: Rename binaries
+        run: |
+          cp target/release/sophisd         sophisd-linux-x86_64
+          cp target/release/sophis-miner    sophis-miner-linux-x86_64
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: |
+            sophisd-linux-x86_64
+            sophis-miner-linux-x86_64
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sophisd-linux-x86_64
+            sophis-miner-linux-x86_64
+          generate_release_notes: true

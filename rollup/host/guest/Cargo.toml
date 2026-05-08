@@ -1,0 +1,24 @@
+# This crate compiles to riscv32im-risc0-zkvm-elf and is NOT a member of the
+# main Sophis workspace. risc0-build (in rollup/host/build.rs) handles the
+# cross-compilation and embeds the resulting ELF into the host crate.
+[workspace]
+
+[package]
+name = "sophis-rollup-guest"
+version = "1.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sophis-rollup-guest"
+path = "src/main.rs"
+
+[dependencies]
+risc0-zkvm     = { version = "3.0", default-features = false, features = ["std"] }
+sophis-rollup-core = { path = "../../core" }
+libcrux-ml-dsa = "0.0.8"
+sha3           = { version = "0.10.8", default-features = false, features = ["oid"] }
+borsh          = { version = "1.5.1", features = ["derive"] }
+
+[profile.release]
+lto      = true
+opt-level = 3

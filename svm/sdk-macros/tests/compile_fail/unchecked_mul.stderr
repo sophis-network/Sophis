@@ -1,0 +1,5 @@
+error: unchecked arithmetic is forbidden in #[sophis_contract]; use `.checked_mul()` and handle the `None` overflow case explicitly
+ --> tests/compile_fail/unchecked_mul.rs:6:17
+  |
+6 |     utxo.amount * 2 > 1000
+  |                 ^

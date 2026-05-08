@@ -1,0 +1,32 @@
+[package]
+name = "sophis-utxoindex"
+description = "Sophis UTXO index"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-core.workspace = true
+sophis-database.workspace = true
+sophis-hashes.workspace = true
+sophis-index-core.workspace = true
+sophis-utils.workspace = true
+log.workspace = true
+parking_lot.workspace = true
+rocksdb.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+sophis-consensus.workspace = true
+rand = { workspace = true, features = ["small_rng"] }
+
+[lints]
+workspace = true

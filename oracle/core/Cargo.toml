@@ -1,0 +1,13 @@
+[package]
+name = "sophis-oracle-core"
+description = "Phase 5 ZK-Oracle: shared types, journal layout, hashing helpers (Pyth singleton + Plonky3 + Dilithium relayer)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+borsh     = { workspace = true }
+sha3      = { workspace = true }
+thiserror = { workspace = true }

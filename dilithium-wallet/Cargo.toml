@@ -1,0 +1,38 @@
+[package]
+name = "dilithium-wallet"
+description = "Sophis Dilithium-2 (PQC) Wallet — devnet testing tool"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "dilithium-wallet"
+path = "src/main.rs"
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-grpc-client.workspace = true
+sophis-notify.workspace = true
+sophis-rpc-core.workspace = true
+sophis-txscript.workspace = true
+
+borsh.workspace = true
+clap = { workspace = true }
+hex.workspace = true
+libcrux-ml-dsa.workspace = true
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "time"] }
+getrandom = { workspace = true }
+faster-hex.workspace = true
+sophis-bip32.workspace = true
+
+[lints]
+workspace = true

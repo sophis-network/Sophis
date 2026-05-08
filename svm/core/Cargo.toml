@@ -1,0 +1,20 @@
+[package]
+name = "sophis-svm-core"
+description = "Sophis sVM core types — Capability, UpgradePolicy, ContractManifest, Gas, ContractUtxoData"
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+include.workspace = true
+repository.workspace = true
+
+[dependencies]
+borsh.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+sophis-hashes.workspace = true
+blake2b_simd.workspace = true
+
+[lints]
+workspace = true

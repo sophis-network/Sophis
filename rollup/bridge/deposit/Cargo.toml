@@ -1,0 +1,16 @@
+[package]
+name = "sophis-bridge-deposit"
+description = "Bridge deposit types: DepositRecord and helpers for building L1→L2 deposit UTXOs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+borsh = { workspace = true }
+
+[dev-dependencies]

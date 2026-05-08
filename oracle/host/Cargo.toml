@@ -1,0 +1,26 @@
+[package]
+name = "sophis-oracle-host"
+description = "Phase 5 ZK-Oracle: Plonky3 prover host (sub-phase 5.2 — AIR + trace + soundness check via DebugConstraintBuilder)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-oracle-core = { workspace = true }
+borsh              = { workspace = true }
+thiserror          = { workspace = true }
+serde              = { workspace = true }
+bincode            = { workspace = true }
+p3-air             = { workspace = true }
+p3-baby-bear       = { workspace = true }
+p3-challenger      = { workspace = true }
+p3-commit          = { workspace = true }
+p3-dft             = { workspace = true }
+p3-field           = { workspace = true }
+p3-fri             = { workspace = true }
+p3-matrix          = { workspace = true }
+p3-merkle-tree     = { workspace = true }
+p3-symmetric       = { workspace = true }
+p3-uni-stark       = { workspace = true }

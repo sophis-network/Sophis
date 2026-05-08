@@ -1,0 +1,479 @@
+[workspace]
+resolver = "2"
+members = [
+    "daemon",
+    "cli",
+    "core",
+    "wallet/macros",
+    "wallet/core",
+    "wallet/native",
+    "wallet/wasm",
+    "wallet/bip32",
+    "wallet/keys",
+    "wallet/pskt",
+    "consensus",
+    "consensus/core",
+    "consensus/client",
+    "consensus/notify",
+    "consensus/pow",
+    "consensus/wasm",
+    "sophisd",
+    "simpa",
+    "wasm",
+    "wasm/core",
+    "math",
+    "crypto/hashes",
+    "crypto/muhash",
+    "crypto/addresses",
+    "crypto/merkle",
+    "notify",
+    "indexes/core",
+    "indexes/processor",
+    "indexes/utxoindex",
+    "rpc/macros",
+    "rpc/core",
+    "rpc/service",
+    "rpc/grpc/core",
+    "rpc/grpc/client",
+    "rpc/grpc/server",
+    "rpc/grpc/examples/simple_client",
+    "rpc/wrpc/server",
+    "rpc/wrpc/client",
+    "rpc/wrpc/proxy",
+    "rpc/wrpc/wasm",
+    "rpc/wrpc/examples/subscriber",
+    "rpc/wrpc/examples/simple_client",
+    "rpc/wrpc/examples/vcc_v2",
+    "mining",
+    "mining/errors",
+    "protocol/p2p",
+    "protocol/flows",
+    "components/addressmanager",
+    "components/connectionmanager",
+    "components/consensusmanager",
+    "bridge",
+    "database",
+    "crypto/txscript",
+    "crypto/txscript/errors",
+    "testing/integration",
+    "utils",
+    "utils/tower",
+    "rothschild",
+    "miner",
+    "dilithium-wallet",
+    "testnet-faucet",
+    "sophis-explorer",
+    "metrics/core",
+    "metrics/perf_monitor",
+    "utils/alloc",
+    "svm/core",
+    "svm/runtime",
+    "svm/host",
+    "svm/sdk-macros",
+    "svm/sdk",
+    "svm/kani-proofs",
+    "sophis-dnsseeder",
+    "examples/contracts/token-minting-policy",
+    "examples/contracts/transfer-policy",
+    "examples/contracts/time-lock",
+    # Phase 3 — ZK-Rollup (STARKs + Risc0 + native L1 sequencer)
+    "rollup/core",
+    "rollup/host",
+    "rollup/verifier",
+    "rollup/sequencer",
+    "rollup/node",
+    "rollup/bridge/deposit",
+    "rollup/bridge/withdrawal",
+    # rollup/guest is NOT here — separate workspace compiled by risc0-build
+    # Phase 4 — ZK-Bridge cross-chain (Sophis ↔ Ethereum) was extracted to a
+    # standalone repository on 2026-05-04. Cross-chain interoperability is
+    # intentionally out-of-scope for the Sophis core team. See the project
+    # memory `project_zkbridge_extraido.md` for context.
+    # Phase 5 — ZK-Oracle Aggregator (Pyth singleton + Plonky3 + Dilithium relayer)
+    "oracle/core",
+    "oracle/feeds",
+    "oracle/host",
+    "oracle/verifier",
+    "oracle/relayer",
+    "oracle/contract",
+    "oracle/sdk",
+    "tools/sophis-da-stress",
+    "tools/sophis-dashboard",
+]
+
+[workspace.package]
+rust-version = "1.88.0"
+version = "1.1.0"
+authors = ["Sophis developers"]
+license = "ISC"
+repository = "https://github.com/sophisnet/rusty-sophis"
+edition = "2024"
+include = [
+    "src/**/*.rs",
+    "src/**/*.s",
+    "src/**/*.r",
+    "proto/**/*.proto",
+    "benches/**/*.rs",
+    "build.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+]
+
+[workspace.dependencies]
+sophis-testing-integration = { version = "1.1.0", path = "testing/integration" }
+sophis-addresses = { version = "1.1.0", path = "crypto/addresses" }
+sophis-addressmanager = { version = "1.1.0", path = "components/addressmanager" }
+sophis-bip32 = { version = "1.1.0", path = "wallet/bip32" }
+sophis-cli = { version = "1.1.0", path = "cli" }
+sophis-connectionmanager = { version = "1.1.0", path = "components/connectionmanager" }
+sophis-consensus = { version = "1.1.0", path = "consensus" }
+sophis-consensus-core = { version = "1.1.0", path = "consensus/core" }
+sophis-consensus-client = { version = "1.1.0", path = "consensus/client" }
+sophis-consensus-notify = { version = "1.1.0", path = "consensus/notify" }
+sophis-consensus-wasm = { version = "1.1.0", path = "consensus/wasm" }
+sophis-consensusmanager = { version = "1.1.0", path = "components/consensusmanager" }
+sophis-core = { version = "1.1.0", path = "core" }
+sophis-daemon = { version = "1.1.0", path = "daemon" }
+sophis-database = { version = "1.1.0", path = "database" }
+sophis-grpc-client = { version = "1.1.0", path = "rpc/grpc/client" }
+sophis-grpc-core = { version = "1.1.0", path = "rpc/grpc/core" }
+sophis-grpc-server = { version = "1.1.0", path = "rpc/grpc/server" }
+sophis-hashes = { version = "1.1.0", path = "crypto/hashes" }
+sophis-index-core = { version = "1.1.0", path = "indexes/core" }
+sophis-index-processor = { version = "1.1.0", path = "indexes/processor" }
+sophis-math = { version = "1.1.0", path = "math" }
+sophis-merkle = { version = "1.1.0", path = "crypto/merkle" }
+sophis-metrics-core = { version = "1.1.0", path = "metrics/core" }
+sophis-mining = { version = "1.1.0", path = "mining" }
+sophis-mining-errors = { version = "1.1.0", path = "mining/errors" }
+sophis-muhash = { version = "1.1.0", path = "crypto/muhash" }
+sophis-notify = { version = "1.1.0", path = "notify" }
+sophis-p2p-flows = { version = "1.1.0", path = "protocol/flows" }
+sophis-p2p-lib = { version = "1.1.0", path = "protocol/p2p" }
+sophis-p2p-mining = { version = "1.1.0", path = "protocol/mining" }
+sophis-perf-monitor = { version = "1.1.0", path = "metrics/perf_monitor" }
+sophis-pow = { version = "1.1.0", path = "consensus/pow", default-features = false }
+sophis-rpc-core = { version = "1.1.0", path = "rpc/core" }
+sophis-rpc-macros = { version = "1.1.0", path = "rpc/macros" }
+sophis-rpc-service = { version = "1.1.0", path = "rpc/service" }
+sophis-txscript = { version = "1.1.0", path = "crypto/txscript" }
+sophis-txscript-errors = { version = "1.1.0", path = "crypto/txscript/errors" }
+sophis-utils = { version = "1.1.0", path = "utils" }
+sophis-utils-tower = { version = "1.1.0", path = "utils/tower" }
+sophis-utxoindex = { version = "1.1.0", path = "indexes/utxoindex" }
+sophis-wallet = { version = "1.1.0", path = "wallet/native" }
+sophis-wallet-cli-wasm = { version = "1.1.0", path = "wallet/wasm" }
+sophis-wallet-keys = { version = "1.1.0", path = "wallet/keys" }
+sophis-wallet-pskt = { version = "1.1.0", path = "wallet/pskt" }
+sophis-wallet-core = { version = "1.1.0", path = "wallet/core" }
+sophis-wallet-macros = { version = "1.1.0", path = "wallet/macros" }
+sophis-wasm = { version = "1.1.0", path = "wasm" }
+sophis-wasm-core = { version = "1.1.0", path = "wasm/core" }
+sophis-wrpc-client = { version = "1.1.0", path = "rpc/wrpc/client" }
+sophis-wrpc-proxy = { version = "1.1.0", path = "rpc/wrpc/proxy" }
+sophis-wrpc-server = { version = "1.1.0", path = "rpc/wrpc/server" }
+sophis-wrpc-wasm = { version = "1.1.0", path = "rpc/wrpc/wasm" }
+sophis-wrpc-example-subscriber = { version = "1.1.0", path = "rpc/wrpc/examples/subscriber" }
+sophisd = { version = "1.1.0", path = "sophisd" }
+sophis-alloc = { version = "1.1.0", path = "utils/alloc" }
+sophis-svm-core = { version = "1.1.0", path = "svm/core" }
+sophis-svm-runtime = { version = "1.1.0", path = "svm/runtime" }
+sophis-svm-host = { version = "1.1.0", path = "svm/host" }
+sophis-sdk-macros = { version = "1.1.0", path = "svm/sdk-macros" }
+sophis-sdk = { version = "1.1.0", path = "svm/sdk" }
+sophis-rollup-core       = { version = "1.1.0", path = "rollup/core" }
+sophis-rollup-host       = { version = "1.1.0", path = "rollup/host" }
+sophis-rollup-verifier   = { version = "1.1.0", path = "rollup/verifier" }
+sophis-rollup-sequencer  = { version = "1.1.0", path = "rollup/sequencer" }
+sophis-bridge-deposit    = { version = "1.1.0", path = "rollup/bridge/deposit" }
+sophis-bridge-withdrawal = { version = "1.1.0", path = "rollup/bridge/withdrawal" }
+sophis-oracle-core       = { version = "1.1.0", path = "oracle/core" }
+sophis-oracle-feeds      = { version = "1.1.0", path = "oracle/feeds" }
+sophis-oracle-host       = { version = "1.1.0", path = "oracle/host" }
+sophis-oracle-verifier   = { version = "1.1.0", path = "oracle/verifier" }
+sophis-oracle-contract   = { version = "1.1.0", path = "oracle/contract" }
+sophis-oracle-sdk        = { version = "1.1.0", path = "oracle/sdk" }
+
+# external
+aes = "0.8.3"
+ahash = "0.8.6"
+arc-swap = "1.6.0"
+argon2 = "0.5.2"
+async-channel = "2.0.0"
+async-std = { version = "1.12.0", features = ['attributes'] }
+async-stream = "0.3.5"
+async-trait = "0.1.88"
+base64 = "0.22.1"
+bincode = { version = "1.3.3", default-features = false }
+bitflags = "2.9.4"
+blake2b_simd = "1.0.2"
+borsh = { version = "1.5.1", features = ["derive", "rc"] }
+bs58 = { version = "0.5.0", features = ["check"], default-features = false }
+bytes = "1.7.1"
+cc = "1.0.83"
+cfb-mode = "0.8.2"
+cfg-if = "1.0.0"
+chacha20poly1305 = "0.10.1"
+clap = { version = "4.5.35", features = ["derive", "string", "cargo"] }
+convert_case = "0.6.0"
+criterion = { version = "0.5.1", default-features = false }
+crossbeam-channel = "0.5.8"
+ctrlc = "3.4.1"
+crypto_box = { version = "0.9.1", features = ["chacha20"] }
+dashmap = "6.0.1"
+derivative = "2.2.0"
+derive_builder = "0.20.0"
+derive_more = "0.99.17"
+# derive_more = { version = "1.0.0", features = ["full"] }
+dhat = "0.3.2"
+dirs = "5.0.1"
+downcast = "0.11.0"
+downcast-rs = "1.2.0"
+duration-string = "0.4.0"
+enum-primitive-derive = "0.3.0"
+event-listener = "2.5.3" # TODO "3.0.1"
+evpkdf = "0.2.0"
+faster-hex = "0.9.0"
+fixedstr = { version = "0.5.4", features = ["serde"] }
+flate2 = "1.0.28"
+futures = { version = "0.3.29" }
+futures-util = { version = "0.3.29", default-features = false, features = ["alloc"] }
+getrandom = { version = "0.2.10", features = ["js"] }
+h2 = "0.4.6"
+# h2 = "0.3.21"
+heapless = "0.8.0"
+# heapless = "0.7.16"
+hex = { version = "0.4.3", features = ["serde"] }
+hex-literal = "0.4.1"
+hexplay = "0.3.0"
+hmac = { version = "0.12.1", default-features = false }
+home = "0.5.5"
+http-body = "1.0.1"
+http-body-util = "0.1.2"
+igd-next = { version = "0.14.2", features = ["aio_tokio"] }
+indexmap = "2.1.0"
+intertrait = "0.2.2"
+ipnet = "2.9.0"
+itertools = "0.13.0"
+js-sys = "=0.3.77"
+keccak = "0.1.4"
+local-ip-address = "0.6.1"
+log = "0.4.20"
+log4rs = "1.2.0"
+mac_address = "1.1.7"
+# Note: malachite-nz 0.4.17+ silently switched `Natural`'s `from_limbs_asc`/
+# `into_limbs_asc` from u64 to u32 limbs. `sophis-math/src/uint.rs` translates
+# at the boundary so callers continue to use u64 storage.
+malachite-base = "0.4.4"
+malachite-nz = "0.4.4"
+md-5 = "0.10.6"
+num = "0.4.1"
+num_cpus = "1.16.0"
+num-traits = "0.2.17"
+once_cell = "1.18.0"
+pad = "0.1.6"
+parking_lot = "0.12.1"
+paste = "1.0.15"
+pbkdf2 = "0.12.2"
+portable-atomic = { version = "1.5.1", features = ["float"] }
+prost = "0.13.2"
+rand = "0.9"
+randomx-rs = "1.4.1"
+libcrux-ml-dsa = "0.0.8"
+rand_chacha = "0.9"
+rand_core = { version = "0.9", features = ["std"] }
+rand_distr = "0.5"
+rayon = "1.8.0"
+regex = "1.10.2"
+ripemd = { version = "0.1.3", default-features = false }
+rlimit = "0.10.1"
+rocksdb = "0.24.0"
+rv = "0.16.4"
+secp256k1 = { version = "0.29.0", features = [
+    "global-context",
+    "rand-std",
+    "serde",
+] } # TODO "0.28.0"
+separator = "0.4.1"
+seqlock = "0.2.0"
+serde = { version = "1.0.190", features = ["derive", "rc"] }
+serde_bytes = "0.11.12"
+serde_nested_with = "0.2.5" # helper, can be removed when https://github.com/serde-rs/serde/issues/723 is reseolved
+serde_json = "1.0.107"
+serde_repr = "0.1.18"
+serde-value = "0.7.0"
+serde-wasm-bindgen = "0.6.1"
+sha1 = "0.10.6"
+sha2 = "0.10.8"
+sha3 = "0.10.8"
+slugify-rs = "0.0.3"
+smallvec = { version = "1.11.1", features = ["serde", "const_generics"] }
+sorted-insert = "0.2.3"
+subtle = { version = "2.5.0", default-features = false }
+sysinfo = "0.31.2"
+tempfile = "3.8.1"
+textwrap = "0.16.0"
+thiserror = "1.0.50"
+tokio = { version = "1.33.0", features = ["sync", "rt-multi-thread"] }
+tokio-stream = "0.1.14"
+reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
+
+# Plonky3 (Phase 5 ZK-Oracle prover)
+p3-air         = "0.5.2"
+p3-baby-bear   = "0.5.2"
+p3-challenger  = "0.5.2"
+p3-commit      = "0.5.2"
+p3-dft         = "0.5.2"
+p3-field       = "0.5.2"
+p3-fri         = "0.5.2"
+p3-matrix      = "0.5.2"
+p3-merkle-tree = "0.5.2"
+p3-poseidon2   = "0.5.2"
+p3-symmetric   = "0.5.2"
+p3-uni-stark   = "0.5.2"
+p3-util        = "0.5.2"
+toml = "0.8.8"
+tonic = { version = "0.12.3", features = ["tls-webpki-roots", "gzip", "transport"] }
+tonic-build = { version = "0.12.3", features = ["prost"] }
+triggered = "0.1.2"
+uuid = { version = "1.16.0", features = ["v4", "fast-rng", "serde", "js"] }
+wasm-bindgen = { version = "=0.2.100", features = ["serde-serialize"] }
+wasm-bindgen-futures = "=0.4.50"
+wasm-bindgen-test = "0.3.50"
+web-sys = "=0.3.77"
+xxhash-rust = { version = "0.8.7", features = ["xxh3"] }
+zeroize = { version = "1.6.0", default-features = false, features = ["alloc"] }
+wasmtime = { version = "44.0.0", default-features = false, features = ["cranelift", "runtime", "gc-null"] }
+wasmparser = "0.224"
+pin-project-lite = "0.2.13"
+tower-http = { version = "0.5.2", features = [
+    "map-response-body",
+    "map-request-body",
+    "cors",
+    "trace",
+] }
+axum = { version = "0.7", features = ["json"] }
+tower = "0.5.1"
+chrono = "0.4.31"
+indexed_db_futures = "0.5.0"
+# workflow dependencies that are not a part of core libraries
+
+# workflow-perf-monitor = { path = "../../../workflow-perf-monitor-rs" }
+workflow-perf-monitor = "0.0.2"
+nw-sys = "0.1.6"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+# workflow dependencies
+workflow-core = { version = "0.18.0" }
+workflow-d3 = { version = "0.18.0" }
+workflow-dom = { version = "0.18.0" }
+workflow-http = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "charset", "macos-system-configuration"] }
+workflow-log = { version = "0.18.0" }
+workflow-node = { version = "0.18.0" }
+workflow-nw = { version = "0.18.0" }
+workflow-rpc = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots"] }
+workflow-serializer = { version = "0.18.0" }
+workflow-store = { version = "0.18.0" }
+workflow-terminal = { version = "0.18.0" }
+workflow-wasm = { version = "0.18.0" }
+
+# if below is enabled, this means that there is an ongoing work
+# on the workflow-rs crate. This requires that you clone workflow-rs
+# into a sibling folder from https://github.com/workflow-rs/workflow-rs
+# workflow-core = { path = "../workflow-rs/core" }
+# workflow-d3 = { path = "../workflow-rs/d3" }
+# workflow-dom = { path = "../workflow-rs/dom" }
+# # Same features as default but with rustls-tls-webpki-roots instead of native-tls
+# workflow-http = { path = "../workflow-rs/http", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "charset", "macos-system-configuration"] }
+# workflow-log = { path = "../workflow-rs/log" }
+# workflow-node = { path = "../workflow-rs/node" }
+# workflow-nw = { path = "../workflow-rs/nw" }
+# workflow-rpc = { path = "../workflow-rs/rpc", default-features = false, features = ["rustls-tls-webpki-roots"] }
+# workflow-serializer = { path = "../workflow-rs/serializer" }
+# workflow-store = { path = "../workflow-rs/store" }
+# workflow-terminal = { path = "../workflow-rs/terminal" }
+# workflow-wasm = { path = "../workflow-rs/wasm" }
+
+
+# ---
+# workflow-core = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-d3 = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-dom = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-http = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "charset", "macos-system-configuration"] }
+# workflow-log = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-node = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-nw = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-rpc = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master", default-features = false, features = ["rustls-tls-webpki-roots"]  }
+# workflow-serializer = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-store = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-terminal = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# workflow-wasm = { git = "https://github.com/workflow-rs/workflow-rs.git", branch = "master" }
+# https://github.com/aspectron/nw-sys
+# nw-sys = { path = "../nw-sys" }
+
+[profile.release]
+lto = "thin"
+strip = true
+overflow-checks = true
+
+[profile.heap]
+inherits = "release"
+debug = true
+strip = false
+
+# CI optimization: Keep debug fast to compile, but optimize hot-path crates
+# so tests run at reasonable speed without full release builds.
+
+[profile.dev.package.sophis-consensus]
+opt-level = 2
+
+[profile.dev.package.sophis-consensus-core]
+opt-level = 2
+
+[profile.dev.package.sophis-hashes]
+opt-level = 2
+
+[profile.dev.package.sophis-math]
+opt-level = 2
+
+[profile.dev.package.sophis-muhash]
+opt-level = 2
+
+[profile.dev.package.sophis-pow]
+opt-level = 2
+
+[profile.dev.package.sophis-txscript]
+opt-level = 2
+
+# External crates used heavily by consensus/crypto
+[profile.dev.package.blake2b_simd]
+opt-level = 2
+
+[profile.dev.package.rand_chacha]
+opt-level = 2
+
+[profile.dev.package.malachite-base]
+opt-level = 2
+
+[profile.dev.package.malachite-nz]
+opt-level = 2
+
+[profile.dev.package.secp256k1]
+opt-level = 2
+
+[profile.dev.package.sha2]
+opt-level = 2
+
+[workspace.lints.clippy]
+empty_docs = "allow"
+uninlined_format_args = "allow"
+
+# ---------------------------------------------------------------------------
+# dylint integration — points cargo-dylint at the sophis_lint library.
+# Install: cargo install cargo-dylint dylint-link
+# Run:     cargo sophis-lint (alias above) or cargo dylint --workspace-metadata
+# ---------------------------------------------------------------------------
+[workspace.metadata.dylint]
+libraries = [
+    { path = "svm/lint" },
+]

@@ -1,0 +1,16 @@
+[package]
+name = "example-token-minting-policy"
+description = "Example: Sophis native token minting policy — time window + per-tx cap"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+# cdylib = compiled to .wasm when targeting wasm32-unknown-unknown (deploy to sVM)
+# rlib   = compiled as a Rust library when targeting native (enables `cargo test`)
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk.workspace = true

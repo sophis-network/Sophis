@@ -1,0 +1,56 @@
+[package]
+name = "sophis-oracle-relayer"
+description = "Phase 5 ZK-Oracle: relayer binary. Pulls Pyth feed, generates Plonky3 proof, signs with Dilithium, submits L1 tx. Sub-phase 5.4."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-oracle-relayer"
+path = "src/main.rs"
+
+[features]
+default = []
+# Enables the production gRPC submitter (mirrors rollup/sequencer/src/l1_client.rs).
+# When OFF, GrpcSubmit::submit_bundle returns SubmitError::NotImplemented and
+# the binary uses MockSubmit. Pulls in the full L1 dep tree.
+grpc-submit = [
+    "dep:sophis-grpc-client",
+    "dep:sophis-rpc-core",
+    "dep:sophis-consensus-core",
+    "dep:sophis-addresses",
+    "dep:sophis-notify",
+    "dep:sophis-txscript",
+    "dep:hex",
+]
+
+[dependencies]
+sophis-oracle-core      = { workspace = true }
+sophis-oracle-feeds     = { workspace = true }
+sophis-oracle-host      = { workspace = true }
+sophis-core             = { workspace = true }
+async-trait             = { workspace = true }
+borsh                   = { workspace = true }
+clap                    = { workspace = true }
+getrandom               = { workspace = true }
+libcrux-ml-dsa          = { workspace = true }
+log                     = { workspace = true }
+serde                   = { workspace = true }
+sha3                    = { workspace = true }
+thiserror               = { workspace = true }
+tokio                   = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "time", "fs"] }
+toml                    = { workspace = true }
+
+# Optional — pulled in only by the `grpc-submit` feature.
+sophis-grpc-client      = { workspace = true, optional = true }
+sophis-rpc-core         = { workspace = true, optional = true }
+sophis-consensus-core   = { workspace = true, optional = true }
+sophis-addresses        = { workspace = true, optional = true }
+sophis-notify           = { workspace = true, optional = true }
+sophis-txscript         = { workspace = true, optional = true }
+hex                     = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile                = { workspace = true }

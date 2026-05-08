@@ -1,0 +1,1 @@
+wasm-pack build --target nodejs --out-name sophis-wallet --out-dir nodejs/sophis-wallet $@

@@ -1,0 +1,5 @@
+error: `unsafe fn` is forbidden in #[sophis_contract]; make this function safe
+ --> tests/compile_fail/unsafe_fn_decl.rs:4:5
+  |
+4 | pub unsafe fn bad_contract(env: Env) -> bool {
+  |     ^^^^^^

@@ -1,0 +1,6 @@
+# dylint lint libraries must be compiled with nightly Rust.
+# The version is managed by dylint — keep this on "nightly" and let
+# `cargo dylint` resolve the matching toolchain automatically.
+[toolchain]
+channel = "nightly"
+components = ["rustfmt", "clippy", "rustc-dev", "llvm-tools-preview"]

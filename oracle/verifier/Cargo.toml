@@ -1,0 +1,13 @@
+[package]
+name = "sophis-oracle-verifier"
+description = "Phase 5 ZK-Oracle: Plonky3 verifier (no_std-friendly, used inside the sVM contract). Sub-phase 5.3 fills this in."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-oracle-core = { workspace = true }
+borsh              = { workspace = true }
+thiserror          = { workspace = true }

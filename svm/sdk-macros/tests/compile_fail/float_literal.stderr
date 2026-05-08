@@ -1,0 +1,5 @@
+error: float literals are forbidden in #[sophis_contract]; use integer arithmetic with fixed-point scaling (e.g., 1 unit = 1/10_000 for basis-point precision)
+ --> tests/compile_fail/float_literal.rs:5:17
+  |
+5 |     let _rate = 0.05_f64;
+  |                 ^^^^^^^^

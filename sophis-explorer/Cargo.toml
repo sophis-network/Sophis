@@ -1,0 +1,33 @@
+[package]
+name = "sophis-explorer"
+description = "Sophis Block Explorer — HTTP server for inspecting blocks, transactions, and addresses"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-explorer"
+path = "src/main.rs"
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-grpc-client.workspace = true
+sophis-notify.workspace = true
+sophis-rpc-core.workspace = true
+
+axum.workspace = true
+tower-http = { workspace = true, features = ["cors"] }
+clap = { workspace = true }
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "time", "sync"] }
+
+[lints]
+workspace = true

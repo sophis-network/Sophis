@@ -1,0 +1,40 @@
+[package]
+name = "sophis-miner"
+description = "Sophis CPU Miner (devnet/testnet)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-miner"
+path = "src/main.rs"
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-bip32.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-grpc-client.workspace = true
+sophis-notify.workspace = true
+sophis-pow = { workspace = true, features = ["randomx"] }
+sophis-rpc-core.workspace = true
+sophis-txscript.workspace = true
+
+clap = { workspace = true }
+hex.workspace = true
+log.workspace = true
+rand.workspace = true
+rayon.workspace = true
+secp256k1 = { workspace = true, features = ["global-context", "rand-std"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+smallvec.workspace = true
+
+[lints]
+workspace = true

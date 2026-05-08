@@ -1,0 +1,36 @@
+[package]
+name = "sophis-da-stress"
+description = "Phase 6 DA layer synthetic load generator (sub-fase 6.8.b)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-da-stress"
+path = "src/main.rs"
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-core.workspace = true
+sophis-grpc-client.workspace = true
+sophis-notify.workspace = true
+sophis-rpc-core.workspace = true
+sophis-txscript.workspace = true
+
+clap = { workspace = true }
+hex.workspace = true
+libcrux-ml-dsa.workspace = true
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "time"] }
+faster-hex.workspace = true
+rand.workspace = true
+
+[lints]
+workspace = true

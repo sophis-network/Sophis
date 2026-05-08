@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sophis Explorer</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--accent:#58a6ff;--text:#e6edf3;--muted:#8b949e;--green:#3fb950;--red:#f85149}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{color:var(--accent);text-decoration:none;font-size:18px;font-weight:700;white-space:nowrap}
+.search-bar{display:flex;flex:1;min-width:200px;max-width:640px;gap:8px}
+.search-bar input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:8px 12px;font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--accent)}
+.search-bar button{background:#238636;border:none;border-radius:6px;color:#fff;padding:8px 16px;cursor:pointer;font-size:14px}
+.badge{background:#1f6feb;color:#fff;border-radius:12px;padding:4px 10px;font-size:12px;font-weight:500}
+main{max-width:1280px;margin:0 auto;padding:24px 16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.stat-value{font-size:22px;font-weight:600;word-break:break-all}
+.stat-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-head h2{font-size:16px;font-weight:600}
+.refresh-info{font-size:12px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);text-align:left;padding:10px 14px;font-weight:500;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid #21262d;vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:#1c2128}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:'Cascadia Code','JetBrains Mono','Fira Code',monospace;font-size:12px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.dot-blue{background:var(--accent)}
+.dot-red{background:var(--red)}
+.pill{border-radius:4px;padding:2px 7px;font-size:11px;font-weight:500}
+.pill-blue{background:#1a2d3d;color:var(--accent)}
+.pill-red{background:#3d1a1a;color:var(--red)}
+.error{color:var(--red);padding:24px;text-align:center}
+.loading{color:var(--muted);padding:24px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="brand">⬡ Sophis Explorer</a>
+  <div class="search-bar">
+    <input id="searchInput" placeholder="Block hash / TX ID / Address (sophis…)">
+    <button onclick="doSearch()">Search</button>
+  </div>
+  <span class="badge" id="networkBadge">—</span>
+</header>
+<main>
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-label">DAA Score</div><div class="stat-value" id="s-daa">—</div></div>
+    <div class="stat"><div class="stat-label">Blocks</div><div class="stat-value" id="s-blocks">—</div></div>
+    <div class="stat"><div class="stat-label">Headers</div><div class="stat-value" id="s-headers">—</div></div>
+    <div class="stat"><div class="stat-label">Difficulty</div><div class="stat-value" id="s-diff">—</div></div>
+    <div class="stat"><div class="stat-label">Hashrate</div><div class="stat-value" id="s-hr">—</div><div class="stat-sub">GH/s</div></div>
+    <div class="stat"><div class="stat-label">Mempool</div><div class="stat-value" id="s-mempool">—</div><div class="stat-sub">transactions</div></div>
+  </div>
+
+  <div class="section-head">
+    <h2>Latest Blocks</h2>
+    <span class="refresh-info">auto-refresh 5s</span>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Status</th>
+        <th>Hash</th>
+        <th>DAA Score</th>
+        <th>Blue Score</th>
+        <th>Time</th>
+        <th>TXs</th>
+        <th>Difficulty</th>
+      </tr></thead>
+      <tbody id="blocksBody"><tr><td colspan="7" class="loading">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+<script>
+function fmt(h){if(!h)return'';return h.length>20?h.slice(0,10)+'…'+h.slice(-8):h}
+function ago(ms){const s=Math.floor((Date.now()-ms)/1000);if(s<5)return'just now';if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago'}
+function numFmt(n){return n.toLocaleString()}
+
+function doSearch(){
+  const q=document.getElementById('searchInput').value.trim();
+  if(!q)return;
+  if(/^[0-9a-fA-F]{64}$/i.test(q)){
+    fetch('/api/blocks/'+q).then(r=>{
+      if(r.ok)window.location='/block?hash='+q;
+      else window.location='/tx?txid='+q;
+    }).catch(()=>window.location='/tx?txid='+q);
+    return;
+  }
+  if(/^sophis/.test(q)){window.location='/address?address='+encodeURIComponent(q);return;}
+  alert('Unknown format. Enter a 64-char hex hash or an address starting with "sophis…"');
+}
+document.getElementById('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch()});
+
+async function refresh(){
+  try{
+    const [info,blocks]=await Promise.all([
+      fetch('/api/info').then(r=>r.json()),
+      fetch('/api/blocks?limit=20').then(r=>r.json()),
+    ]);
+    if(info.error){console.error(info.error);return;}
+    document.getElementById('networkBadge').textContent=info.network||'—';
+    document.getElementById('s-daa').textContent=numFmt(info.virtualDaaScore??info.virtual_daa_score);
+    document.getElementById('s-blocks').textContent=numFmt(info.blockCount??info.block_count);
+    document.getElementById('s-headers').textContent=numFmt(info.headerCount??info.header_count);
+    document.getElementById('s-diff').textContent=Number(info.difficulty).toExponential(3);
+    document.getElementById('s-hr').textContent=Number(info.hashrateGhs??info.hashrate_ghs).toFixed(3);
+    document.getElementById('s-mempool').textContent=numFmt(info.mempoolSize??info.mempool_size);
+
+    const tbody=document.getElementById('blocksBody');
+    if(!Array.isArray(blocks)||blocks.length===0){tbody.innerHTML='<tr><td colspan="7" class="loading">No blocks yet</td></tr>';return;}
+    tbody.innerHTML=blocks.map(b=>{
+      const isChain=b.isChainBlock??b.is_chain_block;
+      const dot=isChain?'<span class="dot dot-blue"></span>':'<span class="dot dot-red"></span>';
+      const pill=isChain?'<span class="pill pill-blue">Chain</span>':'<span class="pill pill-red">Orphan</span>';
+      const daa=b.daaScore??b.daa_score;
+      const blue=b.blueScore??b.blue_score;
+      const ts=b.timestampMs??b.timestamp_ms;
+      const txCount=b.txCount??b.tx_count;
+      const diff=b.difficulty;
+      return`<tr>
+        <td>${dot}${pill}</td>
+        <td class="mono"><a href="/block?hash=${b.hash}">${fmt(b.hash)}</a></td>
+        <td>${numFmt(daa)}</td>
+        <td>${numFmt(blue)}</td>
+        <td title="${new Date(ts).toISOString()}">${ago(ts)}</td>
+        <td>${txCount}</td>
+        <td>${Number(diff).toExponential(3)}</td>
+      </tr>`;
+    }).join('');
+  }catch(e){console.error('refresh error',e);}
+}
+refresh();
+setInterval(refresh,5000);
+</script>
+</body>
+</html>

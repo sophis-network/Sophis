@@ -1,0 +1,66 @@
+# ─── Dockerfile.sophisd ────────────────────────────────────────────────────
+# Production sophisd image. Builds with `--features svm-zk` so the node can
+# verify Risc0 STARK proofs from Phase 3 ZK-Rollup state-update contracts.
+#
+# Base is debian-bookworm (NOT alpine/musl): risc0-zkvm verifier pulls
+# risc0-circuit-*-sys native code that needs GCC/Clang and glibc.
+#
+# Usage (from repo root):
+#   docker build -f docker/Dockerfile.sophisd -t sophisd .
+# ────────────────────────────────────────────────────────────────────────────
+
+FROM rust:1.94-bookworm AS builder
+
+# ── System dependencies ─────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake \
+      clang \
+      libclang-dev \
+      protobuf-compiler \
+      pkg-config \
+      libssl-dev \
+      build-essential \
+      curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LIBCLANG_PATH=/usr/lib/llvm-14/lib
+
+# ── risc0 toolchain (registers the "risc0" rustup toolchain) ────────────────
+# Required so build.rs in any transitive risc0 crate can find the toolchain
+# even if we only verify (and do not prove) at runtime.
+RUN curl -fsSL https://risczero.com/install | bash
+ENV PATH="/root/.risc0/bin:${PATH}"
+RUN rzup install rust && rzup install cpp
+
+WORKDIR /app
+
+COPY . .
+
+# ── Build sophisd with svm-zk so consensus can validate Phase 3 rollup ─────
+RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=cargo-target,target=/app/target,sharing=locked \
+    cargo build --release --bin sophisd --features svm-zk \
+    && cp /app/target/release/sophisd /app/sophisd
+
+
+# ── Runtime image ───────────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libssl3 \
+      tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r sophis \
+    && useradd -r -g sophis -d /home/sophis -s /usr/sbin/nologin sophis \
+    && mkdir -p /home/sophis /app \
+    && chown -R sophis:sophis /home/sophis /app
+
+COPY --from=builder --chown=sophis:sophis /app/sophisd .
+
+ENV HOME=/home/sophis
+USER sophis
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+CMD [ "/app/sophisd" ]

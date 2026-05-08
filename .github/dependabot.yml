@@ -1,0 +1,57 @@
+# Dependabot configuration — scoped to weekly + grouped to limit PR/CI noise.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+
+updates:
+  # Rust workspace (root Cargo.toml + sub-crates resolved automatically)
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-and-patch:
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "rust"]
+
+  # GitHub Actions used in .github/workflows/
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    groups:
+      actions-minor-and-patch:
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "github-actions"]
+
+  # Docker base images for sophisd / miner / wallet / rollup
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 3
+    groups:
+      docker-minor-and-patch:
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "docker"]
+
+  # Git submodules (forge-std under contracts/ethereum/lib/)
+  - package-ecosystem: "gitsubmodule"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 2
+    labels: ["dependencies", "submodules"]

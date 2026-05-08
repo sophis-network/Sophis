@@ -1,0 +1,22 @@
+[package]
+name = "sophis-bridge-withdrawal"
+description = "Bridge withdrawal contract: sVM WASM that releases locked SPHS after a proven L2 batch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-rollup-core  = { workspace = true }
+sophis-bridge-deposit = { workspace = true }
+sophis-sdk          = { workspace = true }
+borsh               = { workspace = true }
+
+[dev-dependencies]
+libcrux-ml-dsa = { workspace = true }
+rand           = { workspace = true }
+sha3           = { workspace = true }

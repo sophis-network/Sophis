@@ -1,0 +1,17 @@
+[package]
+name = "sophis-rollup-verifier"
+description = "sVM WASM contract: verifies L2 batch journals on-chain and advances rollup state root"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+# cdylib = .wasm for sVM deployment; rlib = native for `cargo test`
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk          = { workspace = true }
+sophis-rollup-core  = { workspace = true }
+borsh               = { workspace = true }

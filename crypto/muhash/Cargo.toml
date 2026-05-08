@@ -1,0 +1,34 @@
+[package]
+name = "sophis-muhash"
+description = "Sophis Muhash library"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-hashes.workspace = true
+sophis-utils.workspace = true
+serde.workspace = true
+
+# For the exhaustive tests, should only be enabled with release
+rayon = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+
+[[bench]]
+name = "bench"
+harness = false
+
+[lints]
+rust = { unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] } }
+
+[lints.clippy]
+empty_docs = "allow"
+uninlined_format_args = "allow"

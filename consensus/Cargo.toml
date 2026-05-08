@@ -1,0 +1,79 @@
+[package]
+name = "sophis-consensus"
+description = "Sophis consensus library"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+arc-swap.workspace = true
+async-channel.workspace = true
+bincode.workspace = true
+crossbeam-channel.workspace = true
+faster-hex.workspace = true
+futures-util.workspace = true
+indexmap.workspace = true
+itertools.workspace = true
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-notify.workspace = true
+sophis-consensusmanager.workspace = true
+sophis-core.workspace = true
+sophis-database.workspace = true
+sophis-hashes.workspace = true
+sophis-math.workspace = true
+sophis-merkle.workspace = true
+sophis-muhash.workspace = true
+sophis-notify.workspace = true
+sophis-pow = { workspace = true, features = ["randomx"] }
+sophis-txscript.workspace = true
+sophis-txscript-errors.workspace = true
+sophis-svm-core.workspace = true
+sophis-svm-runtime.workspace = true
+sophis-svm-host.workspace = true
+borsh.workspace = true
+sophis-utils.workspace = true
+log.workspace = true
+once_cell.workspace = true
+parking_lot.workspace = true
+rayon.workspace = true
+rocksdb.workspace = true
+secp256k1.workspace = true
+serde.workspace = true
+smallvec.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+rand = { workspace = true, features = ["small_rng"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }
+
+[dev-dependencies]
+criterion.workspace = true
+serde_json.workspace = true
+flate2.workspace = true
+rand_distr.workspace = true
+sophis-txscript-errors.workspace = true
+sophis-addresses.workspace = true
+wat = "1"
+
+[[bench]]
+name = "parallel_muhash"
+harness = false
+
+[features]
+html_reports = []
+devnet-prealloc = ["sophis-consensus-core/devnet-prealloc"]
+# Enables Risc0 + Plonky3 STARK verification in the sVM host. Required for
+# any node that participates in consensus on networks where Phase 3
+# ZK-Rollup state-update claims OR Phase 5 ZK-Oracle journal-binding claims
+# exist. See sophis-svm-host docs for the consensus-fork rationale.
+svm-zk = ["sophis-svm-host/risc0", "sophis-svm-host/plonky3"]
+
+[lints]
+workspace = true

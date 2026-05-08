@@ -1,0 +1,12 @@
+<html>
+    <head>
+        <script type="module">
+            import * as sophis from './sophis-rpc/sophis-rpc.js';
+            (async () => {
+                await sophis.default('./sophis-rpc/sophis-rpc_bg.wasm');
+                console.log(sophis.version());
+            })();
+        </script>
+    </head>
+    <body></body>
+</html>

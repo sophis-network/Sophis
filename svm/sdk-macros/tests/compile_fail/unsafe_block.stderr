@@ -1,0 +1,5 @@
+error: `unsafe` blocks are forbidden in #[sophis_contract]; all contract code must be verifiably safe
+ --> tests/compile_fail/unsafe_block.rs:5:14
+  |
+5 |     let _x = unsafe { 42_u64 };
+  |              ^^^^^^^^^^^^^^^^^

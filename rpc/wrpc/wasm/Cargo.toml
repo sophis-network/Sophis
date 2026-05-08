@@ -1,0 +1,46 @@
+[package]
+name = "sophis-wrpc-wasm"
+description = "Sophis wRPC WASM client"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+wasm32-sdk = ["sophis-wrpc-client/wasm32-sdk"]
+default = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+ahash.workspace = true
+async-std.workspace = true
+cfg-if.workspace = true
+sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
+sophis-consensus-client.workspace = true
+sophis-consensus-wasm.workspace = true
+sophis-notify.workspace = true
+sophis-wrpc-client.workspace = true
+sophis-rpc-core.workspace = true
+sophis-rpc-macros.workspace = true
+sophis-wasm-core.workspace = true
+serde_json.workspace = true
+serde-wasm-bindgen.workspace = true
+serde.workspace = true
+workflow-log.workspace = true
+workflow-rpc.workspace = true
+workflow-wasm.workspace = true
+wasm-bindgen.workspace = true
+js-sys.workspace = true
+wasm-bindgen-futures.workspace = true
+workflow-core.workspace = true
+futures.workspace = true
+ring = { version = "0.17", features = ["wasm32_unknown_unknown_js"] }
+
+[lints]
+workspace = true

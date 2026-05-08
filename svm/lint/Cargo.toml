@@ -1,0 +1,20 @@
+[package]
+name = "sophis_lint"
+version = "0.1.0"
+edition = "2024"
+description = "Custom dylint lints for Sophis smart contracts — rejects floats, unsafe, and unchecked arithmetic"
+publish = false
+
+# dylint libraries must be cdylib.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dylint_linting = "3"
+
+[dev-dependencies]
+dylint_testing = "3"
+
+# Tell rust-analyzer that this crate uses rustc internals.
+[package.metadata.rust-analyzer]
+rustc_private = true

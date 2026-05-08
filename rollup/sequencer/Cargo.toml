@@ -1,0 +1,30 @@
+[package]
+name = "sophis-rollup-sequencer"
+description = "L2 sequencer: collects txs, assembles batches, signs journals, submits to L1"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+sophis-rollup-core     = { workspace = true }
+sophis-rollup-verifier = { workspace = true }
+sophis-grpc-client     = { workspace = true }
+sophis-wrpc-client     = { workspace = true }
+sophis-rpc-core        = { workspace = true }
+sophis-consensus-core  = { workspace = true }
+sophis-addresses       = { workspace = true }
+sophis-notify          = { workspace = true }
+sophis-txscript        = { workspace = true }
+libcrux-ml-dsa         = { workspace = true }
+borsh                  = { workspace = true }
+sha3                   = { workspace = true }
+serde                  = { workspace = true }
+serde_json             = { workspace = true }
+thiserror              = { workspace = true }
+async-trait            = { workspace = true }
+tokio                  = { workspace = true, features = ["sync", "rt-multi-thread", "time", "macros"] }
+axum                   = { workspace = true }
+rand                   = { workspace = true }
+hex                    = { workspace = true }
