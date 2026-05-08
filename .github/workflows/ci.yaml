@@ -517,7 +517,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Install NodeJS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
