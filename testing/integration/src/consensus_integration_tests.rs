@@ -6,18 +6,14 @@ use async_channel::unbounded;
 use sophis_alloc::init_allocator_with_default_settings;
 use sophis_consensus::config::{Config, ConfigBuilder};
 use sophis_consensus::consensus::factory::Factory as ConsensusFactory;
-use sophis_consensus::consensus::test_consensus::{TestConsensus, TestConsensusFactory};
-use sophis_consensus::model::stores::block_transactions::{
-    BlockTransactionsStore, BlockTransactionsStoreReader, DbBlockTransactionsStore,
-};
+use sophis_consensus::consensus::test_consensus::TestConsensus;
 use sophis_consensus::model::stores::ghostdag::{GhostdagStoreReader, KType as GhostdagKType};
 use sophis_consensus::model::stores::headers::HeaderStoreReader;
 use sophis_consensus::model::stores::reachability::DbReachabilityStore;
 use sophis_consensus::model::stores::relations::DbRelationsStore;
 use sophis_consensus::model::stores::selected_chain::SelectedChainStoreReader;
-use sophis_consensus::params::{DEVNET_PARAMS, ForkActivation, MAINNET_PARAMS, OverrideParams};
+use sophis_consensus::params::{DEVNET_PARAMS, ForkActivation, MAINNET_PARAMS};
 use sophis_consensus::pipeline::ProcessingCounters;
-use sophis_consensus::pipeline::monitor::ConsensusMonitor;
 use sophis_consensus::processes::reachability::tests::{DagBlock, DagBuilder, StoreValidationExtensions};
 use sophis_consensus::processes::window::{WindowManager, WindowType};
 use sophis_consensus_core::api::args::TransactionValidationArgs;
@@ -27,8 +23,7 @@ use sophis_consensus_core::blockhash::{self, new_unique};
 use sophis_consensus_core::blockstatus::BlockStatus;
 use sophis_consensus_core::coinbase::MinerData;
 use sophis_consensus_core::constants::{BLOCK_VERSION, SOMPI_PER_SOPHIS, TRANSIENT_BYTE_TO_MASS_FACTOR};
-use sophis_consensus_core::errors::block::{BlockProcessResult, RuleError};
-use sophis_consensus_core::hashing;
+use sophis_consensus_core::errors::block::RuleError;
 use sophis_consensus_core::header::Header;
 use sophis_consensus_core::mining_rules::MiningRules;
 use sophis_consensus_core::subnets::SubnetworkId;
@@ -36,50 +31,33 @@ use sophis_consensus_core::tx::{
     MutableTransaction, ScriptPublicKey, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry,
 };
 use sophis_consensus_notify::root::ConsensusNotificationRoot;
-use sophis_consensus_notify::service::NotifyService;
 use sophis_consensusmanager::ConsensusManager;
-use sophis_core::task::tick::TickService;
 use sophis_core::time::unix_now;
 use sophis_database::utils::get_sophis_tempdir;
 use sophis_hashes::{Hash, ZERO_MERKLE_HASH};
-use sophis_rpc_core::RpcHeader;
 use sophis_utils::arc::ArcExtensions;
 
 use crate::common;
-use crate::common::json::{json_line_to_block, json_line_to_trusted_block, json_line_to_utxo_pairs};
 use flate2::read::GzDecoder;
-use futures_util::future::try_join_all;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sophis_consensus_core::hashing::sighash::calc_signature_hash;
 use sophis_consensus_core::muhash::MuHashExtensions;
 use sophis_core::core::Core;
 use sophis_core::signals::Shutdown;
-use sophis_core::task::runtime::AsyncRuntime;
 use sophis_core::{assert_match, info};
 use sophis_database::create_temp_db;
 use sophis_database::prelude::{CachePolicy, ConnBuilder};
-use sophis_index_processor::service::IndexService;
 use sophis_math::Uint256;
 use sophis_muhash::MuHash;
-use sophis_notify::subscription::context::SubscriptionContext;
 use sophis_txscript::caches::TxScriptCacheCounters;
 use sophis_txscript::opcodes::codes::OpTrue;
 use sophis_txscript::script_builder::ScriptBuilderResult;
-use sophis_utxoindex::UtxoIndex;
-use sophis_utxoindex::api::{UtxoIndexApi, UtxoIndexProxy};
 use std::cmp::{Ordering, max};
-use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::{
-    collections::HashMap,
-    fs::File,
-    future::Future,
-    io::{BufRead, BufReader},
-    str::from_utf8,
-};
+use std::{collections::HashMap, fs::File, io::BufReader, str::from_utf8};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct JsonBlock {
@@ -147,7 +125,7 @@ fn reachability_stretch_test(use_attack_json: bool) {
     let mut rng: StdRng = StdRng::seed_from_u64(22322);
 
     for i in 0..num_chains {
-        let rand_idx = rng.gen_range(0..blocks.len());
+        let rand_idx = rng.random_range(0..blocks.len());
         let rand_parent = blocks[rand_idx];
         let new_hash: Hash = ((blocks.len() + 1) as u64).into();
         let new_block = DagBlock::new(new_hash, vec![rand_parent]);
@@ -156,8 +134,8 @@ fn reachability_stretch_test(use_attack_json: bool) {
         map.insert(new_hash, new_block);
 
         // Add a random-length chain with probability 1/8
-        if rng.gen_range(0..8) == 0 {
-            let chain_len = rng.gen_range(0..max_chain);
+        if rng.random_range(0..8) == 0 {
+            let chain_len = rng.random_range(0..max_chain);
             let mut chain_tip = new_hash;
             for _ in 0..chain_len {
                 let new_hash: Hash = ((blocks.len() + 1) as u64).into();
@@ -661,222 +639,6 @@ async fn mergeset_size_limit_test() {
 // prefixos `sophis:`) — a paridade não é mais um objetivo do projeto.
 // Os outros testes do consensus em `consensus_integration_tests.rs`
 // cobrem os caminhos GHOSTDAG/pruning correspondentes.
-
-fn gzip_file_lines(path: &Path) -> impl Iterator<Item = String> + 'static {
-    let file = common::open_file(path);
-    let decoder = GzDecoder::new(file);
-    BufReader::new(decoder).lines().map(|line| line.unwrap())
-}
-
-async fn json_test(file_path: &str, concurrency: bool) {
-    sophis_core::log::try_init_logger("info");
-    let main_path = Path::new(file_path);
-    let proof_exists = common::file_exists(&main_path.join("proof.json.gz"));
-
-    let mut lines = gzip_file_lines(&main_path.join("blocks.json.gz"));
-    let params = {
-        let first_line = lines.next().unwrap();
-        let parsed_params = if let Ok(override_params) = serde_json::from_str::<OverrideParams>(&first_line) {
-            Some(DEVNET_PARAMS.override_params(override_params))
-        } else {
-            None
-        };
-
-        if let Some(mut params) = parsed_params {
-            if !proof_exists {
-                let second_line = lines.next().unwrap();
-                let genesis_block = json_line_to_block(second_line);
-                params.genesis = (genesis_block.header.as_ref(), DEVNET_PARAMS.genesis.coinbase_payload).into();
-            }
-            params
-        } else {
-            let genesis_block = json_line_to_block(first_line.clone());
-            let mut params = DEVNET_PARAMS;
-            params.genesis = (genesis_block.header.as_ref(), params.genesis.coinbase_payload).into();
-            params.min_difficulty_window_size = params.difficulty_window_size;
-            params
-        }
-    };
-
-    let mut config = Config::new(params);
-    if proof_exists {
-        config.process_genesis = false;
-    }
-    let config = Arc::new(config);
-
-    let tick_service = Arc::new(TickService::default());
-    let (notification_send, notification_recv) = unbounded();
-    let subscription_context = SubscriptionContext::new();
-    let tc = Arc::new(TestConsensus::with_notifier(&config, notification_send, subscription_context.clone()));
-    let notify_service = Arc::new(NotifyService::new(tc.notification_root(), notification_recv, subscription_context.clone()));
-
-    // External storage for storing block bodies. This allows separating header and body processing phases
-    let (_external_db_lifetime, external_storage) = create_temp_db!(ConnBuilder::default().with_files_limit(10));
-    let external_block_store = DbBlockTransactionsStore::new(external_storage, CachePolicy::Count(config.perf.block_data_cache_size));
-    let (_utxoindex_db_lifetime, utxoindex_db) = create_temp_db!(ConnBuilder::default().with_files_limit(10));
-    let consensus_manager = Arc::new(ConsensusManager::new(Arc::new(TestConsensusFactory::new(tc.clone()))));
-    let utxoindex = UtxoIndex::new(consensus_manager.clone(), utxoindex_db).unwrap();
-    let index_service = Arc::new(IndexService::new(
-        &notify_service.notifier(),
-        subscription_context.clone(),
-        Some(UtxoIndexProxy::new(utxoindex.clone())),
-    ));
-
-    let async_runtime = Arc::new(AsyncRuntime::new(2));
-    async_runtime.register(tick_service.clone());
-    async_runtime.register(notify_service.clone());
-    async_runtime.register(index_service.clone());
-    async_runtime.register(Arc::new(ConsensusMonitor::new(tc.processing_counters().clone(), tick_service)));
-
-    let core = Arc::new(Core::new());
-    core.bind(consensus_manager);
-    core.bind(async_runtime);
-    let joins = core.start();
-
-    let pruning_point = if proof_exists {
-        let proof_lines = gzip_file_lines(&main_path.join("proof.json.gz"));
-        let proof = proof_lines
-            .map(|line| {
-                let rpc_headers: Vec<RpcHeader> = serde_json::from_str(&line).unwrap();
-                rpc_headers.iter().map(|rh| Arc::new(rh.try_into().unwrap())).collect_vec()
-            })
-            .collect_vec();
-
-        let trusted_blocks = gzip_file_lines(&main_path.join("trusted.json.gz")).map(json_line_to_trusted_block).collect_vec();
-        tc.apply_pruning_proof(proof, &trusted_blocks).unwrap();
-
-        let past_pruning_points =
-            gzip_file_lines(&main_path.join("past-pps.json.gz")).map(|line| json_line_to_block(line).header).collect_vec();
-        let pruning_point = past_pruning_points.last().unwrap().hash;
-
-        tc.import_pruning_points(past_pruning_points).unwrap();
-
-        info!("Processing {} trusted blocks...", trusted_blocks.len());
-        for tb in trusted_blocks.into_iter() {
-            tc.validate_and_insert_trusted_block(tb).virtual_state_task.await.unwrap();
-        }
-        Some(pruning_point)
-    } else {
-        None
-    };
-
-    info!("Processing block headers...");
-
-    if concurrency {
-        let chunks = lines.chunks(1000);
-        let mut iter = chunks.into_iter();
-        let chunk = iter.next().unwrap();
-        let mut prev_joins = submit_header_chunk(&tc, &external_block_store, chunk);
-
-        for chunk in iter {
-            let current_joins = submit_header_chunk(&tc, &external_block_store, chunk);
-            let statuses = try_join_all(prev_joins).await.unwrap();
-            assert!(statuses.iter().all(|s| s.is_header_only()));
-            prev_joins = current_joins;
-        }
-
-        let statuses = try_join_all(prev_joins).await.unwrap();
-        assert!(statuses.iter().all(|s| s.is_header_only()));
-    } else {
-        for line in lines {
-            let block = json_line_to_block(line);
-            let hash = block.header.hash;
-            // Test our hashing implementation vs the hash accepted from the json source
-            assert_eq!(hashing::header::hash(&block.header), hash, "header hashing for block {hash} failed");
-
-            external_block_store.insert(hash, block.transactions).unwrap();
-            let block = Block::from_header_arc(block.header);
-            let status =
-                tc.validate_and_insert_block(block).virtual_state_task.await.unwrap_or_else(|e| panic!("block {hash} failed: {e}"));
-            assert!(status.is_header_only());
-        }
-    }
-
-    if proof_exists {
-        info!("Importing the UTXO set...");
-        let mut multiset = MuHash::new();
-        for outpoint_utxo_pairs in gzip_file_lines(&main_path.join("pp-utxo.json.gz")).map(json_line_to_utxo_pairs) {
-            tc.append_imported_pruning_point_utxos(&outpoint_utxo_pairs, &mut multiset);
-        }
-
-        tc.import_pruning_point_utxo_set(pruning_point.unwrap(), multiset).unwrap();
-        utxoindex.write().resync().unwrap();
-        // TODO: Add consensus validation that the pruning point is actually the right block according to the rules (in pruning depth etc).
-    }
-
-    let missing_bodies = tc.get_missing_block_body_hashes(tc.get_headers_selected_tip()).unwrap();
-
-    info!("Processing {} block bodies...", missing_bodies.len());
-
-    if concurrency {
-        let chunks = missing_bodies.into_iter().chunks(1000);
-        let mut iter = chunks.into_iter();
-        let chunk = iter.next().unwrap();
-        let mut prev_joins = submit_body_chunk(&tc, &external_block_store, chunk);
-
-        for chunk in iter {
-            let current_joins = submit_body_chunk(&tc, &external_block_store, chunk);
-            let statuses = try_join_all(prev_joins).await.unwrap();
-            assert!(statuses.iter().all(|s| s.is_utxo_valid_or_pending()));
-            prev_joins = current_joins;
-        }
-
-        let statuses = try_join_all(prev_joins).await.unwrap();
-        assert!(statuses.iter().all(|s| s.is_utxo_valid_or_pending()));
-    } else {
-        for hash in missing_bodies {
-            let block = Block::from_arcs(tc.get_header(hash).unwrap(), external_block_store.get(hash).unwrap());
-            let status =
-                tc.validate_and_insert_block(block).virtual_state_task.await.unwrap_or_else(|e| panic!("block {hash} failed: {e}"));
-            assert!(status.is_utxo_valid_or_pending());
-        }
-    }
-
-    core.shutdown();
-    core.join(joins);
-
-    // Assert that at least one body tip was resolved with valid UTXO
-    assert!(tc.body_tips().iter().copied().any(|h| tc.block_status(h) == BlockStatus::StatusUTXOValid));
-    // Assert that the indexed selected chain store matches the virtual chain obtained
-    // through the reachability iterator
-    assert_selected_chain_store_matches_virtual_chain(&tc);
-    let virtual_utxos: HashSet<TransactionOutpoint> =
-        HashSet::from_iter(tc.get_virtual_utxos(None, usize::MAX, false).into_iter().map(|(outpoint, _)| outpoint));
-    let utxoindex_utxos = utxoindex.read().get_all_outpoints().unwrap();
-    assert_eq!(virtual_utxos.len(), utxoindex_utxos.len());
-    assert!(virtual_utxos.is_subset(&utxoindex_utxos));
-    assert!(utxoindex_utxos.is_subset(&virtual_utxos));
-}
-
-fn submit_header_chunk(
-    tc: &TestConsensus,
-    external_block_store: &DbBlockTransactionsStore,
-    chunk: impl Iterator<Item = String>,
-) -> Vec<impl Future<Output = BlockProcessResult<BlockStatus>>> {
-    let mut futures = Vec::new();
-    for line in chunk {
-        let block = json_line_to_block(line);
-        external_block_store.insert(block.hash(), block.transactions).unwrap();
-        let block = Block::from_header_arc(block.header);
-        let f = tc.validate_and_insert_block(block).virtual_state_task;
-        futures.push(f);
-    }
-    futures
-}
-
-fn submit_body_chunk(
-    tc: &TestConsensus,
-    external_block_store: &DbBlockTransactionsStore,
-    chunk: impl Iterator<Item = Hash>,
-) -> Vec<impl Future<Output = BlockProcessResult<BlockStatus>>> {
-    let mut futures = Vec::new();
-    for hash in chunk {
-        let block = Block::from_arcs(tc.get_header(hash).unwrap(), external_block_store.get(hash).unwrap());
-        let f = tc.validate_and_insert_block(block).virtual_state_task;
-        futures.push(f);
-    }
-    futures
-}
 
 #[tokio::test]
 async fn bounded_merge_depth_test() {
