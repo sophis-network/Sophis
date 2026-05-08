@@ -57,16 +57,7 @@ impl Deserializer for RpcDaPayload {
         let fragment_count = load!(u8, reader)?;
         let bundle_id = load!(Vec<u8>, reader)?;
         let domain_byte = load!(u8, reader)?;
-        Ok(Self {
-            payload_id,
-            script,
-            accepting_block_hash,
-            blue_score,
-            fragment_index,
-            fragment_count,
-            bundle_id,
-            domain_byte,
-        })
+        Ok(Self { payload_id, script, accepting_block_hash, blue_score, fragment_index, fragment_count, bundle_id, domain_byte })
     }
 }
 

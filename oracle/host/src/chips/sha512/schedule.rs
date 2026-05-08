@@ -32,10 +32,7 @@ pub fn compute_schedule(block: &[u64; 16]) -> [u64; 80] {
     let mut w = [0u64; 80];
     w[..16].copy_from_slice(block);
     for t in 16..80 {
-        w[t] = small_sigma1(w[t - 2])
-            .wrapping_add(w[t - 7])
-            .wrapping_add(small_sigma0(w[t - 15]))
-            .wrapping_add(w[t - 16]);
+        w[t] = small_sigma1(w[t - 2]).wrapping_add(w[t - 7]).wrapping_add(small_sigma0(w[t - 15])).wrapping_add(w[t - 16]);
     }
     w
 }

@@ -19,9 +19,7 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
-use super::mul_canonical_full_chunked::{
-    self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS,
-};
+use super::mul_canonical_full_chunked::{self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS};
 use crate::chips::field25519::{Field25519Element, NUM_LIMBS};
 
 pub mod col {
@@ -75,56 +73,28 @@ where
         };
 
         // SQUARE.a = SQUARE.b = pre_current
-        assert_chunks_eq(
-            builder,
-            col::SQUARE_START + mul_canonical_full_chunked::col::A,
-            col::PRE_CURRENT,
-        );
-        assert_chunks_eq(
-            builder,
-            col::SQUARE_START + mul_canonical_full_chunked::col::B,
-            col::PRE_CURRENT,
-        );
-        assert_chunks_eq(
-            builder,
-            col::SQUARE_START + mul_canonical_full_chunked::col::C,
-            col::POST_CURRENT,
-        );
+        assert_chunks_eq(builder, col::SQUARE_START + mul_canonical_full_chunked::col::A, col::PRE_CURRENT);
+        assert_chunks_eq(builder, col::SQUARE_START + mul_canonical_full_chunked::col::B, col::PRE_CURRENT);
+        assert_chunks_eq(builder, col::SQUARE_START + mul_canonical_full_chunked::col::C, col::POST_CURRENT);
 
         // COND_MUL.a = pre_result, COND_MUL.b = pre_current
-        assert_chunks_eq(
-            builder,
-            col::COND_MUL_START + mul_canonical_full_chunked::col::A,
-            col::PRE_RESULT,
-        );
-        assert_chunks_eq(
-            builder,
-            col::COND_MUL_START + mul_canonical_full_chunked::col::B,
-            col::PRE_CURRENT,
-        );
-        assert_chunks_eq(
-            builder,
-            col::COND_MUL_START + mul_canonical_full_chunked::col::C,
-            col::MUL_RESULT,
-        );
+        assert_chunks_eq(builder, col::COND_MUL_START + mul_canonical_full_chunked::col::A, col::PRE_RESULT);
+        assert_chunks_eq(builder, col::COND_MUL_START + mul_canonical_full_chunked::col::B, col::PRE_CURRENT);
+        assert_chunks_eq(builder, col::COND_MUL_START + mul_canonical_full_chunked::col::C, col::MUL_RESULT);
 
         // Conditional select: post_result = bit ? mul_result : pre_result
         for i in 0..NUM_LIMBS {
-            let post = cur[col::POST_RESULT + i].clone();
-            let pre = cur[col::PRE_RESULT + i].clone();
-            let mul = cur[col::MUL_RESULT + i].clone();
-            let bit = cur[col::BIT].clone();
-            builder.assert_eq(post - pre.clone(), bit * (mul - pre));
+            let post = cur[col::POST_RESULT + i];
+            let pre = cur[col::PRE_RESULT + i];
+            let mul = cur[col::MUL_RESULT + i];
+            let bit = cur[col::BIT];
+            builder.assert_eq(post - pre, bit * (mul - pre));
         }
 
         // Transitions: row[t+1].pre = row[t].post
         for i in 0..NUM_LIMBS {
-            builder
-                .when_transition()
-                .assert_eq(next[col::PRE_RESULT + i], cur[col::POST_RESULT + i]);
-            builder
-                .when_transition()
-                .assert_eq(next[col::PRE_CURRENT + i], cur[col::POST_CURRENT + i]);
+            builder.when_transition().assert_eq(next[col::PRE_RESULT + i], cur[col::POST_RESULT + i]);
+            builder.when_transition().assert_eq(next[col::PRE_CURRENT + i], cur[col::POST_CURRENT + i]);
         }
     }
 }
@@ -141,7 +111,7 @@ pub fn build_pow_trace_chunked<F: Field + PrimeCharacteristicRing>(
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
     let mut result = field_one();
-    let mut current = base.clone();
+    let mut current = *base;
 
     for row in 0..TOTAL_BITS {
         let row_off = row * NUM_COLS;
@@ -154,11 +124,7 @@ pub fn build_pow_trace_chunked<F: Field + PrimeCharacteristicRing>(
         values[row_off + col::BIT] = F::from_u64(bit as u64);
 
         let raw_mul = field_mul(&result, &current);
-        let new_result = if bit == 1 {
-            raw_mul.clone()
-        } else {
-            result.clone()
-        };
+        let new_result = if bit == 1 { raw_mul } else { result };
         let new_current = field_mul(&current, &current);
 
         put_elem::<F>(&mut values, row_off + col::POST_RESULT, &new_result);
@@ -166,20 +132,8 @@ pub fn build_pow_trace_chunked<F: Field + PrimeCharacteristicRing>(
         put_elem::<F>(&mut values, row_off + col::MUL_RESULT, &raw_mul);
 
         // Populate embedded chunked chip witnesses.
-        mul_canonical_full_chunked::populate_row::<F>(
-            &mut values,
-            row_off,
-            col::SQUARE_START,
-            &current,
-            &current,
-        );
-        mul_canonical_full_chunked::populate_row::<F>(
-            &mut values,
-            row_off,
-            col::COND_MUL_START,
-            &result,
-            &current,
-        );
+        mul_canonical_full_chunked::populate_row::<F>(&mut values, row_off, col::SQUARE_START, &current, &current);
+        mul_canonical_full_chunked::populate_row::<F>(&mut values, row_off, col::COND_MUL_START, &result, &current);
 
         result = new_result;
         current = new_current;
@@ -198,20 +152,8 @@ pub fn build_pow_trace_chunked<F: Field + PrimeCharacteristicRing>(
         put_elem::<F>(&mut values, row_off + col::POST_CURRENT, &new_current);
         put_elem::<F>(&mut values, row_off + col::MUL_RESULT, &raw_mul);
 
-        mul_canonical_full_chunked::populate_row::<F>(
-            &mut values,
-            row_off,
-            col::SQUARE_START,
-            &current,
-            &current,
-        );
-        mul_canonical_full_chunked::populate_row::<F>(
-            &mut values,
-            row_off,
-            col::COND_MUL_START,
-            &result,
-            &current,
-        );
+        mul_canonical_full_chunked::populate_row::<F>(&mut values, row_off, col::SQUARE_START, &current, &current);
+        mul_canonical_full_chunked::populate_row::<F>(&mut values, row_off, col::COND_MUL_START, &result, &current);
 
         current = new_current;
     }

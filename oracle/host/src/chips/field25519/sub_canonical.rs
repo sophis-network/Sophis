@@ -37,6 +37,12 @@ pub struct SubCanonicalChip {
     pub start_col: usize,
 }
 
+impl Default for SubCanonicalChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubCanonicalChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -61,21 +67,34 @@ impl SubCanonicalChip {
 
         assert_chunks_eq(builder, self.start_col + col::ST_START + sub_trunc::col::A, self.start_col + col::A);
         assert_chunks_eq(builder, self.start_col + col::ST_START + sub_trunc::col::B, self.start_col + col::B);
-        assert_chunks_eq(builder, self.start_col + col::CPS_START + cond_p_sub::col::A, self.start_col + col::ST_START + sub_trunc::col::C);
+        assert_chunks_eq(
+            builder,
+            self.start_col + col::CPS_START + cond_p_sub::col::A,
+            self.start_col + col::ST_START + sub_trunc::col::C,
+        );
         assert_chunks_eq(builder, self.start_col + col::C, self.start_col + col::CPS_START + cond_p_sub::col::C);
     }
 }
 
 impl<F: Field> BaseAir<F> for SubCanonicalChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for SubCanonicalChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
-    fn eval(&self, builder: &mut AB) { self.emit(builder); }
+    fn eval(&self, builder: &mut AB) {
+        self.emit(builder);
+    }
 }
 
 /// Populate one row at `(row_off, start_col)`. Reusable by composing chips.
@@ -103,10 +122,10 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::ST_START + sub_trunc::col::A + i] = F::from_u64(a.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::B + i] = F::from_u64(b.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::C + i] = F::from_u64(canonical_loose.limbs[i]);
-        values[base + col::ST_START + sub_trunc::col::SUB_START + 0 + i] = F::from_u64(a.limbs[i]);
+        values[(base + col::ST_START + sub_trunc::col::SUB_START) + i] = F::from_u64(a.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::SUB_START + NUM_LIMBS + i] = F::from_u64(b.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::SUB_START + 2 * NUM_LIMBS + i] = F::from_u64(loose.limbs[i]);
-        values[base + col::ST_START + sub_trunc::col::REDUCE_START + 0 + i] = F::from_u64(loose.limbs[i]);
+        values[(base + col::ST_START + sub_trunc::col::REDUCE_START) + i] = F::from_u64(loose.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::REDUCE_START + NUM_LIMBS + i] = F::from_u64(canonical_loose.limbs[i]);
         values[base + col::ST_START + sub_trunc::col::REDUCE_START + 2 * NUM_LIMBS + i] = F::from_u64(carries[i]);
         values[base + col::CPS_START + cond_p_sub::col::A + i] = F::from_u64(cps_w.a_limbs[i]);
@@ -116,10 +135,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -134,8 +150,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::arith::field_sub;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -189,7 +205,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn sub_canonical_rejects_tampered() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&SubCanonicalChip::new(), &trace, &[]);
     }
 

@@ -17,7 +17,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sophis_oracle_feeds::PriceFeed;
 
-use crate::pipeline::{run_once, PipelineError, PipelinePolicy};
+use crate::pipeline::{PipelineError, PipelinePolicy, run_once};
 use crate::state::{RelayerState, StateError};
 use crate::submit::{L1Submit, SubmitError};
 
@@ -91,8 +91,8 @@ fn build_oracle_carrier_payload(
     use sha3::{Digest, Sha3_384};
 
     let _ = submit; // submit is currently unused here but kept for future
-                    // signing-key access if the wire format ever needs the
-                    // relayer's vk fingerprint.
+    // signing-key access if the wire format ever needs the
+    // relayer's vk fingerprint.
     // Re-sign + encode. We do not have direct access to the signed bundle
     // produced inside `submit_bundle`, but the wire format is deterministic
     // given the bundle and the submitter's key, so we can reconstruct it.
@@ -151,10 +151,7 @@ pub async fn run_daemon(
     da_publish: bool,
 ) -> Result<(), DaemonError> {
     let mut state = RelayerState::load_or_default(&state_path)?;
-    log::info!(
-        "daemon starting: state.last_sequence={}, interval={}s, da_publish={}",
-        state.last_sequence, interval_secs, da_publish,
-    );
+    log::info!("daemon starting: state.last_sequence={}, interval={}s, da_publish={}", state.last_sequence, interval_secs, da_publish,);
 
     let interval = Duration::from_secs(interval_secs);
     let mut shutdown = make_shutdown_listener();
@@ -215,7 +212,7 @@ fn make_shutdown_listener() -> std::pin::Pin<Box<dyn std::future::Future<Output 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{fixture_submission, StubFeed};
+    use crate::pipeline::{StubFeed, fixture_submission};
     use crate::sign::{ML_DSA_44_SK_SIZE, ML_DSA_44_VK_SIZE, RelayerKey};
     use crate::submit::MockSubmit;
     use libcrux_ml_dsa::{KEY_GENERATION_RANDOMNESS_SIZE, ml_dsa_44};
@@ -257,7 +254,7 @@ mod tests {
         assert_eq!(recorded.len(), 1);
         assert!(!recorded[0].wire_payload.is_empty());
         let decoded = crate::sign::decode_wire(&recorded[0].wire_payload).expect("decode ok");
-        assert_eq!(decoded.journal_borsh.is_empty(), false);
+        assert!(!decoded.journal_borsh.is_empty());
     }
 
     /// Sequence advances monotonically across two iterations.

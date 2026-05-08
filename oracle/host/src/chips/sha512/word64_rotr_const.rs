@@ -44,7 +44,7 @@ pub mod col {
     use super::NUM_CHUNKS;
     pub const A_CHUNKS: usize = 0;
     pub const C_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS; // 4
-    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 8
+    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 8
 }
 
 pub const NUM_COLS: usize = col::A_BITS + NUM_BITS; // 72
@@ -52,6 +52,12 @@ pub const NUM_COLS: usize = col::A_BITS + NUM_BITS; // 72
 #[derive(Debug, Clone, Copy)]
 pub struct Word64RotrChip<const ROT: usize> {
     pub start_col: usize,
+}
+
+impl<const ROT: usize> Default for Word64RotrChip<ROT> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<const ROT: usize> Word64RotrChip<ROT> {
@@ -79,7 +85,7 @@ impl<const ROT: usize> Word64RotrChip<ROT> {
             let mut weight: u64 = 1;
             for k in 0..CHUNK_BITS {
                 let bit = row[self.start_col + col::A_BITS + bit_base + k];
-                acc = acc + AB::Expr::from_u64(weight) * bit.into();
+                acc += AB::Expr::from_u64(weight) * bit.into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::A_CHUNKS + chunk_idx], acc);
@@ -96,7 +102,7 @@ impl<const ROT: usize> Word64RotrChip<ROT> {
             for k in 0..CHUNK_BITS {
                 let src = (bit_base + k + ROT) % NUM_BITS;
                 let bit = row[self.start_col + col::A_BITS + src];
-                acc = acc + AB::Expr::from_u64(weight) * bit.into();
+                acc += AB::Expr::from_u64(weight) * bit.into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::C_CHUNKS + chunk_idx], acc);
@@ -141,11 +147,7 @@ pub fn compute_rotr64(a: u64, rot: u32) -> Word64RotrWitness {
     for i in 0..NUM_BITS {
         a_bits[i] = (a >> i) & 1;
     }
-    Word64RotrWitness {
-        a_chunks: super::word64_add::decompose_u64(a),
-        c_chunks: super::word64_add::decompose_u64(c),
-        a_bits,
-    }
+    Word64RotrWitness { a_chunks: super::word64_add::decompose_u64(a), c_chunks: super::word64_add::decompose_u64(c), a_bits }
 }
 
 pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64RotrWitness) -> RowMajorMatrix<F> {
@@ -164,8 +166,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64RotrWitnes
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -239,7 +241,7 @@ mod tests {
     fn rotr_rejects_tampered_c_chunk() {
         let w = compute_rotr64(0xFFFF, 8);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::C_CHUNKS] = trace.values[col::C_CHUNKS] + BabyBear::ONE;
+        trace.values[col::C_CHUNKS] += BabyBear::ONE;
         check_constraints(&Word64RotrTestAir::<8>, &trace, &[]);
     }
 

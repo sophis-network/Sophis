@@ -108,11 +108,7 @@ pub struct MockCarrierPublished {
 
 impl MockSubmit {
     pub fn new(key: RelayerKey) -> Self {
-        Self {
-            key,
-            submitted: std::sync::Mutex::new(Vec::new()),
-            carrier_publishes: std::sync::Mutex::new(Vec::new()),
-        }
+        Self { key, submitted: std::sync::Mutex::new(Vec::new()), carrier_publishes: std::sync::Mutex::new(Vec::new()) }
     }
 }
 
@@ -120,16 +116,9 @@ impl MockSubmit {
 impl L1Submit for MockSubmit {
     async fn submit_bundle(&self, bundle: &RelayerBundle) -> Result<[u8; 32], SubmitError> {
         let signature = sign_bundle(bundle, &self.key)?;
-        let signed = SignedBundle {
-            bundle: bundle.clone(),
-            signature,
-            verification_key: self.key.verification_key.clone(),
-        };
+        let signed = SignedBundle { bundle: bundle.clone(), signature, verification_key: self.key.verification_key.clone() };
         let wire = signed.encode_wire()?;
-        self.submitted
-            .lock()
-            .unwrap()
-            .push(MockSubmitted { bundle: bundle.clone(), wire_payload: wire, signature });
+        self.submitted.lock().unwrap().push(MockSubmitted { bundle: bundle.clone(), wire_payload: wire, signature });
         // Pretend-txid: deterministic over sequence so tests can assert on it.
         let mut out = [0u8; 32];
         out[..8].copy_from_slice(&bundle.journal.sequence.to_le_bytes());
@@ -179,12 +168,7 @@ impl GrpcSubmit {
         network_prefix: impl Into<String>,
         key: RelayerKey,
     ) -> Self {
-        Self {
-            endpoint: endpoint.into(),
-            contract_address: contract_address.into(),
-            network_prefix: network_prefix.into(),
-            key,
-        }
+        Self { endpoint: endpoint.into(), contract_address: contract_address.into(), network_prefix: network_prefix.into(), key }
     }
 }
 
@@ -215,9 +199,9 @@ impl L1Submit for GrpcSubmit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{build_bundle, fixture_submission, PipelinePolicy};
+    use crate::pipeline::{PipelinePolicy, build_bundle, fixture_submission};
     use libcrux_ml_dsa::{KEY_GENERATION_RANDOMNESS_SIZE, ml_dsa_44};
-    use sophis_oracle_core::{FeedId, PublisherKey, ORACLE_INVOKE_VERSION};
+    use sophis_oracle_core::{FeedId, ORACLE_INVOKE_VERSION, PublisherKey};
 
     fn make_keypair() -> RelayerKey {
         let mut randomness = [0u8; KEY_GENERATION_RANDOMNESS_SIZE];

@@ -58,7 +58,7 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::point::ExtendedPoint;
-use crate::chips::ed25519::point_add_air::{self, PointAddAirChip, NUM_COLS as PA_COLS};
+use crate::chips::ed25519::point_add_air::{self, NUM_COLS as PA_COLS, PointAddAirChip};
 use crate::chips::field25519::NUM_LIMBS;
 
 const POINT_LIMBS: usize = 4 * NUM_LIMBS; // 36
@@ -77,10 +77,10 @@ pub mod col {
     use super::*;
     pub const SELECTOR: usize = 0;
     pub const PRE_ACC: usize = 1;
-    pub const POST_ACC: usize = PRE_ACC + POINT_LIMBS;        // 37
-    pub const DOUBLED: usize = POST_ACC + POINT_LIMBS;        // 73
-    pub const ADDED: usize = DOUBLED + POINT_LIMBS;           // 109
-    pub const BASE_POINT: usize = ADDED + POINT_LIMBS;        // 145
+    pub const POST_ACC: usize = PRE_ACC + POINT_LIMBS; // 37
+    pub const DOUBLED: usize = POST_ACC + POINT_LIMBS; // 73
+    pub const ADDED: usize = DOUBLED + POINT_LIMBS; // 109
+    pub const BASE_POINT: usize = ADDED + POINT_LIMBS; // 145
     pub const DOUBLE_START: usize = BASE_POINT + POINT_LIMBS; // 181
     pub const ADD_START: usize = DOUBLE_START + PA_COLS;
     /// Sub-fase 5.6.b.1.b — start of the 256-cell bit shift register.
@@ -122,10 +122,18 @@ pub const NUM_PUBLIC_VALUES: usize = 32 + NUM_BOUNDARY_LIMBS + NUM_BOUNDARY_LIMB
 pub struct ScalarMulAirChip;
 
 impl<F: Field> BaseAir<F> for ScalarMulAirChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn num_public_values(&self) -> usize { NUM_PUBLIC_VALUES }
-    fn main_next_row_columns(&self) -> Vec<usize> { (0..NUM_COLS).collect() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn num_public_values(&self) -> usize {
+        NUM_PUBLIC_VALUES
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        (0..NUM_COLS).collect()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 /// Neutral (identity) element of the Edwards group in extended
@@ -145,7 +153,8 @@ fn neutral_limb_at(off_in_point: usize) -> u64 {
 }
 
 impl<AB: AirBuilder> Air<AB> for ScalarMulAirChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         // Embed the two PointAddAirChip per row.
@@ -156,11 +165,11 @@ where AB::F: Field,
         let cur = main.current_slice();
         let next = main.next_slice();
 
-        builder.assert_bool(cur[col::SELECTOR].clone());
+        builder.assert_bool(cur[col::SELECTOR]);
 
         let assert_chunks = |b: &mut AB, off_a: usize, off_b: usize, n: usize| {
             for i in 0..n {
-                b.assert_eq(cur[off_a + i].clone(), cur[off_b + i].clone());
+                b.assert_eq(cur[off_a + i], cur[off_b + i]);
             }
         };
 
@@ -178,11 +187,11 @@ where AB::F: Field,
         // POST_ACC = bit ? ADDED : DOUBLED
         // POST_ACC - DOUBLED = bit · (ADDED - DOUBLED)
         for i in 0..POINT_LIMBS {
-            let post = cur[col::POST_ACC + i].clone();
-            let doubled = cur[col::DOUBLED + i].clone();
-            let added = cur[col::ADDED + i].clone();
-            let bit = cur[col::SELECTOR].clone();
-            builder.assert_eq(post - doubled.clone(), bit * (added - doubled));
+            let post = cur[col::POST_ACC + i];
+            let doubled = cur[col::DOUBLED + i];
+            let added = cur[col::ADDED + i];
+            let bit = cur[col::SELECTOR];
+            builder.assert_eq(post - doubled, bit * (added - doubled));
         }
 
         // First-row boundary: PRE_ACC[0] = neutral. With the fixed-position
@@ -190,9 +199,7 @@ where AB::F: Field,
         // 255-r), this is the necessary anchor that links PRE_ACC's
         // transition chain to a single canonical starting point.
         for i in 0..POINT_LIMBS {
-            builder
-                .when_first_row()
-                .assert_eq(cur[col::PRE_ACC + i].clone(), AB::Expr::from_u64(neutral_limb_at(i)));
+            builder.when_first_row().assert_eq(cur[col::PRE_ACC + i], AB::Expr::from_u64(neutral_limb_at(i)));
         }
 
         // Sub-fase 5.6.b.1.b — bit shift register binding.
@@ -212,25 +219,23 @@ where AB::F: Field,
         //
         // The byte-decomposition that ties these bits to the public-input
         // scalar bytes lands in 5.6.b.1.c (along with PV exposure).
-        builder.assert_eq(cur[col::SELECTOR].clone(), cur[col::BITS_START].clone());
+        builder.assert_eq(cur[col::SELECTOR], cur[col::BITS_START]);
         // Bit booleans hold at every row (degree 2). Wrapping with
         // `when_first_row()` would push the constraint to degree 3 and
         // exceed `max_constraint_degree(2)` — instead the trace builder
         // pads expired tail cells with 0 so the all-rows assertion is
         // satisfied for free.
         for i in 0..SCALAR_BITS {
-            builder.assert_bool(cur[col::BITS_START + i].clone());
+            builder.assert_bool(cur[col::BITS_START + i]);
         }
         for i in 0..SCALAR_BITS - 1 {
-            builder
-                .when_transition()
-                .assert_eq(next[col::BITS_START + i].clone(), cur[col::BITS_START + i + 1].clone());
+            builder.when_transition().assert_eq(next[col::BITS_START + i], cur[col::BITS_START + i + 1]);
         }
 
         // Transitions: PRE_ACC and BASE_POINT propagate.
         for i in 0..POINT_LIMBS {
-            builder.when_transition().assert_eq(next[col::PRE_ACC + i].clone(), cur[col::POST_ACC + i].clone());
-            builder.when_transition().assert_eq(next[col::BASE_POINT + i].clone(), cur[col::BASE_POINT + i].clone());
+            builder.when_transition().assert_eq(next[col::PRE_ACC + i], cur[col::POST_ACC + i]);
+            builder.when_transition().assert_eq(next[col::BASE_POINT + i], cur[col::BASE_POINT + i]);
         }
 
         // Sub-fase 5.6.b.1.c — PV boundary binding.
@@ -257,23 +262,19 @@ where AB::F: Field,
             for k in 0..8 {
                 let bit_idx = 255 - (8 * j + k);
                 let coeff = AB::Expr::from_u64(pow2[k]);
-                sum = sum + cur[col::BITS_START + bit_idx].clone() * coeff;
+                sum += cur[col::BITS_START + bit_idx] * coeff;
             }
             builder.when_first_row().assert_eq(sum, pub_copies[j].into());
         }
 
         // PV[32..68]: base_point limbs at row 0 (already replicated by transition).
         for i in 0..POINT_LIMBS {
-            builder
-                .when_first_row()
-                .assert_eq(cur[col::BASE_POINT + i].clone(), pub_copies[32 + i].into());
+            builder.when_first_row().assert_eq(cur[col::BASE_POINT + i], pub_copies[32 + i].into());
         }
 
         // PV[68..104]: output limbs at row 255's POST_ACC.
         for i in 0..POINT_LIMBS {
-            builder
-                .when_last_row()
-                .assert_eq(cur[col::POST_ACC + i].clone(), pub_copies[32 + POINT_LIMBS + i].into());
+            builder.when_last_row().assert_eq(cur[col::POST_ACC + i], pub_copies[32 + POINT_LIMBS + i].into());
         }
     }
 }
@@ -367,10 +368,7 @@ pub fn build_scalar_mul_trace<F: Field + PrimeCharacteristicRing>(
 /// projective coordinates `(X, Y, Z, T)`. The PV layout binds against the
 /// AIR's projective representation specifically (POST_ACC at row 255),
 /// so this helper is what the wrapper / aggregator must use.
-pub fn derive_scalar_mul_air_output(
-    scalar_le_bytes: &[u8; 32],
-    base_point: &ExtendedPoint,
-) -> ExtendedPoint {
+pub fn derive_scalar_mul_air_output(scalar_le_bytes: &[u8; 32], base_point: &ExtendedPoint) -> ExtendedPoint {
     use crate::chips::ed25519::point::point_add;
     let mut acc = ExtendedPoint::neutral();
     for row in 0..SCALAR_BITS {
@@ -397,15 +395,33 @@ pub fn build_public_values<F: Field + PrimeCharacteristicRing>(
     output: &ExtendedPoint,
 ) -> Vec<F> {
     let mut out = Vec::with_capacity(NUM_PUBLIC_VALUES);
-    for &b in scalar_le_bytes { out.push(F::from_u64(b as u64)); }
-    for &l in &base_point.x.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.y.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.z.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.t.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.x.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.y.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.z.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.t.limbs { out.push(F::from_u64(l)); }
+    for &b in scalar_le_bytes {
+        out.push(F::from_u64(b as u64));
+    }
+    for &l in &base_point.x.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.y.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.z.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.t.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.x.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.y.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.z.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.t.limbs {
+        out.push(F::from_u64(l));
+    }
     debug_assert_eq!(out.len(), NUM_PUBLIC_VALUES);
     out
 }

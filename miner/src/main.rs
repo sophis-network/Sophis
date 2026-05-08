@@ -90,17 +90,11 @@ async fn main() {
                 .action(clap::ArgAction::SetTrue)
                 .help("Ativa RandomX Fast Mode (~2 GB RAM, ~10x hashrate). Requer ~2 min de inicializacao por epoch."),
         )
-        .arg(
-            Arg::new("donate-to")
-                .long("donate-to")
-                .value_name("ADDRESS")
-                .action(clap::ArgAction::Append)
-                .help(
-                    "Endereco Sophis que recebe parte da recompensa coinbase (cliente-side, opt-in). \
+        .arg(Arg::new("donate-to").long("donate-to").value_name("ADDRESS").action(clap::ArgAction::Append).help(
+            "Endereco Sophis que recebe parte da recompensa coinbase (cliente-side, opt-in). \
                      Pode ser repetido para split entre varias causas. Requer --donate-percent na mesma ordem. \
-                     Sem lista oficial: o operador escolhe livremente."
-                ),
-        )
+                     Sem lista oficial: o operador escolhe livremente.",
+        ))
         .arg(
             Arg::new("donate-percent")
                 .long("donate-percent")
@@ -109,7 +103,7 @@ async fn main() {
                 .action(clap::ArgAction::Append)
                 .help(
                     "Percentual da recompensa que vai para a entrada --donate-to correspondente (0-100, inteiro). \
-                     A soma deve ser <= 100. Default: nenhum (100% pro minerador)."
+                     A soma deve ser <= 100. Default: nenhum (100% pro minerador).",
                 ),
         )
         .get_matches();
@@ -204,13 +198,7 @@ async fn main() {
         if !donations.is_empty() && !template.block.transactions.is_empty() {
             donate::rewrite_coinbase_outputs(&mut template.block.transactions[0], &donations);
             // Recompute merkle root: convert each RpcTransaction → Transaction.
-            let txs: Result<Vec<Transaction>, _> = template
-                .block
-                .transactions
-                .iter()
-                .cloned()
-                .map(Transaction::try_from)
-                .collect();
+            let txs: Result<Vec<Transaction>, _> = template.block.transactions.iter().cloned().map(Transaction::try_from).collect();
             match txs {
                 Ok(txs_internal) => {
                     let new_root = calc_hash_merkle_root(txs_internal.iter());

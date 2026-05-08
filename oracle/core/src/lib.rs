@@ -53,14 +53,7 @@ mod tests {
 
     fn make_update(price: i64, exponent: i32, ts: u64) -> SignedPriceUpdate {
         SignedPriceUpdate {
-            update: PriceUpdate {
-                feed: dummy_feed(),
-                publisher: dummy_publisher(),
-                price,
-                conf: 0,
-                exponent,
-                publish_time: ts,
-            },
+            update: PriceUpdate { feed: dummy_feed(), publisher: dummy_publisher(), price, conf: 0, exponent, publish_time: ts },
             // ed25519 signature is 64 bytes
             signature: Box::new([0u8; 64]),
         }

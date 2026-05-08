@@ -34,7 +34,7 @@
 use p3_field::PrimeCharacteristicRing;
 use p3_matrix::dense::RowMajorMatrix;
 
-use crate::chips::ed25519::decompress_air::{NUM_BOUNDARY_LIMBS, NUM_COLS, NUM_PUBLIC_VALUES, DecompressAirChip, build_decompress_trace};
+use crate::chips::ed25519::decompress_air::{DecompressAirChip, NUM_COLS, NUM_PUBLIC_VALUES, build_decompress_trace};
 use crate::chips::ed25519::point::ExtendedPoint;
 use crate::chips::field25519::{Field25519Element, NUM_LIMBS};
 use crate::config::{Val, oracle_stark_config};
@@ -89,7 +89,13 @@ pub fn derive_decompress_output(compressed_bytes: &[u8; 32]) -> (ExtendedPoint, 
             ExtendedPoint {
                 x: Field25519Element::ZERO,
                 y: Field25519Element::from_canonical_bytes(compressed_bytes),
-                z: Field25519Element { limbs: { let mut o = [0u64; NUM_LIMBS]; o[0] = 1; o } },
+                z: Field25519Element {
+                    limbs: {
+                        let mut o = [0u64; NUM_LIMBS];
+                        o[0] = 1;
+                        o
+                    },
+                },
                 t: Field25519Element::ZERO,
             },
             false,
@@ -108,10 +114,18 @@ pub fn build_public_values(compressed_bytes: &[u8; 32], output: &ExtendedPoint, 
     for &b in compressed_bytes {
         out.push(Val::from_u64(b as u64));
     }
-    for &l in &output.x.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.y.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.z.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.t.limbs { out.push(Val::from_u64(l)); }
+    for &l in &output.x.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.y.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.z.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.t.limbs {
+        out.push(Val::from_u64(l));
+    }
     out.push(Val::from_u64(if valid { 1 } else { 0 }));
     debug_assert_eq!(out.len(), NUM_PUBLIC_VALUES);
     out
@@ -126,11 +140,8 @@ pub fn build_public_values(compressed_bytes: &[u8; 32], output: &ExtendedPoint, 
 pub fn prove_decompress_air(compressed_bytes: &[u8; 32]) -> Result<DecompressAirProof, DecompressAirProverError> {
     let trace: RowMajorMatrix<Val> = build_decompress_trace::<Val>(compressed_bytes);
 
-    if trace.values.len() % NUM_COLS != 0 {
-        return Err(DecompressAirProverError::BadTraceShape {
-            got: trace.values.len(),
-            want: NUM_COLS,
-        });
+    if !trace.values.len().is_multiple_of(NUM_COLS) {
+        return Err(DecompressAirProverError::BadTraceShape { got: trace.values.len(), want: NUM_COLS });
     }
 
     let (output, valid) = derive_decompress_output(compressed_bytes);
@@ -158,10 +169,7 @@ pub fn verify_decompress_air_proof(
 
     let public_values = build_public_values(compressed_bytes, expected_output, expected_valid);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(DecompressAirVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(DecompressAirVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
     let (_perm, config) = oracle_stark_config();
@@ -174,10 +182,18 @@ pub fn verify_decompress_air_proof(
 pub fn encode_public_values_bytes(compressed_bytes: &[u8; 32], output: &ExtendedPoint, valid: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(PUBLIC_VALUES_WIRE_BYTES);
     out.extend_from_slice(compressed_bytes);
-    for &l in &output.x.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.y.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.z.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.t.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
+    for &l in &output.x.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.y.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.z.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.t.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
     out.push(if valid { 1 } else { 0 });
     debug_assert_eq!(out.len(), PUBLIC_VALUES_WIRE_BYTES);
     out
@@ -216,8 +232,8 @@ mod tests {
 
     fn rfc8032_a_pubkey() -> [u8; 32] {
         [
-            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a,
-            0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
+            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3,
+            0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
         ]
     }
 

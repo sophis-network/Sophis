@@ -31,10 +31,8 @@ use crate::chips::ed25519::verify::reduce_mod_l;
 /// Curve25519 group order ℓ as 32 little-endian bytes.
 /// `ℓ = 2²⁵² + 27742317777372353535851937790883648493`.
 pub const L_BYTES: [u8; 32] = [
-    0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
-    0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
+    0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
 ];
 
 /// Number of bytes in the witnessed quotient.
@@ -100,14 +98,7 @@ pub fn compute_reduce_mod_l_witness(digest: &[u8; 64]) -> ReduceModLWitness {
     // padded digest — but the AIR will use the carry chain.)
     let combined_carries = combined_addition_carries(&product, &scalar, digest);
 
-    ReduceModLWitness {
-        digest: *digest,
-        scalar,
-        quotient: q,
-        product,
-        product_carries,
-        combined_carries,
-    }
+    ReduceModLWitness { digest: *digest, scalar, quotient: q, product, product_carries, combined_carries }
 }
 
 /// Compute `q = (h - scalar) / ℓ`, byte-level. Returns `q` as 33-byte LE.
@@ -165,7 +156,9 @@ fn le_bytes_ge_shifted(acc: &[u8], b: &[u8; 32], shift: usize) -> bool {
     for (i, &v) in b.iter().enumerate() {
         let dst = i + byte_shift;
         if dst >= shifted.len() {
-            if v != 0 { return false; }
+            if v != 0 {
+                return false;
+            }
             continue;
         }
         let lo = (v as u16) << bit_shift;
@@ -198,7 +191,9 @@ fn sub_bytes_shifted(acc: &mut [u8], b: &[u8; 32], shift: usize) {
     let bit_shift = shift % 8;
     for (i, &v) in b.iter().enumerate() {
         let dst = i + byte_shift;
-        if dst >= shifted.len() { break; }
+        if dst >= shifted.len() {
+            break;
+        }
         let lo = (v as u16) << bit_shift;
         shifted[dst] = shifted[dst].wrapping_add((lo & 0xff) as u8);
         if dst + 1 < shifted.len() {
@@ -209,8 +204,13 @@ fn sub_bytes_shifted(acc: &mut [u8], b: &[u8; 32], shift: usize) {
     let mut borrow: i16 = 0;
     for i in 0..acc.len() {
         let d = (acc[i] as i16) - (shifted[i] as i16) - borrow;
-        if d < 0 { acc[i] = (d + 256) as u8; borrow = 1; }
-        else { acc[i] = d as u8; borrow = 0; }
+        if d < 0 {
+            acc[i] = (d + 256) as u8;
+            borrow = 1;
+        } else {
+            acc[i] = d as u8;
+            borrow = 0;
+        }
     }
     debug_assert_eq!(borrow, 0);
 }
@@ -234,9 +234,13 @@ fn schoolbook_q_times_l(q: &[u8; QUOTIENT_BYTES]) -> ([u8; PRODUCT_BYTES], [u32;
         let mut sum: u32 = carry_in;
         // i ranges over q indices, j = k - i over ℓ indices.
         for i in 0..QUOTIENT_BYTES {
-            if i > k { break; }
+            if i > k {
+                break;
+            }
             let j = k - i;
-            if j >= 32 { continue; }
+            if j >= 32 {
+                continue;
+            }
             sum += (q[i] as u32) * (L_BYTES[j] as u32);
         }
         product[k] = (sum & 0xff) as u8;
@@ -254,11 +258,7 @@ fn schoolbook_q_times_l(q: &[u8; QUOTIENT_BYTES]) -> ([u8; PRODUCT_BYTES], [u32;
 /// Each `combined_carries[k]` is `(sum_at_k) >> 8` of the addition
 /// position. AIR constraint will enforce `digest[k] (or 0) + 256·c_out
 /// = product[k] + scalar[k] (or 0) + c_in`.
-fn combined_addition_carries(
-    product: &[u8; PRODUCT_BYTES],
-    scalar: &[u8; 32],
-    digest: &[u8; 64],
-) -> [u8; PRODUCT_BYTES] {
+fn combined_addition_carries(product: &[u8; PRODUCT_BYTES], scalar: &[u8; 32], digest: &[u8; 64]) -> [u8; PRODUCT_BYTES] {
     let mut carries = [0u8; PRODUCT_BYTES];
     let mut carry_in: u16 = 0;
     for k in 0..PRODUCT_BYTES {
@@ -347,10 +347,7 @@ mod tests {
             }
             // Compare against digest padded to 65 bytes.
             for i in 0..64 {
-                assert_eq!(
-                    reconstructed[i], digest[i],
-                    "byte {i} mismatch: q·ℓ + scalar != h"
-                );
+                assert_eq!(reconstructed[i], digest[i], "byte {i} mismatch: q·ℓ + scalar != h");
             }
             assert_eq!(reconstructed[64], 0, "high byte should be zero");
         }
@@ -391,16 +388,16 @@ mod tests {
         for k in 0..PRODUCT_BYTES {
             let mut sum_at_k = carry_in;
             for i in 0..QUOTIENT_BYTES {
-                if i > k { break; }
+                if i > k {
+                    break;
+                }
                 let j = k - i;
-                if j >= 32 { continue; }
+                if j >= 32 {
+                    continue;
+                }
                 sum_at_k += (q[i] as u32) * (L_BYTES[j] as u32);
             }
-            assert_eq!(
-                (product[k] as u32) + 256 * carries[k],
-                sum_at_k,
-                "schoolbook constraint failed at byte {k}"
-            );
+            assert_eq!((product[k] as u32) + 256 * carries[k], sum_at_k, "schoolbook constraint failed at byte {k}");
             carry_in = carries[k];
         }
     }

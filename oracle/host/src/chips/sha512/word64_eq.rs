@@ -45,14 +45,14 @@ pub const NUM_CHUNKS: usize = 4;
 pub mod col {
     use super::NUM_CHUNKS;
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_CHUNKS;          // 4
-    pub const DIFF: usize = B + NUM_CHUNKS;       // 8
-    pub const INV: usize = DIFF + NUM_CHUNKS;     // 12
-    pub const CE: usize = INV + NUM_CHUNKS;       // 16 (chunk_eq)
-    pub const M1: usize = CE + NUM_CHUNKS;        // 20
-    pub const M2: usize = M1 + 1;                  // 21
-    pub const M3: usize = M2 + 1;                  // 22
-    pub const EQ: usize = M3 + 1;                  // 23
+    pub const B: usize = A + NUM_CHUNKS; // 4
+    pub const DIFF: usize = B + NUM_CHUNKS; // 8
+    pub const INV: usize = DIFF + NUM_CHUNKS; // 12
+    pub const CE: usize = INV + NUM_CHUNKS; // 16 (chunk_eq)
+    pub const M1: usize = CE + NUM_CHUNKS; // 20
+    pub const M2: usize = M1 + 1; // 21
+    pub const M3: usize = M2 + 1; // 22
+    pub const EQ: usize = M3 + 1; // 23
 }
 
 pub const NUM_COLS: usize = col::EQ + 1; // 24
@@ -60,6 +60,12 @@ pub const NUM_COLS: usize = col::EQ + 1; // 24
 #[derive(Debug, Clone, Copy)]
 pub struct Word64EqChip {
     pub start_col: usize,
+}
+
+impl Default for Word64EqChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64EqChip {
@@ -97,7 +103,7 @@ impl Word64EqChip {
         }
 
         // Chain ANDs.
-        let ce0 = row[self.start_col + col::CE + 0];
+        let ce0 = row[self.start_col + col::CE];
         let ce1 = row[self.start_col + col::CE + 1];
         let ce2 = row[self.start_col + col::CE + 2];
         let ce3 = row[self.start_col + col::CE + 3];
@@ -184,9 +190,7 @@ where
     Word64EqWitness { a_chunks, b_chunks, diff, inv, chunk_eq, m1, m2, m3, eq }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(
-    w: &Word64EqWitness,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(w: &Word64EqWitness) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -237,13 +241,7 @@ mod tests {
 
     #[test]
     fn eq_distinct_yields_zero() {
-        let cases: [(u64, u64); 5] = [
-            (0, 1),
-            (1, 2),
-            (0xCAFE, 0xBABE),
-            (u64::MAX, 0),
-            (1u64 << 48, 1u64 << 32),
-        ];
+        let cases: [(u64, u64); 5] = [(0, 1), (1, 2), (0xCAFE, 0xBABE), (u64::MAX, 0), (1u64 << 48, 1u64 << 32)];
         for (a, b) in cases {
             let w = compute_eq64::<BabyBear>(a, b);
             assert_eq!(w.eq, 0, "a != b should yield eq=0 for ({a:#x}, {b:#x})");

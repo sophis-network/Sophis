@@ -15,7 +15,10 @@ use sophis_consensus_core::{
     hashing::sighash_type::SIG_HASH_ALL,
     sign::sign_input_dilithium,
     subnets::SUBNETWORK_ID_NATIVE,
-    tx::{MutableTransaction, ScriptPublicKey, ScriptVec, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry},
+    tx::{
+        MutableTransaction, ScriptPublicKey, ScriptVec, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput,
+        UtxoEntry,
+    },
 };
 use sophis_core::sophisd_env::version;
 use sophis_grpc_client::GrpcClient;
@@ -480,10 +483,7 @@ fn build_signed_da_tx(
         });
     }
     if change > 0 {
-        outputs.push(TransactionOutput {
-            value: change,
-            script_public_key: pay_to_address_script(change_address),
-        });
+        outputs.push(TransactionOutput { value: change, script_public_key: pay_to_address_script(change_address) });
     }
 
     let inputs: Vec<TransactionInput> = utxos
@@ -509,7 +509,10 @@ async fn cmd_da_publish(wallet_path: &PathBuf, rpc_server: &str, payload_file: &
 
     let domain = match parse_domain(domain_str) {
         Ok(d) => d,
-        Err(e) => { eprintln!("Erro: {}", e); std::process::exit(2); }
+        Err(e) => {
+            eprintln!("Erro: {}", e);
+            std::process::exit(2);
+        }
     };
 
     let payload = std::fs::read(payload_file).unwrap_or_else(|e| {
@@ -544,7 +547,10 @@ async fn cmd_da_publish(wallet_path: &PathBuf, rpc_server: &str, payload_file: &
     let fee: u64 = 100_000 * (1 + scripts.len() as u64);
     let tx = match build_signed_da_tx(&utxos, &scripts, fee, &address, &vk, &sk) {
         Ok(t) => t,
-        Err(e) => { eprintln!("Erro construindo TX: {}", e); std::process::exit(1); }
+        Err(e) => {
+            eprintln!("Erro construindo TX: {}", e);
+            std::process::exit(1);
+        }
     };
 
     // Compute payload_id and bundle_id locally so the user can pipe to
@@ -586,8 +592,18 @@ fn parse_id_48(s: &str) -> Result<[u8; 48]> {
     let mut out = [0u8; 48];
     let bytes = s.as_bytes();
     for i in 0..48 {
-        let hi = match bytes[i * 2] { b'0'..=b'9' => bytes[i*2] - b'0', b'a'..=b'f' => bytes[i*2] - b'a' + 10, b'A'..=b'F' => bytes[i*2] - b'A' + 10, _ => return Err("ID contém caractere não-hex".into()) };
-        let lo = match bytes[i * 2 + 1] { b'0'..=b'9' => bytes[i*2+1] - b'0', b'a'..=b'f' => bytes[i*2+1] - b'a' + 10, b'A'..=b'F' => bytes[i*2+1] - b'A' + 10, _ => return Err("ID contém caractere não-hex".into()) };
+        let hi = match bytes[i * 2] {
+            b'0'..=b'9' => bytes[i * 2] - b'0',
+            b'a'..=b'f' => bytes[i * 2] - b'a' + 10,
+            b'A'..=b'F' => bytes[i * 2] - b'A' + 10,
+            _ => return Err("ID contém caractere não-hex".into()),
+        };
+        let lo = match bytes[i * 2 + 1] {
+            b'0'..=b'9' => bytes[i * 2 + 1] - b'0',
+            b'a'..=b'f' => bytes[i * 2 + 1] - b'a' + 10,
+            b'A'..=b'F' => bytes[i * 2 + 1] - b'A' + 10,
+            _ => return Err("ID contém caractere não-hex".into()),
+        };
         out[i] = (hi << 4) | lo;
     }
     Ok(out)
@@ -614,7 +630,10 @@ fn fmt_domain_byte(b: u8) -> &'static str {
 async fn cmd_da_inspect(rpc_server: &str, payload_id_hex: &str) {
     let payload_id = match parse_id_48(payload_id_hex) {
         Ok(b) => b,
-        Err(e) => { eprintln!("Erro: {}", e); std::process::exit(2); }
+        Err(e) => {
+            eprintln!("Erro: {}", e);
+            std::process::exit(2);
+        }
     };
     let rpc = connect(rpc_server).await;
     let entry = match tokio::time::timeout(RPC_TIMEOUT, rpc.get_da_payload(payload_id.to_vec())).await {
@@ -653,7 +672,10 @@ async fn cmd_da_inspect(rpc_server: &str, payload_id_hex: &str) {
 async fn cmd_da_bundle(rpc_server: &str, bundle_id_hex: &str) {
     let bundle_id = match parse_id_48(bundle_id_hex) {
         Ok(b) => b,
-        Err(e) => { eprintln!("Erro: {}", e); std::process::exit(2); }
+        Err(e) => {
+            eprintln!("Erro: {}", e);
+            std::process::exit(2);
+        }
     };
     let rpc = connect(rpc_server).await;
     let bundle = match tokio::time::timeout(RPC_TIMEOUT, rpc.get_da_bundle(bundle_id.to_vec())).await {
@@ -748,20 +770,34 @@ async fn main() {
                         .about("Publica um payload arbitrário no DA layer (V5 carrier outputs)")
                         .arg(wallet_arg())
                         .arg(rpc_arg())
-                        .arg(Arg::new("payload-file").long("payload-file").short('f').required(true).help("Arquivo com bytes do payload"))
+                        .arg(
+                            Arg::new("payload-file")
+                                .long("payload-file")
+                                .short('f')
+                                .required(true)
+                                .help("Arquivo com bytes do payload"),
+                        )
                         .arg(Arg::new("domain").long("domain").short('d').default_value("none").help("Rollup|Oracle|User|None")),
                 )
                 .subcommand(
                     Command::new("inspect")
                         .about("Exibe um payload DA pelo seu payload_id (hex 96 chars / 48 bytes)")
                         .arg(rpc_arg())
-                        .arg(Arg::new("payload-id").long("payload-id").short('p').required(true).help("payload_id em hex (com ou sem 0x)")),
+                        .arg(
+                            Arg::new("payload-id")
+                                .long("payload-id")
+                                .short('p')
+                                .required(true)
+                                .help("payload_id em hex (com ou sem 0x)"),
+                        ),
                 )
                 .subcommand(
                     Command::new("bundle")
                         .about("Exibe um bundle DA pelo seu bundle_id (hex 96 chars / 48 bytes)")
                         .arg(rpc_arg())
-                        .arg(Arg::new("bundle-id").long("bundle-id").short('b').required(true).help("bundle_id em hex (com ou sem 0x)")),
+                        .arg(
+                            Arg::new("bundle-id").long("bundle-id").short('b').required(true).help("bundle_id em hex (com ou sem 0x)"),
+                        ),
                 ),
         )
         .get_matches();

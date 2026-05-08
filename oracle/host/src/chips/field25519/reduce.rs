@@ -55,6 +55,12 @@ pub struct ReduceChip {
     pub start_col: usize,
 }
 
+impl Default for ReduceChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReduceChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }

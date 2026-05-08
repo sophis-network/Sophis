@@ -50,9 +50,9 @@ pub mod col {
     pub const A_CHUNKS: usize = 0;
     pub const B_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS; // 4
     pub const C_CHUNKS: usize = B_CHUNKS + NUM_CHUNKS; // 8
-    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 12
-    pub const B_BITS: usize = A_BITS + NUM_BITS;       // 76
-    pub const C_BITS: usize = B_BITS + NUM_BITS;       // 140
+    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 12
+    pub const B_BITS: usize = A_BITS + NUM_BITS; // 76
+    pub const C_BITS: usize = B_BITS + NUM_BITS; // 140
 }
 
 pub const NUM_COLS: usize = col::C_BITS + NUM_BITS; // 204
@@ -61,6 +61,12 @@ pub const NUM_CONSTRAINTS: usize = 3 * NUM_BITS + 3 * NUM_CHUNKS + NUM_BITS; // 
 #[derive(Debug, Clone, Copy)]
 pub struct Word64AndChip {
     pub start_col: usize,
+}
+
+impl Default for Word64AndChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64AndChip {
@@ -95,9 +101,9 @@ impl Word64AndChip {
                 let b_bit = row[self.start_col + col::B_BITS + bit_base + k];
                 let c_bit = row[self.start_col + col::C_BITS + bit_base + k];
                 let w = AB::Expr::from_u64(weight);
-                a_acc = a_acc + w.clone() * a_bit.into();
-                b_acc = b_acc + w.clone() * b_bit.into();
-                c_acc = c_acc + w * c_bit.into();
+                a_acc += w.clone() * a_bit.into();
+                b_acc += w.clone() * b_bit.into();
+                c_acc += w * c_bit.into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::A_CHUNKS + chunk_idx], a_acc);
@@ -187,8 +193,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64AndWitness
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -282,7 +288,7 @@ mod tests {
         // Flip c bit 0 — AND constraint must reject (0 != 1·1 - 1 == 0; flipping makes it 1·1 != 0).
         // Actually with a=b=0xFFFF, all 16 low bits of c should be 1. Flipping bit 0 to 0
         // breaks c_bit = a_bit · b_bit = 1.
-        trace.values[col::C_BITS] = trace.values[col::C_BITS] - BabyBear::ONE;
+        trace.values[col::C_BITS] -= BabyBear::ONE;
         check_constraints(&Word64AndTestAir, &trace, &[]);
     }
 
@@ -300,7 +306,7 @@ mod tests {
     fn and64_rejects_chunk_inconsistent_with_bits() {
         let w = compute_and64(0x1111, 0x2222);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::A_CHUNKS] = trace.values[col::A_CHUNKS] + BabyBear::ONE;
+        trace.values[col::A_CHUNKS] += BabyBear::ONE;
         check_constraints(&Word64AndTestAir, &trace, &[]);
     }
 

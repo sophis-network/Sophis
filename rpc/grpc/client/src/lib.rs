@@ -30,7 +30,7 @@ use sophis_notify::{
 };
 use sophis_rpc_core::{
     Notification,
-    api::{connection::DynRpcConnection, rpc::RpcApi},
+    api::rpc::RpcApi,
     error::RpcError,
     error::RpcResult,
     model::{da::*, message::*},

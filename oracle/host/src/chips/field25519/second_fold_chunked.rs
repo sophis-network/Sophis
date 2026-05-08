@@ -187,25 +187,18 @@ pub mod col {
     // ── Range bit decomp regions ────────────────────────────────────────
     pub const LIMB9_BITS_BASE: usize = STRUCTURAL_END; // 150
     pub const Q_CHUNKS_BITS_BASE: usize = LIMB9_BITS_BASE + NUM_LIMB9_PIECES * PIECE_BITS_9; // 171
-    pub const ACC_P9_BITS_BASE: usize =
-        Q_CHUNKS_BITS_BASE + NUM_QS * (3 * Q_CHUNK_BITS_LOW + Q_CHUNK_BITS_HIGH); // 252
+    pub const ACC_P9_BITS_BASE: usize = Q_CHUNKS_BITS_BASE + NUM_QS * (3 * Q_CHUNK_BITS_LOW + Q_CHUNK_BITS_HIGH); // 252
     pub const ACC4_LOW_BITS_BASE: usize = ACC_P9_BITS_BASE + ACC_P9_LEN * ACC_P9_WIDTH; // 294
     pub const ACC4_HIGH_BITS_BASE: usize = ACC4_LOW_BITS_BASE + ACC4_LOW_WIDTH; // 296
     pub const CC_P9_BITS_BASE: usize = ACC4_HIGH_BITS_BASE + ACC4_HIGH_WIDTH; // 301
     pub const HIGH_8_BITS_BASE: usize = CC_P9_BITS_BASE + NUM_CC_P9 * CC_P9_WIDTH; // 321
     pub const AI_CHUNKS_BITS_BASE: usize = HIGH_8_BITS_BASE + HIGH_8_BITS; // 336
-    pub const PL_CHUNKS_BITS_BASE: usize =
-        AI_CHUNKS_BITS_BASE + AI_CHUNKS_TOTAL * PIECE_BITS_OUT; // 576
-    pub const PH_CHUNKS_BITS_BASE: usize =
-        PL_CHUNKS_BITS_BASE + PL_CHUNKS_TOTAL * PIECE_BITS_OUT; // 606
-    pub const PE_CHUNKS_BITS_BASE: usize =
-        PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT + PH_CHUNK_HI_BITS; // 618
-    pub const L15_CHUNKS_BITS_BASE: usize =
-        PE_CHUNKS_BITS_BASE + PE_CHUNKS_TOTAL * PIECE_BITS_OUT; // 638
-    pub const OC_CHUNKS_BITS_BASE: usize =
-        L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT + L15_CHUNK_HI_BITS; // 653
-    pub const CC_CHAIN_BITS_BASE: usize =
-        OC_CHUNKS_BITS_BASE + OC_CHUNKS_TOTAL * PIECE_BITS_OUT; // 953
+    pub const PL_CHUNKS_BITS_BASE: usize = AI_CHUNKS_BITS_BASE + AI_CHUNKS_TOTAL * PIECE_BITS_OUT; // 576
+    pub const PH_CHUNKS_BITS_BASE: usize = PL_CHUNKS_BITS_BASE + PL_CHUNKS_TOTAL * PIECE_BITS_OUT; // 606
+    pub const PE_CHUNKS_BITS_BASE: usize = PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT + PH_CHUNK_HI_BITS; // 618
+    pub const L15_CHUNKS_BITS_BASE: usize = PE_CHUNKS_BITS_BASE + PE_CHUNKS_TOTAL * PIECE_BITS_OUT; // 638
+    pub const OC_CHUNKS_BITS_BASE: usize = L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT + L15_CHUNK_HI_BITS; // 653
+    pub const CC_CHAIN_BITS_BASE: usize = OC_CHUNKS_BITS_BASE + OC_CHUNKS_TOTAL * PIECE_BITS_OUT; // 953
 
     pub const TOTAL: usize = CC_CHAIN_BITS_BASE + CC_CHAIN_TOTAL * CC_CHAIN_BITS; // 1073
 }
@@ -216,6 +209,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct SecondFoldChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for SecondFoldChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SecondFoldChunkedChip {
@@ -247,17 +246,14 @@ impl SecondFoldChunkedChip {
         // -----------------------------------------------------------------
         // limb_9 pieces (7-bit each)
         for i in 0..NUM_LIMB9_PIECES {
-            RangeNChip::<PIECE_BITS_9>::split(
-                s + col::LIMB_9_PIECES + i,
-                s + col::LIMB9_BITS_BASE + i * PIECE_BITS_9,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS_9>::split(s + col::LIMB_9_PIECES + i, s + col::LIMB9_BITS_BASE + i * PIECE_BITS_9).emit(builder);
         }
         // q_chunks (per q: 3 × 7-bit + 1 × 6-bit)
         for q_idx in 0..NUM_QS {
             for chunk_idx in 0..Q_CHUNKS_PER_Q {
                 let value_col = s + col::Q_CHUNKS + q_idx * Q_CHUNKS_PER_Q + chunk_idx;
-                let bits_col = s + col::Q_CHUNKS_BITS_BASE
+                let bits_col = s
+                    + col::Q_CHUNKS_BITS_BASE
                     + q_idx * (3 * Q_CHUNK_BITS_LOW + Q_CHUNK_BITS_HIGH)
                     + if chunk_idx < 3 { chunk_idx * Q_CHUNK_BITS_LOW } else { 3 * Q_CHUNK_BITS_LOW };
                 if chunk_idx < 3 {
@@ -269,21 +265,13 @@ impl SecondFoldChunkedChip {
         }
         // acc_p9 (7-bit each)
         for i in 0..ACC_P9_LEN {
-            RangeNChip::<ACC_P9_WIDTH>::split(
-                s + col::ACC_P9 + i,
-                s + col::ACC_P9_BITS_BASE + i * ACC_P9_WIDTH,
-            )
-            .emit(builder);
+            RangeNChip::<ACC_P9_WIDTH>::split(s + col::ACC_P9 + i, s + col::ACC_P9_BITS_BASE + i * ACC_P9_WIDTH).emit(builder);
         }
         RangeNChip::<ACC4_LOW_WIDTH>::split(s + col::ACC4_LOW, s + col::ACC4_LOW_BITS_BASE).emit(builder);
         RangeNChip::<ACC4_HIGH_WIDTH>::split(s + col::ACC4_HIGH, s + col::ACC4_HIGH_BITS_BASE).emit(builder);
         // cc_p9 (4-bit)
         for i in 0..NUM_CC_P9 {
-            RangeNChip::<CC_P9_WIDTH>::split(
-                s + col::CC_P9 + i,
-                s + col::CC_P9_BITS_BASE + i * CC_P9_WIDTH,
-            )
-            .emit(builder);
+            RangeNChip::<CC_P9_WIDTH>::split(s + col::CC_P9 + i, s + col::CC_P9_BITS_BASE + i * CC_P9_WIDTH).emit(builder);
         }
         // high_8 (15-bit)
         RangeNChip::<HIGH_8_BITS>::split(s + col::HIGH_8, s + col::HIGH_8_BITS_BASE).emit(builder);
@@ -291,57 +279,33 @@ impl SecondFoldChunkedChip {
         // ── Output chunked chain range checks (Gap #2/#3/#4) ────────────
         // ai_chunks (10-bit each, 24 chunks for limbs 0..7)
         for i in 0..AI_CHUNKS_TOTAL {
-            RangeNChip::<PIECE_BITS_OUT>::split(
-                s + col::AI_CHUNKS + i,
-                s + col::AI_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS_OUT>::split(s + col::AI_CHUNKS + i, s + col::AI_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT)
+                .emit(builder);
         }
         // pl_chunks (3 × 10-bit)
         for i in 0..PL_CHUNKS_TOTAL {
-            RangeNChip::<PIECE_BITS_OUT>::split(
-                s + col::PL_CHUNKS + i,
-                s + col::PL_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS_OUT>::split(s + col::PL_CHUNKS + i, s + col::PL_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT)
+                .emit(builder);
         }
         // ph_chunks (10-bit + 2-bit)
         RangeNChip::<PIECE_BITS_OUT>::split(s + col::PH_CHUNKS, s + col::PH_CHUNKS_BITS_BASE).emit(builder);
-        RangeNChip::<PH_CHUNK_HI_BITS>::split(
-            s + col::PH_CHUNKS + 1,
-            s + col::PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT,
-        )
-        .emit(builder);
+        RangeNChip::<PH_CHUNK_HI_BITS>::split(s + col::PH_CHUNKS + 1, s + col::PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT).emit(builder);
         // pe_chunks (2 × 10-bit)
         for i in 0..PE_CHUNKS_TOTAL {
-            RangeNChip::<PIECE_BITS_OUT>::split(
-                s + col::PE_CHUNKS + i,
-                s + col::PE_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS_OUT>::split(s + col::PE_CHUNKS + i, s + col::PE_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT)
+                .emit(builder);
         }
         // l15_chunks (10-bit + 5-bit)
         RangeNChip::<PIECE_BITS_OUT>::split(s + col::L15_CHUNKS, s + col::L15_CHUNKS_BITS_BASE).emit(builder);
-        RangeNChip::<L15_CHUNK_HI_BITS>::split(
-            s + col::L15_CHUNKS + 1,
-            s + col::L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT,
-        )
-        .emit(builder);
+        RangeNChip::<L15_CHUNK_HI_BITS>::split(s + col::L15_CHUNKS + 1, s + col::L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT).emit(builder);
         // oc_chunks (30 × 10-bit) — closes Gap #3
         for i in 0..OC_CHUNKS_TOTAL {
-            RangeNChip::<PIECE_BITS_OUT>::split(
-                s + col::OC_CHUNKS + i,
-                s + col::OC_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS_OUT>::split(s + col::OC_CHUNKS + i, s + col::OC_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT)
+                .emit(builder);
         }
         // cc_chain (30 × 4-bit)
         for i in 0..CC_CHAIN_TOTAL {
-            RangeNChip::<CC_CHAIN_BITS>::split(
-                s + col::CC_CHAIN + i,
-                s + col::CC_CHAIN_BITS_BASE + i * CC_CHAIN_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<CC_CHAIN_BITS>::split(s + col::CC_CHAIN + i, s + col::CC_CHAIN_BITS_BASE + i * CC_CHAIN_BITS).emit(builder);
         }
 
         let main = builder.main();
@@ -382,10 +346,7 @@ impl SecondFoldChunkedChip {
             let c3 = row[s + col::Q_CHUNKS + q_idx * Q_CHUNKS_PER_Q + 3];
             builder.assert_eq(
                 q_col.into(),
-                c0.into()
-                    + two_to_7.clone() * c1.into()
-                    + two_to_14.clone() * c2.into()
-                    + two_to_21.clone() * c3.into(),
+                c0.into() + two_to_7.clone() * c1.into() + two_to_14.clone() * c2.into() + two_to_21.clone() * c3.into(),
             );
         }
 
@@ -419,22 +380,10 @@ impl SecondFoldChunkedChip {
         let cc4 = row[s + col::CC_P9 + 4];
 
         builder.assert_eq(acc0.into() + two_to_7.clone() * cc0.into(), q_lo_c0.into());
-        builder.assert_eq(
-            acc1.into() + two_to_7.clone() * cc1.into(),
-            q_lo_c1.into() + q_mid_c0.into() + cc0.into(),
-        );
-        builder.assert_eq(
-            acc2.into() + two_to_7.clone() * cc2.into(),
-            q_lo_c2.into() + q_mid_c1.into() + q_hi_c0.into() + cc1.into(),
-        );
-        builder.assert_eq(
-            acc3.into() + two_to_7.clone() * cc3.into(),
-            q_lo_c3.into() + q_mid_c2.into() + q_hi_c1.into() + cc2.into(),
-        );
-        builder.assert_eq(
-            acc4.into() + two_to_7.clone() * cc4.into(),
-            q_mid_c3.into() + q_hi_c2.into() + cc3.into(),
-        );
+        builder.assert_eq(acc1.into() + two_to_7.clone() * cc1.into(), q_lo_c1.into() + q_mid_c0.into() + cc0.into());
+        builder.assert_eq(acc2.into() + two_to_7.clone() * cc2.into(), q_lo_c2.into() + q_mid_c1.into() + q_hi_c0.into() + cc1.into());
+        builder.assert_eq(acc3.into() + two_to_7.clone() * cc3.into(), q_lo_c3.into() + q_mid_c2.into() + q_hi_c1.into() + cc2.into());
+        builder.assert_eq(acc4.into() + two_to_7.clone() * cc4.into(), q_mid_c3.into() + q_hi_c2.into() + cc3.into());
         builder.assert_eq(acc5.into(), q_hi_c3.into() + cc4.into());
 
         // -----------------------------------------------------------------
@@ -442,10 +391,7 @@ impl SecondFoldChunkedChip {
         // -----------------------------------------------------------------
         let acc4_low = row[s + col::ACC4_LOW];
         let acc4_high = row[s + col::ACC4_HIGH];
-        builder.assert_eq(
-            acc4.into(),
-            acc4_low.into() + two_to_2.clone() * acc4_high.into(),
-        );
+        builder.assert_eq(acc4.into(), acc4_low.into() + two_to_2.clone() * acc4_high.into());
 
         let prod_9_low = row[s + col::PROD_9_LOW];
         let prod_9_high = row[s + col::PROD_9_HIGH];
@@ -457,27 +403,18 @@ impl SecondFoldChunkedChip {
                 + two_to_21.clone() * acc3.into()
                 + two_to_28.clone() * acc4_low.into(),
         );
-        builder.assert_eq(
-            prod_9_high.into(),
-            acc4_high.into() + two_to_5.clone() * acc5.into(),
-        );
+        builder.assert_eq(prod_9_high.into(), acc4_high.into() + two_to_5.clone() * acc5.into());
 
         // -----------------------------------------------------------------
         // limb_8 decomp + prod_8 split.
         // -----------------------------------------------------------------
         let high_8 = row[s + col::HIGH_8];
         let low_15 = row[s + col::LOW_15];
-        builder.assert_eq(
-            high_8.into() * two_to_15.clone() + low_15.into(),
-            row[s + col::ACC_IN + 8].into(),
-        );
+        builder.assert_eq(high_8.into() * two_to_15.clone() + low_15.into(), row[s + col::ACC_IN + 8].into());
 
         let prod_8_low = row[s + col::PROD_8_LOW];
         let prod_8_high = row[s + col::PROD_8_HIGH];
-        builder.assert_eq(
-            prod_8_low.into() + two_to_30.clone() * prod_8_high.into(),
-            high_8.into() * nineteen,
-        );
+        builder.assert_eq(prod_8_low.into() + two_to_30.clone() * prod_8_high.into(), high_8.into() * nineteen);
         builder.assert_zero(prod_8_high);
 
         // -----------------------------------------------------------------
@@ -502,34 +439,22 @@ impl SecondFoldChunkedChip {
         let pl0 = row[s + col::PL_CHUNKS];
         let pl1 = row[s + col::PL_CHUNKS + 1];
         let pl2 = row[s + col::PL_CHUNKS + 2];
-        builder.assert_eq(
-            prod_9_low.into(),
-            pl0.into() + two_to_10.clone() * pl1.into() + two_to_20.clone() * pl2.into(),
-        );
+        builder.assert_eq(prod_9_low.into(), pl0.into() + two_to_10.clone() * pl1.into() + two_to_20.clone() * pl2.into());
 
         // ph_chunks: prod_9_high = ph[0] + 2^10·ph[1]  (12-bit total)
         let ph0 = row[s + col::PH_CHUNKS];
         let ph1 = row[s + col::PH_CHUNKS + 1];
-        builder.assert_eq(
-            prod_9_high.into(),
-            ph0.into() + two_to_10.clone() * ph1.into(),
-        );
+        builder.assert_eq(prod_9_high.into(), ph0.into() + two_to_10.clone() * ph1.into());
 
         // pe_chunks: prod_8_low = pe[0] + 2^10·pe[1]  (20-bit total)
         let pe0 = row[s + col::PE_CHUNKS];
         let pe1 = row[s + col::PE_CHUNKS + 1];
-        builder.assert_eq(
-            prod_8_low.into(),
-            pe0.into() + two_to_10.clone() * pe1.into(),
-        );
+        builder.assert_eq(prod_8_low.into(), pe0.into() + two_to_10.clone() * pe1.into());
 
         // l15_chunks: low_15 = l15[0] + 2^10·l15[1]  (15-bit total)
         let l15_0 = row[s + col::L15_CHUNKS];
         let l15_1 = row[s + col::L15_CHUNKS + 1];
-        builder.assert_eq(
-            low_15.into(),
-            l15_0.into() + two_to_10.clone() * l15_1.into(),
-        );
+        builder.assert_eq(low_15.into(), l15_0.into() + two_to_10.clone() * l15_1.into());
 
         // oc_chunks: acc_out[m] = oc[m][0] + 2^10·oc[m][1] + 2^20·oc[m][2]
         // (Gap #3 closure — range-checks acc_out via chunks.)
@@ -567,19 +492,16 @@ impl SecondFoldChunkedChip {
             let mut rhs_p0: AB::Expr = prev_inter.clone();
             match m {
                 0 => {
-                    rhs_p0 = rhs_p0
-                        + row[s + col::AI_CHUNKS + 0].into()
-                        + pl0.into()
-                        + pe0.into();
+                    rhs_p0 = rhs_p0 + row[s + col::AI_CHUNKS].into() + pl0.into() + pe0.into();
                 }
                 1 => {
                     rhs_p0 = rhs_p0 + row[s + col::AI_CHUNKS + 3].into() + ph0.into();
                 }
                 m if (2..=7).contains(&m) => {
-                    rhs_p0 = rhs_p0 + row[s + col::AI_CHUNKS + 3 * m].into();
+                    rhs_p0 += row[s + col::AI_CHUNKS + 3 * m].into();
                 }
                 8 => {
-                    rhs_p0 = rhs_p0 + l15_0.into();
+                    rhs_p0 += l15_0.into();
                 }
                 9 => { /* no contribution beyond prev_inter */ }
                 _ => unreachable!(),
@@ -590,19 +512,16 @@ impl SecondFoldChunkedChip {
             let mut rhs_p1: AB::Expr = cc_chain_0.into();
             match m {
                 0 => {
-                    rhs_p1 = rhs_p1
-                        + row[s + col::AI_CHUNKS + 1].into()
-                        + pl1.into()
-                        + pe1.into();
+                    rhs_p1 = rhs_p1 + row[s + col::AI_CHUNKS + 1].into() + pl1.into() + pe1.into();
                 }
                 1 => {
                     rhs_p1 = rhs_p1 + row[s + col::AI_CHUNKS + 4].into() + ph1.into();
                 }
                 m if (2..=7).contains(&m) => {
-                    rhs_p1 = rhs_p1 + row[s + col::AI_CHUNKS + 3 * m + 1].into();
+                    rhs_p1 += row[s + col::AI_CHUNKS + 3 * m + 1].into();
                 }
                 8 => {
-                    rhs_p1 = rhs_p1 + l15_1.into();
+                    rhs_p1 += l15_1.into();
                 }
                 9 => { /* no contribution */ }
                 _ => unreachable!(),
@@ -618,10 +537,10 @@ impl SecondFoldChunkedChip {
                 }
                 1 => {
                     // ph_chunks[2] doesn't exist (prod_9_high < 2^12 fits in pos 0+1).
-                    rhs_p2 = rhs_p2 + row[s + col::AI_CHUNKS + 5].into();
+                    rhs_p2 += row[s + col::AI_CHUNKS + 5].into();
                 }
                 m if (2..=7).contains(&m) => {
-                    rhs_p2 = rhs_p2 + row[s + col::AI_CHUNKS + 3 * m + 2].into();
+                    rhs_p2 += row[s + col::AI_CHUNKS + 3 * m + 2].into();
                 }
                 8 | 9 => { /* no contribution at pos 2 */ }
                 _ => unreachable!(),
@@ -718,11 +637,7 @@ pub fn compute_second_fold_chunked_witness(acc_in: &[u128; 10]) -> SecondFoldChu
     let acc4_low = acc_p9[4] & 0b11;
     let acc4_high = acc_p9[4] >> 2;
 
-    let prod_9_low = acc_p9[0]
-        + (acc_p9[1] << 7)
-        + (acc_p9[2] << 14)
-        + (acc_p9[3] << 21)
-        + (acc4_low << 28);
+    let prod_9_low = acc_p9[0] + (acc_p9[1] << 7) + (acc_p9[2] << 14) + (acc_p9[3] << 21) + (acc4_low << 28);
     let prod_9_high = acc4_high + (acc_p9[5] << 5);
 
     let prod_8 = high_8 * 19;
@@ -803,18 +718,12 @@ pub fn compute_second_fold_chunked_witness(acc_in: &[u128; 10]) -> SecondFoldChu
         let cc2 = rhs_p2 >> 10;
         cc_chain[3 * m + 2] = cc2;
 
-        acc_out[m] = oc_chunks[3 * m]
-            + (oc_chunks[3 * m + 1] << 10)
-            + (oc_chunks[3 * m + 2] << 20);
+        acc_out[m] = oc_chunks[3 * m] + (oc_chunks[3 * m + 1] << 10) + (oc_chunks[3 * m + 2] << 20);
 
         prev_inter = cc2;
     }
 
-    debug_assert_eq!(
-        cc_chain[3 * (NUM_LIMBS_OUT - 1) + 2],
-        0,
-        "second_fold_chunked: cc_chain[9][2] must be 0 (no carry past limb 9)"
-    );
+    debug_assert_eq!(cc_chain[3 * (NUM_LIMBS_OUT - 1) + 2], 0, "second_fold_chunked: cc_chain[9][2] must be 0 (no carry past limb 9)");
 
     SecondFoldChunkedWitness {
         acc_in: *acc_in,
@@ -929,114 +838,54 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
 
     // Bit decomp populations.
     for i in 0..NUM_LIMB9_PIECES {
-        RangeNChip::<PIECE_BITS_9>::populate_bits::<F>(
-            values,
-            base + col::LIMB9_BITS_BASE + i * PIECE_BITS_9,
-            w.limb_9_pieces[i],
-        );
+        RangeNChip::<PIECE_BITS_9>::populate_bits::<F>(values, base + col::LIMB9_BITS_BASE + i * PIECE_BITS_9, w.limb_9_pieces[i]);
     }
     for q_idx in 0..NUM_QS {
-        let group_off = base
-            + col::Q_CHUNKS_BITS_BASE
-            + q_idx * (3 * Q_CHUNK_BITS_LOW + Q_CHUNK_BITS_HIGH);
+        let group_off = base + col::Q_CHUNKS_BITS_BASE + q_idx * (3 * Q_CHUNK_BITS_LOW + Q_CHUNK_BITS_HIGH);
         for chunk_idx in 0..Q_CHUNKS_PER_Q {
             let value = w.q_chunks[q_idx * Q_CHUNKS_PER_Q + chunk_idx];
             if chunk_idx < 3 {
-                RangeNChip::<Q_CHUNK_BITS_LOW>::populate_bits::<F>(
-                    values,
-                    group_off + chunk_idx * Q_CHUNK_BITS_LOW,
-                    value,
-                );
+                RangeNChip::<Q_CHUNK_BITS_LOW>::populate_bits::<F>(values, group_off + chunk_idx * Q_CHUNK_BITS_LOW, value);
             } else {
-                RangeNChip::<Q_CHUNK_BITS_HIGH>::populate_bits::<F>(
-                    values,
-                    group_off + 3 * Q_CHUNK_BITS_LOW,
-                    value,
-                );
+                RangeNChip::<Q_CHUNK_BITS_HIGH>::populate_bits::<F>(values, group_off + 3 * Q_CHUNK_BITS_LOW, value);
             }
         }
     }
     for i in 0..ACC_P9_LEN {
-        RangeNChip::<ACC_P9_WIDTH>::populate_bits::<F>(
-            values,
-            base + col::ACC_P9_BITS_BASE + i * ACC_P9_WIDTH,
-            w.acc_p9[i],
-        );
+        RangeNChip::<ACC_P9_WIDTH>::populate_bits::<F>(values, base + col::ACC_P9_BITS_BASE + i * ACC_P9_WIDTH, w.acc_p9[i]);
     }
     RangeNChip::<ACC4_LOW_WIDTH>::populate_bits::<F>(values, base + col::ACC4_LOW_BITS_BASE, w.acc4_low);
     RangeNChip::<ACC4_HIGH_WIDTH>::populate_bits::<F>(values, base + col::ACC4_HIGH_BITS_BASE, w.acc4_high);
     for i in 0..NUM_CC_P9 {
-        RangeNChip::<CC_P9_WIDTH>::populate_bits::<F>(
-            values,
-            base + col::CC_P9_BITS_BASE + i * CC_P9_WIDTH,
-            w.cc_p9[i],
-        );
+        RangeNChip::<CC_P9_WIDTH>::populate_bits::<F>(values, base + col::CC_P9_BITS_BASE + i * CC_P9_WIDTH, w.cc_p9[i]);
     }
     RangeNChip::<HIGH_8_BITS>::populate_bits::<F>(values, base + col::HIGH_8_BITS_BASE, w.high_8);
 
     for i in 0..AI_CHUNKS_TOTAL {
-        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-            values,
-            base + col::AI_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            w.ai_chunks[i],
-        );
+        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::AI_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT, w.ai_chunks[i]);
     }
     for i in 0..PL_CHUNKS_TOTAL {
-        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-            values,
-            base + col::PL_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            w.pl_chunks[i],
-        );
+        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::PL_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT, w.pl_chunks[i]);
     }
-    RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-        values,
-        base + col::PH_CHUNKS_BITS_BASE,
-        w.ph_chunks[0],
-    );
-    RangeNChip::<PH_CHUNK_HI_BITS>::populate_bits::<F>(
-        values,
-        base + col::PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT,
-        w.ph_chunks[1],
-    );
+    RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::PH_CHUNKS_BITS_BASE, w.ph_chunks[0]);
+    RangeNChip::<PH_CHUNK_HI_BITS>::populate_bits::<F>(values, base + col::PH_CHUNKS_BITS_BASE + PIECE_BITS_OUT, w.ph_chunks[1]);
     for i in 0..PE_CHUNKS_TOTAL {
-        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-            values,
-            base + col::PE_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            w.pe_chunks[i],
-        );
+        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::PE_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT, w.pe_chunks[i]);
     }
-    RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-        values,
-        base + col::L15_CHUNKS_BITS_BASE,
-        w.l15_chunks[0],
-    );
-    RangeNChip::<L15_CHUNK_HI_BITS>::populate_bits::<F>(
-        values,
-        base + col::L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT,
-        w.l15_chunks[1],
-    );
+    RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::L15_CHUNKS_BITS_BASE, w.l15_chunks[0]);
+    RangeNChip::<L15_CHUNK_HI_BITS>::populate_bits::<F>(values, base + col::L15_CHUNKS_BITS_BASE + PIECE_BITS_OUT, w.l15_chunks[1]);
     for i in 0..OC_CHUNKS_TOTAL {
-        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(
-            values,
-            base + col::OC_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT,
-            w.oc_chunks[i],
-        );
+        RangeNChip::<PIECE_BITS_OUT>::populate_bits::<F>(values, base + col::OC_CHUNKS_BITS_BASE + i * PIECE_BITS_OUT, w.oc_chunks[i]);
     }
     for i in 0..CC_CHAIN_TOTAL {
-        RangeNChip::<CC_CHAIN_BITS>::populate_bits::<F>(
-            values,
-            base + col::CC_CHAIN_BITS_BASE + i * CC_CHAIN_BITS,
-            w.cc_chain[i],
-        );
+        RangeNChip::<CC_CHAIN_BITS>::populate_bits::<F>(values, base + col::CC_CHAIN_BITS_BASE + i * CC_CHAIN_BITS, w.cc_chain[i]);
     }
 
     w
 }
 
 /// Build a 4-row test trace exercising one chunked fold pass.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    acc_in: &[u128; 10],
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(acc_in: &[u128; 10]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -1126,7 +975,7 @@ mod tests {
             acc_in[i] = (1u128 << 30) - 1;
         }
         // limb 8: max canonical (high_8 max + low_15 max)
-        acc_in[8] = ((1u128 << 30) - 1).min(((1u128 << 15) - 1) | (((1u128 << 15) - 1) << 15));
+        acc_in[8] = ((1u128 << 15) - 1) | (((1u128 << 15) - 1) << 15);
         // limb 9: max within 2^21 (the documented bound).
         acc_in[9] = (1u128 << 21) - 1;
         let trace = build_test_trace::<BabyBear>(&acc_in);
@@ -1150,9 +999,7 @@ mod tests {
         assert_eq!(prod_9_full, prod_9_direct);
         // Validate output chunk recomp.
         for m in 0..NUM_LIMBS_OUT {
-            let recomp = w.oc_chunks[3 * m]
-                + (w.oc_chunks[3 * m + 1] << 10)
-                + (w.oc_chunks[3 * m + 2] << 20);
+            let recomp = w.oc_chunks[3 * m] + (w.oc_chunks[3 * m + 1] << 10) + (w.oc_chunks[3 * m + 2] << 20);
             assert_eq!(w.acc_out[m], recomp, "acc_out[{m}] != chunk recomp");
         }
         let trace = build_test_trace::<BabyBear>(&acc_in);
@@ -1184,7 +1031,7 @@ mod tests {
         let mut acc_in = [0u128; 10];
         acc_in[9] = 5;
         let mut trace = build_test_trace::<BabyBear>(&acc_in);
-        trace.values[col::ACC_OUT] = trace.values[col::ACC_OUT] + BabyBear::from_u64(1);
+        trace.values[col::ACC_OUT] += BabyBear::from_u64(1);
         check_constraints(&SecondFoldChunkedChip::new(), &trace, &[]);
     }
 
@@ -1242,7 +1089,7 @@ mod tests {
         acc_in[9] = (1u128 << 21) - 1;
         let mut trace = build_test_trace::<BabyBear>(&acc_in);
         let bit_off = col::ACC_P9_BITS_BASE;
-        trace.values[bit_off] = trace.values[bit_off] + BabyBear::ONE;
+        trace.values[bit_off] += BabyBear::ONE;
         check_constraints(&SecondFoldChunkedChip::new(), &trace, &[]);
     }
 

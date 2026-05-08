@@ -103,6 +103,12 @@ pub struct MulChip {
     pub start_col: usize,
 }
 
+impl Default for MulChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MulChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -148,7 +154,7 @@ impl MulChip {
                 let j = k - i;
                 let a_p = row[self.start_col + col::A_PIECES + i];
                 let b_p = row[self.start_col + col::B_PIECES + j];
-                sum = sum + a_p.into() * b_p.into();
+                sum += a_p.into() * b_p.into();
             }
             let out_pos = row[self.start_col + col::OUT_POS + k];
             builder.assert_eq(out_pos, sum);
@@ -158,16 +164,10 @@ impl MulChip {
         // Each piece column gets a split-layout RangeNChip<10> whose bit
         // columns live in the A_PIECE_BITS / B_PIECE_BITS region.
         for i in 0..PIECES_PER_INPUT {
-            RangeNChip::<PIECE_BITS>::split(
-                self.start_col + col::A_PIECES + i,
-                self.start_col + col::A_PIECE_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
-            RangeNChip::<PIECE_BITS>::split(
-                self.start_col + col::B_PIECES + i,
-                self.start_col + col::B_PIECE_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(self.start_col + col::A_PIECES + i, self.start_col + col::A_PIECE_BITS + i * PIECE_BITS)
+                .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(self.start_col + col::B_PIECES + i, self.start_col + col::B_PIECE_BITS + i * PIECE_BITS)
+                .emit(builder);
         }
     }
 }
@@ -416,7 +416,7 @@ mod tests {
         let w = compute_mul(&a, &b);
         let mut trace = build_test_trace::<BabyBear>(&a, &b, &w);
         // Flip one bit on output position 0 — multiplication constraint must reject.
-        trace.values[col::OUT_POS] = trace.values[col::OUT_POS] + BabyBear::ONE;
+        trace.values[col::OUT_POS] += BabyBear::ONE;
         check_constraints(&MulTestAir, &trace, &[]);
     }
 
@@ -428,7 +428,7 @@ mod tests {
         let w = compute_mul(&a, &b);
         let mut trace = build_test_trace::<BabyBear>(&a, &b, &w);
         // Mutate a_pieces[0] without updating a_limbs[0] or output positions.
-        trace.values[col::A_PIECES] = trace.values[col::A_PIECES] + BabyBear::ONE;
+        trace.values[col::A_PIECES] += BabyBear::ONE;
         check_constraints(&MulTestAir, &trace, &[]);
     }
 
@@ -489,7 +489,7 @@ mod tests {
         let mut trace = build_test_trace::<BabyBear>(&a, &b, &w);
         // Flip bit 0 of a_pieces[0]. Either bit_0 != 0/1 or recomposition fails.
         let bit0_off = col::A_PIECE_BITS;
-        trace.values[bit0_off] = trace.values[bit0_off] + BabyBear::ONE;
+        trace.values[bit0_off] += BabyBear::ONE;
         check_constraints(&MulTestAir, &trace, &[]);
     }
 

@@ -90,13 +90,13 @@ pub const BITS_PER_MUL_CARRY: usize = 14;
 pub mod col {
     use super::*;
     pub const DIGEST: usize = 0;
-    pub const SCALAR: usize = DIGEST + DIGEST_BYTES;          // 64
-    pub const QUOTIENT: usize = SCALAR + SCALAR_BYTES;        // 96
-    pub const PRODUCT: usize = QUOTIENT + QUOTIENT_BYTES;     // 129
+    pub const SCALAR: usize = DIGEST + DIGEST_BYTES; // 64
+    pub const QUOTIENT: usize = SCALAR + SCALAR_BYTES; // 96
+    pub const PRODUCT: usize = QUOTIENT + QUOTIENT_BYTES; // 129
     pub const PRODUCT_CARRY: usize = PRODUCT + PRODUCT_BYTES; // 194
     pub const COMBINED_CARRY: usize = PRODUCT_CARRY + PRODUCT_BYTES; // 259
     /// Sub-fase 5.6.d.1.c — bit decomposition of `quotient` (33 × 8 bits).
-    pub const QUOTIENT_BITS: usize = COMBINED_CARRY + PRODUCT_BYTES;             // 324
+    pub const QUOTIENT_BITS: usize = COMBINED_CARRY + PRODUCT_BYTES; // 324
     /// Bit decomposition of `product` (65 × 8 bits).
     pub const PRODUCT_BITS: usize = QUOTIENT_BITS + QUOTIENT_BYTES * BITS_PER_BYTE; // 588
     /// Bit decomposition of `product_carry` (65 × 14 bits).
@@ -104,20 +104,20 @@ pub mod col {
     /// Sub-fase 5.6.d.1.d — bit decomposition of `scalar` (32 × 8 bits).
     pub const SCALAR_BITS: usize = PRODUCT_CARRY_BITS + PRODUCT_BYTES * BITS_PER_MUL_CARRY; // 2018
     /// `scalar - ℓ` byte-level subtraction result (32 byte cells).
-    pub const SUB_DIFF: usize = SCALAR_BITS + SCALAR_BYTES * BITS_PER_BYTE;      // 2274
+    pub const SUB_DIFF: usize = SCALAR_BITS + SCALAR_BYTES * BITS_PER_BYTE; // 2274
     /// Bit decomposition of `sub_diff` (32 × 8 bits) — required to range
     /// the subtraction result into `[0, 256)` per byte.
-    pub const SUB_DIFF_BITS: usize = SUB_DIFF + SCALAR_BYTES;                    // 2306
+    pub const SUB_DIFF_BITS: usize = SUB_DIFF + SCALAR_BYTES; // 2306
     /// Per-byte borrow-out cells for the `scalar - ℓ` subtraction.
     /// Each cell is constrained to `{0, 1}` via `assert_bool`. The final
     /// borrow (`borrow[31]`) must be `1` for `scalar < ℓ` to hold.
-    pub const SUB_BORROW: usize = SUB_DIFF_BITS + SCALAR_BYTES * BITS_PER_BYTE;  // 2562
+    pub const SUB_BORROW: usize = SUB_DIFF_BITS + SCALAR_BYTES * BITS_PER_BYTE; // 2562
     /// Sub-fase 5.6.d.1.e — bit decomposition of `digest` (64 × 8 bits).
     /// Required to enforce `digest[k] ∈ [0, 256)` since the verifier-
     /// supplied PV could otherwise contain BabyBear values exceeding the
     /// byte range, which would let the addition chain absorb fake bytes.
-    pub const DIGEST_BITS: usize = SUB_BORROW + SCALAR_BYTES;                    // 2594
-    pub const TOTAL: usize = DIGEST_BITS + DIGEST_BYTES * BITS_PER_BYTE;         // 3106
+    pub const DIGEST_BITS: usize = SUB_BORROW + SCALAR_BYTES; // 2594
+    pub const TOTAL: usize = DIGEST_BITS + DIGEST_BYTES * BITS_PER_BYTE; // 3106
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -140,10 +140,18 @@ pub const NUM_PUBLIC_VALUES: usize = DIGEST_BYTES + SCALAR_BYTES;
 pub struct ReduceModLAirChip;
 
 impl<F: Field> BaseAir<F> for ReduceModLAirChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn num_public_values(&self) -> usize { NUM_PUBLIC_VALUES }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn num_public_values(&self) -> usize {
+        NUM_PUBLIC_VALUES
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for ReduceModLAirChip
@@ -166,19 +174,18 @@ where
         // therefore degree 1. The whole equation is degree 1.
         // ------------------------------------------------------------
         for k in 0..PRODUCT_BYTES {
-            let lhs = row[col::PRODUCT + k].clone()
-                + AB::Expr::from_u64(256) * row[col::PRODUCT_CARRY + k].clone();
-            let mut rhs: AB::Expr = if k == 0 {
-                AB::Expr::ZERO
-            } else {
-                row[col::PRODUCT_CARRY + (k - 1)].clone().into()
-            };
+            let lhs = row[col::PRODUCT + k] + AB::Expr::from_u64(256) * row[col::PRODUCT_CARRY + k];
+            let mut rhs: AB::Expr = if k == 0 { AB::Expr::ZERO } else { row[col::PRODUCT_CARRY + (k - 1)].into() };
             for i in 0..QUOTIENT_BYTES {
-                if i > k { break; }
+                if i > k {
+                    break;
+                }
                 let j = k - i;
-                if j >= L_BYTES.len() { continue; }
+                if j >= L_BYTES.len() {
+                    continue;
+                }
                 let l_const = AB::Expr::from_u64(L_BYTES[j] as u64);
-                rhs = rhs + row[col::QUOTIENT + i].clone() * l_const;
+                rhs += row[col::QUOTIENT + i] * l_const;
             }
             builder.assert_eq(lhs, rhs);
         }
@@ -196,23 +203,11 @@ where
         //   carry_in       = combined_carry[k-1] (k > 0) or 0
         // ------------------------------------------------------------
         for k in 0..PRODUCT_BYTES {
-            let h_byte: AB::Expr = if k < DIGEST_BYTES {
-                row[col::DIGEST + k].clone().into()
-            } else {
-                AB::Expr::ZERO
-            };
-            let s_byte: AB::Expr = if k < SCALAR_BYTES {
-                row[col::SCALAR + k].clone().into()
-            } else {
-                AB::Expr::ZERO
-            };
-            let p_byte: AB::Expr = row[col::PRODUCT + k].clone().into();
-            let c_in: AB::Expr = if k == 0 {
-                AB::Expr::ZERO
-            } else {
-                row[col::COMBINED_CARRY + (k - 1)].clone().into()
-            };
-            let c_out: AB::Expr = row[col::COMBINED_CARRY + k].clone().into();
+            let h_byte: AB::Expr = if k < DIGEST_BYTES { row[col::DIGEST + k].into() } else { AB::Expr::ZERO };
+            let s_byte: AB::Expr = if k < SCALAR_BYTES { row[col::SCALAR + k].into() } else { AB::Expr::ZERO };
+            let p_byte: AB::Expr = row[col::PRODUCT + k].into();
+            let c_in: AB::Expr = if k == 0 { AB::Expr::ZERO } else { row[col::COMBINED_CARRY + (k - 1)].into() };
+            let c_out: AB::Expr = row[col::COMBINED_CARRY + k].into();
 
             let lhs = h_byte + AB::Expr::from_u64(256) * c_out;
             let rhs = p_byte + s_byte + c_in;
@@ -227,14 +222,8 @@ where
         // 64-byte digest). Same for combined_carry — addition cannot
         // produce a 66-th byte because digest is exactly 64 bytes.
         // ------------------------------------------------------------
-        builder.assert_eq(
-            row[col::PRODUCT_CARRY + PRODUCT_BYTES - 1].clone(),
-            AB::Expr::ZERO,
-        );
-        builder.assert_eq(
-            row[col::COMBINED_CARRY + PRODUCT_BYTES - 1].clone(),
-            AB::Expr::ZERO,
-        );
+        builder.assert_eq(row[col::PRODUCT_CARRY + PRODUCT_BYTES - 1], AB::Expr::ZERO);
+        builder.assert_eq(row[col::COMBINED_CARRY + PRODUCT_BYTES - 1], AB::Expr::ZERO);
 
         // ------------------------------------------------------------
         // 4) Range checks via bit decomposition (sub-fase 5.6.d.1.c).
@@ -253,19 +242,19 @@ where
 
         // Per-bit booleanness for quotient bits.
         for i in 0..QUOTIENT_BYTES * BITS_PER_BYTE {
-            builder.assert_bool(row[col::QUOTIENT_BITS + i].clone());
+            builder.assert_bool(row[col::QUOTIENT_BITS + i]);
         }
         // Per-bit booleanness for product bits.
         for i in 0..PRODUCT_BYTES * BITS_PER_BYTE {
-            builder.assert_bool(row[col::PRODUCT_BITS + i].clone());
+            builder.assert_bool(row[col::PRODUCT_BITS + i]);
         }
         // Per-bit booleanness for product-carry bits.
         for i in 0..PRODUCT_BYTES * BITS_PER_MUL_CARRY {
-            builder.assert_bool(row[col::PRODUCT_CARRY_BITS + i].clone());
+            builder.assert_bool(row[col::PRODUCT_CARRY_BITS + i]);
         }
         // Combined-carry cells are themselves bool-valued (max value 1).
         for k in 0..PRODUCT_BYTES {
-            builder.assert_bool(row[col::COMBINED_CARRY + k].clone());
+            builder.assert_bool(row[col::COMBINED_CARRY + k]);
         }
 
         // Recomposition: cell = Σ bit_i · 2^i for each constrained cell.
@@ -273,10 +262,10 @@ where
             let mut acc = AB::Expr::ZERO;
             let mut weight: u64 = 1;
             for i in 0..n_bits {
-                acc = acc + row[bit_off + i].clone() * AB::Expr::from_u64(weight);
+                acc += row[bit_off + i] * AB::Expr::from_u64(weight);
                 weight <<= 1;
             }
-            b.assert_eq(row[cell_off].clone(), acc);
+            b.assert_eq(row[cell_off], acc);
         };
 
         for i in 0..QUOTIENT_BYTES {
@@ -286,12 +275,7 @@ where
             recompose(builder, col::PRODUCT + i, col::PRODUCT_BITS + i * BITS_PER_BYTE, BITS_PER_BYTE);
         }
         for i in 0..PRODUCT_BYTES {
-            recompose(
-                builder,
-                col::PRODUCT_CARRY + i,
-                col::PRODUCT_CARRY_BITS + i * BITS_PER_MUL_CARRY,
-                BITS_PER_MUL_CARRY,
-            );
+            recompose(builder, col::PRODUCT_CARRY + i, col::PRODUCT_CARRY_BITS + i * BITS_PER_MUL_CARRY, BITS_PER_MUL_CARRY);
         }
 
         // ------------------------------------------------------------
@@ -310,7 +294,7 @@ where
 
         // Bit range checks for scalar bytes.
         for i in 0..SCALAR_BYTES * BITS_PER_BYTE {
-            builder.assert_bool(row[col::SCALAR_BITS + i].clone());
+            builder.assert_bool(row[col::SCALAR_BITS + i]);
         }
         for i in 0..SCALAR_BYTES {
             recompose(builder, col::SCALAR + i, col::SCALAR_BITS + i * BITS_PER_BYTE, BITS_PER_BYTE);
@@ -318,7 +302,7 @@ where
 
         // Bit range checks for sub_diff bytes.
         for i in 0..SCALAR_BYTES * BITS_PER_BYTE {
-            builder.assert_bool(row[col::SUB_DIFF_BITS + i].clone());
+            builder.assert_bool(row[col::SUB_DIFF_BITS + i]);
         }
         for i in 0..SCALAR_BYTES {
             recompose(builder, col::SUB_DIFF + i, col::SUB_DIFF_BITS + i * BITS_PER_BYTE, BITS_PER_BYTE);
@@ -326,31 +310,24 @@ where
 
         // Bool checks on each borrow cell.
         for i in 0..SCALAR_BYTES {
-            builder.assert_bool(row[col::SUB_BORROW + i].clone());
+            builder.assert_bool(row[col::SUB_BORROW + i]);
         }
 
         // Per-byte subtraction constraint:
         //   scalar[k] + 256·borrow_out[k] = ℓ[k] + diff[k] + borrow_in[k]
         for k in 0..SCALAR_BYTES {
-            let scalar_byte: AB::Expr = row[col::SCALAR + k].clone().into();
-            let borrow_out: AB::Expr = row[col::SUB_BORROW + k].clone().into();
+            let scalar_byte: AB::Expr = row[col::SCALAR + k].into();
+            let borrow_out: AB::Expr = row[col::SUB_BORROW + k].into();
             let l_const = AB::Expr::from_u64(L_BYTES[k] as u64);
-            let diff_byte: AB::Expr = row[col::SUB_DIFF + k].clone().into();
-            let borrow_in: AB::Expr = if k == 0 {
-                AB::Expr::ZERO
-            } else {
-                row[col::SUB_BORROW + (k - 1)].clone().into()
-            };
+            let diff_byte: AB::Expr = row[col::SUB_DIFF + k].into();
+            let borrow_in: AB::Expr = if k == 0 { AB::Expr::ZERO } else { row[col::SUB_BORROW + (k - 1)].into() };
             let lhs = scalar_byte + AB::Expr::from_u64(256) * borrow_out;
             let rhs = l_const + diff_byte + borrow_in;
             builder.assert_eq(lhs, rhs);
         }
 
         // Final: subtraction underflowed at the top byte.
-        builder.assert_eq(
-            row[col::SUB_BORROW + SCALAR_BYTES - 1].clone(),
-            AB::Expr::ONE,
-        );
+        builder.assert_eq(row[col::SUB_BORROW + SCALAR_BYTES - 1], AB::Expr::ONE);
 
         // ------------------------------------------------------------
         // 6) Digest bit range checks + public-values binding
@@ -369,7 +346,7 @@ where
 
         // Bit booleanness for digest bits.
         for i in 0..DIGEST_BYTES * BITS_PER_BYTE {
-            builder.assert_bool(row[col::DIGEST_BITS + i].clone());
+            builder.assert_bool(row[col::DIGEST_BITS + i]);
         }
         // Recompose digest bytes from their bit cells.
         for i in 0..DIGEST_BYTES {
@@ -384,20 +361,18 @@ where
         // PV[0..64] = digest cells.
         for i in 0..DIGEST_BYTES {
             let pv: AB::Expr = pub_copies[i].into();
-            builder.assert_eq(row[col::DIGEST + i].clone(), pv);
+            builder.assert_eq(row[col::DIGEST + i], pv);
         }
         // PV[64..96] = scalar cells.
         for i in 0..SCALAR_BYTES {
             let pv: AB::Expr = pub_copies[DIGEST_BYTES + i].into();
-            builder.assert_eq(row[col::SCALAR + i].clone(), pv);
+            builder.assert_eq(row[col::SCALAR + i], pv);
         }
     }
 }
 
 /// Build a single-row trace (padded to HEIGHT=4) from a `digest`.
-pub fn build_reduce_mod_l_trace<F: Field + PrimeCharacteristicRing>(
-    digest: &[u8; 64],
-) -> RowMajorMatrix<F> {
+pub fn build_reduce_mod_l_trace<F: Field + PrimeCharacteristicRing>(digest: &[u8; 64]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -418,11 +393,7 @@ pub fn build_reduce_mod_l_trace<F: Field + PrimeCharacteristicRing>(
     RowMajorMatrix::new(values, NUM_COLS)
 }
 
-fn populate_row<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    row: usize,
-    w: &super::reduce_mod_l::ReduceModLWitness,
-) {
+fn populate_row<F: Field + PrimeCharacteristicRing>(values: &mut [F], row: usize, w: &super::reduce_mod_l::ReduceModLWitness) {
     let off = row * NUM_COLS;
     // digest
     for i in 0..DIGEST_BYTES {
@@ -454,24 +425,21 @@ fn populate_row<F: Field + PrimeCharacteristicRing>(
     for i in 0..QUOTIENT_BYTES {
         let byte_val = w.quotient[i];
         for b in 0..BITS_PER_BYTE {
-            values[off + col::QUOTIENT_BITS + i * BITS_PER_BYTE + b] =
-                F::from_u64(((byte_val >> b) & 1) as u64);
+            values[off + col::QUOTIENT_BITS + i * BITS_PER_BYTE + b] = F::from_u64(((byte_val >> b) & 1) as u64);
         }
     }
     // Product bits.
     for i in 0..PRODUCT_BYTES {
         let byte_val = w.product[i];
         for b in 0..BITS_PER_BYTE {
-            values[off + col::PRODUCT_BITS + i * BITS_PER_BYTE + b] =
-                F::from_u64(((byte_val >> b) & 1) as u64);
+            values[off + col::PRODUCT_BITS + i * BITS_PER_BYTE + b] = F::from_u64(((byte_val >> b) & 1) as u64);
         }
     }
     // Multiplication-carry bits (14-bit).
     for i in 0..PRODUCT_BYTES {
         let carry_val = w.product_carries[i] as u64;
         for b in 0..BITS_PER_MUL_CARRY {
-            values[off + col::PRODUCT_CARRY_BITS + i * BITS_PER_MUL_CARRY + b] =
-                F::from_u64((carry_val >> b) & 1);
+            values[off + col::PRODUCT_CARRY_BITS + i * BITS_PER_MUL_CARRY + b] = F::from_u64((carry_val >> b) & 1);
         }
     }
 
@@ -480,16 +448,14 @@ fn populate_row<F: Field + PrimeCharacteristicRing>(
     for i in 0..SCALAR_BYTES {
         let s = w.scalar[i];
         for b in 0..BITS_PER_BYTE {
-            values[off + col::SCALAR_BITS + i * BITS_PER_BYTE + b] =
-                F::from_u64(((s >> b) & 1) as u64);
+            values[off + col::SCALAR_BITS + i * BITS_PER_BYTE + b] = F::from_u64(((s >> b) & 1) as u64);
         }
     }
     let (sub_diff, sub_borrow) = compute_sub_l_witness(&w.scalar);
     for i in 0..SCALAR_BYTES {
         values[off + col::SUB_DIFF + i] = F::from_u64(sub_diff[i] as u64);
         for b in 0..BITS_PER_BYTE {
-            values[off + col::SUB_DIFF_BITS + i * BITS_PER_BYTE + b] =
-                F::from_u64(((sub_diff[i] >> b) & 1) as u64);
+            values[off + col::SUB_DIFF_BITS + i * BITS_PER_BYTE + b] = F::from_u64(((sub_diff[i] >> b) & 1) as u64);
         }
         values[off + col::SUB_BORROW + i] = F::from_u64(sub_borrow[i] as u64);
     }
@@ -498,8 +464,7 @@ fn populate_row<F: Field + PrimeCharacteristicRing>(
     for i in 0..DIGEST_BYTES {
         let d = w.digest[i];
         for b in 0..BITS_PER_BYTE {
-            values[off + col::DIGEST_BITS + i * BITS_PER_BYTE + b] =
-                F::from_u64(((d >> b) & 1) as u64);
+            values[off + col::DIGEST_BITS + i * BITS_PER_BYTE + b] = F::from_u64(((d >> b) & 1) as u64);
         }
     }
 }
@@ -509,13 +474,14 @@ fn populate_row<F: Field + PrimeCharacteristicRing>(
 /// Layout (96 BabyBear elements):
 ///   - PV[0..64]:  digest bytes (one cell per byte)
 ///   - PV[64..96]: scalar bytes (one cell per byte)
-pub fn build_public_values<F: Field + PrimeCharacteristicRing>(
-    digest: &[u8; 64],
-    scalar: &[u8; 32],
-) -> Vec<F> {
+pub fn build_public_values<F: Field + PrimeCharacteristicRing>(digest: &[u8; 64], scalar: &[u8; 32]) -> Vec<F> {
     let mut out = Vec::with_capacity(NUM_PUBLIC_VALUES);
-    for &b in digest { out.push(F::from_u64(b as u64)); }
-    for &b in scalar { out.push(F::from_u64(b as u64)); }
+    for &b in digest {
+        out.push(F::from_u64(b as u64));
+    }
+    for &b in scalar {
+        out.push(F::from_u64(b as u64));
+    }
     debug_assert_eq!(out.len(), NUM_PUBLIC_VALUES);
     out
 }

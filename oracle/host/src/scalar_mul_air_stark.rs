@@ -47,8 +47,8 @@ use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::point::ExtendedPoint;
 use crate::chips::ed25519::scalar_mul_air::{
-    NUM_BOUNDARY_LIMBS, NUM_COLS, NUM_PUBLIC_VALUES, ScalarMulAirChip, build_public_values,
-    build_scalar_mul_trace, derive_scalar_mul_air_output,
+    NUM_BOUNDARY_LIMBS, NUM_COLS, NUM_PUBLIC_VALUES, ScalarMulAirChip, build_public_values, build_scalar_mul_trace,
+    derive_scalar_mul_air_output,
 };
 use crate::config::{Val, oracle_stark_config};
 
@@ -102,11 +102,8 @@ pub fn prove_scalar_mul_air(
 ) -> Result<ScalarMulAirProof, ScalarMulAirProverError> {
     let trace: RowMajorMatrix<Val> = build_scalar_mul_trace::<Val>(scalar_le_bytes, base_point);
 
-    if trace.values.len() % NUM_COLS != 0 {
-        return Err(ScalarMulAirProverError::BadTraceShape {
-            got: trace.values.len(),
-            want: NUM_COLS,
-        });
+    if !trace.values.len().is_multiple_of(NUM_COLS) {
+        return Err(ScalarMulAirProverError::BadTraceShape { got: trace.values.len(), want: NUM_COLS });
     }
 
     let output = derive_scalar_mul_air_output(scalar_le_bytes, base_point);
@@ -134,10 +131,7 @@ pub fn verify_scalar_mul_air_proof(
 
     let public_values = build_public_values::<Val>(scalar_le_bytes, base_point, expected_output);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(ScalarMulAirVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(ScalarMulAirVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
     let (_perm, config) = oracle_stark_config();
@@ -146,11 +140,7 @@ pub fn verify_scalar_mul_air_proof(
 }
 
 /// Encode `(scalar, base, output)` as wire-format bytes (320 bytes).
-pub fn encode_public_values_bytes(
-    scalar_le_bytes: &[u8; 32],
-    base_point: &ExtendedPoint,
-    output: &ExtendedPoint,
-) -> Vec<u8> {
+pub fn encode_public_values_bytes(scalar_le_bytes: &[u8; 32], base_point: &ExtendedPoint, output: &ExtendedPoint) -> Vec<u8> {
     let mut out = Vec::with_capacity(PUBLIC_VALUES_WIRE_BYTES);
     out.extend_from_slice(scalar_le_bytes);
     push_point_bytes(&mut out, base_point);
@@ -160,10 +150,18 @@ pub fn encode_public_values_bytes(
 }
 
 fn push_point_bytes(out: &mut Vec<u8>, p: &ExtendedPoint) {
-    for &l in &p.x.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.y.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.z.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.t.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
+    for &l in &p.x.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.y.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.z.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.t.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
 }
 
 /// Decode wire-format bytes back into `(scalar, base, output)`.
@@ -182,10 +180,18 @@ pub fn decode_public_values_bytes(bytes: &[u8]) -> Option<([u8; 32], ExtendedPoi
         let mut y = [0u64; NUM_LIMBS];
         let mut z = [0u64; NUM_LIMBS];
         let mut t = [0u64; NUM_LIMBS];
-        for limb in &mut x { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut y { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut z { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut t { *limb = read_u32_le(bytes, &mut cur) as u64; }
+        for limb in &mut x {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut y {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut z {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut t {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
         ExtendedPoint {
             x: Field25519Element { limbs: x },
             y: Field25519Element { limbs: y },

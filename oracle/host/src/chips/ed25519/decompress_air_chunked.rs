@@ -16,10 +16,10 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::field25519::{
+    Field25519Element, NUM_LIMBS,
     add_canonical_chunked::{self, AddCanonicalChunkedChip, NUM_COLS as ADC_COLS},
     mul_canonical_full_chunked::{self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS},
-    sub_canonical_chunked::{self, SubCanonicalChunkedChip, NUM_COLS as SC_COLS},
-    Field25519Element, NUM_LIMBS,
+    sub_canonical_chunked::{self, NUM_COLS as SC_COLS, SubCanonicalChunkedChip},
 };
 
 const NUM_MULS: usize = 11;
@@ -227,11 +227,7 @@ where
     }
 }
 
-pub fn populate_row<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    row_off: usize,
-    compressed: &[u8; 32],
-) {
+pub fn populate_row<F: Field + PrimeCharacteristicRing>(values: &mut [F], row_off: usize, compressed: &[u8; 32]) {
     use crate::chips::ed25519::decompress::decompress;
     use crate::chips::field25519::arith::{field_add, field_mul, field_sub};
 
@@ -252,7 +248,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     let uv3 = field_mul(&u, &v3);
     let uv7 = field_mul(&u, &v7);
 
-    use crate::chips::ed25519::decompress::{field_pow, P_MINUS_5_OVER_8};
+    use crate::chips::ed25519::decompress::{P_MINUS_5_OVER_8, field_pow};
     let pow_result = field_pow(&uv7, &P_MINUS_5_OVER_8);
 
     let cand_x = field_mul(&uv3, &pow_result);
@@ -300,22 +296,20 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
 
     add_canonical_chunked::populate_row::<F>(values, row_off, col::ADD_START, &d_y2, &one);
     sub_canonical_chunked::populate_row::<F>(values, row_off, col::SUB_START, &y2, &one);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_Y2),   &y, &y);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_Y2), &y, &y);
     mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_D_Y2), &d, &y2);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V2),   &v, &v);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V3),   &v2, &v);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V4),   &v2, &v2);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V7),   &v4, &v3);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV3),  &u, &v3);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV7),  &u, &v7);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V2), &v, &v);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V3), &v2, &v);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V4), &v2, &v2);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V7), &v4, &v3);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV3), &u, &v3);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV7), &u, &v7);
     mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_CAND), &uv3, &pow_result);
     mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_X_SQ), &cand_x, &cand_x);
     mul_canonical_full_chunked::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V_X2), &v, &x_sq);
 }
 
-pub fn build_decompress_trace_chunked<F: Field + PrimeCharacteristicRing>(
-    compressed: &[u8; 32],
-) -> RowMajorMatrix<F> {
+pub fn build_decompress_trace_chunked<F: Field + PrimeCharacteristicRing>(compressed: &[u8; 32]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -332,9 +326,7 @@ mod tests {
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
-    fn pv_for<F: p3_field::Field + p3_field::PrimeCharacteristicRing>(
-        compressed: &[u8; 32],
-    ) -> Vec<F> {
+    fn pv_for<F: p3_field::Field + p3_field::PrimeCharacteristicRing>(compressed: &[u8; 32]) -> Vec<F> {
         use crate::chips::ed25519::decompress::decompress;
         let (point, valid) = match decompress(compressed) {
             Some(p) => (p, 1u64),

@@ -24,24 +24,12 @@
 use async_trait::async_trait;
 use sophis_oracle_core::{FeedId, OracleJournal, PriceUpdate, PublisherKey, PythnetSubmission};
 use sophis_oracle_feeds::{FeedError, PriceFeed};
-use sophis_oracle_host::{prove, ProveInputs, ProverError};
-use sophis_oracle_host::verify_air_stark::{encode_public_values_bytes, prove_verify_air, VerifyAirProverError};
-use sophis_oracle_host::decompress_air_stark::{
-    encode_public_values_bytes as decompress_encode_pv,
-    prove_decompress_air,
-};
-use sophis_oracle_host::sha512_air_stark::{
-    encode_public_values_bytes as sha512_encode_pv,
-    prove_sha512_air,
-};
-use sophis_oracle_host::reduce_mod_l_air_stark::{
-    encode_public_values_bytes as reduce_encode_pv,
-    prove_reduce_mod_l_air,
-};
-use sophis_oracle_host::scalar_mul_air_stark::{
-    encode_public_values_bytes as scalar_mul_encode_pv,
-    prove_scalar_mul_air,
-};
+use sophis_oracle_host::decompress_air_stark::{encode_public_values_bytes as decompress_encode_pv, prove_decompress_air};
+use sophis_oracle_host::reduce_mod_l_air_stark::{encode_public_values_bytes as reduce_encode_pv, prove_reduce_mod_l_air};
+use sophis_oracle_host::scalar_mul_air_stark::{encode_public_values_bytes as scalar_mul_encode_pv, prove_scalar_mul_air};
+use sophis_oracle_host::sha512_air_stark::{encode_public_values_bytes as sha512_encode_pv, prove_sha512_air};
+use sophis_oracle_host::verify_air_stark::{VerifyAirProverError, encode_public_values_bytes, prove_verify_air};
+use sophis_oracle_host::{ProveInputs, ProverError, prove};
 
 /// What the relayer ships to L1 in one update.
 ///
@@ -118,17 +106,11 @@ pub fn build_bundle(
         return Err(PipelineError::FeedMismatch { pulled: submission.update.feed, configured: policy.feed });
     }
     if submission.update.publisher != policy.publisher {
-        return Err(PipelineError::PublisherMismatch {
-            pulled: submission.update.publisher,
-            configured: policy.publisher,
-        });
+        return Err(PipelineError::PublisherMismatch { pulled: submission.update.publisher, configured: policy.publisher });
     }
 
     // Build the OracleAir proof + journal.
-    let signed = sophis_oracle_core::SignedPriceUpdate {
-        update: submission.update.clone(),
-        signature: submission.signature.clone(),
-    };
+    let signed = sophis_oracle_core::SignedPriceUpdate { update: submission.update.clone(), signature: submission.signature.clone() };
     let inputs = ProveInputs {
         signed: &signed,
         now_secs,
@@ -168,16 +150,12 @@ pub fn build_bundle(
         // 5.6.a — decompress(R_bytes) → R_point. R = sig[0..32].
         let mut r_bytes = [0u8; 32];
         r_bytes.copy_from_slice(&sig[0..32]);
-        let dec_r = prove_decompress_air(&r_bytes).map_err(|e| {
-            PipelineError::Join(format!("decompress(R) prove failed: {e}"))
-        })?;
+        let dec_r = prove_decompress_air(&r_bytes).map_err(|e| PipelineError::Join(format!("decompress(R) prove failed: {e}")))?;
         let dec_r_pv = decompress_encode_pv(&r_bytes, &dec_r.output, dec_r.valid);
         decompress_r_proof = Some((dec_r.bytes, dec_r_pv));
 
         // 5.6.b — decompress(A_bytes) → A_point. A = pk.
-        let dec_a = prove_decompress_air(&pk).map_err(|e| {
-            PipelineError::Join(format!("decompress(A) prove failed: {e}"))
-        })?;
+        let dec_a = prove_decompress_air(&pk).map_err(|e| PipelineError::Join(format!("decompress(A) prove failed: {e}")))?;
         let dec_a_pv = decompress_encode_pv(&pk, &dec_a.output, dec_a.valid);
         decompress_a_proof = Some((dec_a.bytes, dec_a_pv));
 
@@ -191,8 +169,7 @@ pub fn build_bundle(
         sha512_proof = Some((sha.bytes, sha_pv));
 
         // 5.6.d — reduce_mod_l(digest) → h.
-        let red = prove_reduce_mod_l_air(&sha.digest)
-            .map_err(|e| PipelineError::Join(format!("reduce_mod_l prove: {e}")))?;
+        let red = prove_reduce_mod_l_air(&sha.digest).map_err(|e| PipelineError::Join(format!("reduce_mod_l prove: {e}")))?;
         let red_pv = reduce_encode_pv(&sha.digest, &red.scalar);
         reduce_mod_l_proof = Some((red.bytes, red_pv));
 
@@ -202,9 +179,8 @@ pub fn build_bundle(
         let mut basepoint_compressed = [0x66u8; 32];
         basepoint_compressed[0] = 0x58;
         let basepoint = decompress(&basepoint_compressed).unwrap_or_else(ExtendedPoint::neutral);
-        let sm_sb = prove_scalar_mul_air(&s_bytes, &basepoint).map_err(|e| {
-            PipelineError::Join(format!("scalar_mul(s,B) prove: {e}"))
-        })?;
+        let sm_sb =
+            prove_scalar_mul_air(&s_bytes, &basepoint).map_err(|e| PipelineError::Join(format!("scalar_mul(s,B) prove: {e}")))?;
         let sm_sb_pv = scalar_mul_encode_pv(&s_bytes, &basepoint, &sm_sb.output);
         scalar_mul_sb_proof = Some((sm_sb.bytes, sm_sb_pv));
 
@@ -212,9 +188,8 @@ pub fn build_bundle(
         // Sanity: red.scalar should equal what we'd get re-running reduce_mod_l on the digest.
         let h_scalar = reduce_mod_l(&sha.digest);
         debug_assert_eq!(h_scalar, red.scalar);
-        let sm_ha = prove_scalar_mul_air(&h_scalar, &dec_a.output).map_err(|e| {
-            PipelineError::Join(format!("scalar_mul(h,A) prove: {e}"))
-        })?;
+        let sm_ha =
+            prove_scalar_mul_air(&h_scalar, &dec_a.output).map_err(|e| PipelineError::Join(format!("scalar_mul(h,A) prove: {e}")))?;
         let sm_ha_pv = scalar_mul_encode_pv(&h_scalar, &dec_a.output, &sm_ha.output);
         scalar_mul_ha_proof = Some((sm_ha.bytes, sm_ha_pv));
     }
@@ -246,11 +221,9 @@ pub async fn run_once(
 ) -> Result<RelayerBundle, PipelineError> {
     let submission = feed.latest_submission(policy.feed, policy.publisher).await?;
     let policy = policy.clone();
-    let bundle = tokio::task::spawn_blocking(move || {
-        build_bundle(submission, &policy, sequence, last_sequence, now_secs)
-    })
-    .await
-    .map_err(|e| PipelineError::Join(e.to_string()))??;
+    let bundle = tokio::task::spawn_blocking(move || build_bundle(submission, &policy, sequence, last_sequence, now_secs))
+        .await
+        .map_err(|e| PipelineError::Join(e.to_string()))??;
     Ok(bundle)
 }
 
@@ -262,11 +235,7 @@ pub struct StubFeed {
 
 #[async_trait]
 impl PriceFeed for StubFeed {
-    async fn latest_submission(
-        &self,
-        _feed: FeedId,
-        _publisher: PublisherKey,
-    ) -> Result<PythnetSubmission, FeedError> {
+    async fn latest_submission(&self, _feed: FeedId, _publisher: PublisherKey) -> Result<PythnetSubmission, FeedError> {
         Ok(self.submission.clone())
     }
 }

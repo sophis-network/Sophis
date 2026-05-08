@@ -11,8 +11,7 @@
 use rocksdb::WriteBatch;
 use sophis_consensus_core::BlockHasher;
 use sophis_consensus_core::da::{
-    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadEntry, PayloadIdHash,
-    domain_bucket_key_bytes,
+    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadEntry, PayloadIdHash, domain_bucket_key_bytes,
 };
 use sophis_database::prelude::CachePolicy;
 use sophis_database::prelude::DB;
@@ -137,21 +136,19 @@ impl DbDaStore {
             // Trust the first writer; ignore later mismatches.
             bundle.payload_ids.push(ci.payload_id);
             // Keep the index ordered by fragment_index to keep reassembly cheap.
-            bundle
-                .payload_ids
-                .sort_by_key(|p| {
-                    // Lookup the entry to extract fragment_index. For the
-                    // entry we just wrote, we already know it; for older
-                    // entries we read on demand.
-                    if *p == ci.payload_id {
-                        ci.entry.fragment_index as u32
-                    } else {
-                        match self.payloads.read(*p) {
-                            Ok(e) => e.fragment_index as u32,
-                            Err(_) => u32::MAX, // tolerate; missing rows are out-of-band
-                        }
+            bundle.payload_ids.sort_by_key(|p| {
+                // Lookup the entry to extract fragment_index. For the
+                // entry we just wrote, we already know it; for older
+                // entries we read on demand.
+                if *p == ci.payload_id {
+                    ci.entry.fragment_index as u32
+                } else {
+                    match self.payloads.read(*p) {
+                        Ok(e) => e.fragment_index as u32,
+                        Err(_) => u32::MAX, // tolerate; missing rows are out-of-band
                     }
-                });
+                }
+            });
             self.bundles.write(BatchDbWriter::new(batch), ci.entry.bundle_id, bundle)?;
 
             // Append to by_domain index for non-zero domain bytes.
@@ -234,11 +231,7 @@ impl DbDaStore {
     /// and ad-hoc reindexing — production callers should always go through
     /// the batched path so other consensus state lands in the same atomic
     /// write.
-    pub fn index_carrier_direct(
-        &self,
-        accepting_block_hash: Hash,
-        carriers: &[CarrierIndex],
-    ) -> Result<(), StoreError> {
+    pub fn index_carrier_direct(&self, accepting_block_hash: Hash, carriers: &[CarrierIndex]) -> Result<(), StoreError> {
         let mut batch = WriteBatch::default();
         self.index_carrier_batch(&mut batch, accepting_block_hash, carriers)?;
         // We can't use BatchDbWriter outside a real WriteBatch context; the
@@ -393,18 +386,8 @@ mod tests {
         let bid = PayloadIdHash([0xAA; 48]);
         let p1 = PayloadIdHash([1u8; 48]);
         let p2 = PayloadIdHash([2u8; 48]);
-        store
-            .index_carrier_direct(
-                block,
-                &[CarrierIndex { payload_id: p1, entry: make_entry(bid, block, 0, 0, 2, 0) }],
-            )
-            .unwrap();
-        store
-            .index_carrier_direct(
-                block,
-                &[CarrierIndex { payload_id: p2, entry: make_entry(bid, block, 0, 1, 2, 0) }],
-            )
-            .unwrap();
+        store.index_carrier_direct(block, &[CarrierIndex { payload_id: p1, entry: make_entry(bid, block, 0, 0, 2, 0) }]).unwrap();
+        store.index_carrier_direct(block, &[CarrierIndex { payload_id: p2, entry: make_entry(bid, block, 0, 1, 2, 0) }]).unwrap();
         let bc = store.list_by_block(block).unwrap().unwrap();
         assert_eq!(bc.payload_ids.len(), 2);
         assert!(bc.payload_ids.contains(&p1));

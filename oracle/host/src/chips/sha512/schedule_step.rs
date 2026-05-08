@@ -67,25 +67,31 @@ pub const NUM_CHUNKS: usize = 4;
 pub mod col {
     use super::*;
 
-    pub const W_T_2: usize = 0;          // input W[t-2]
-    pub const W_T_7: usize = W_T_2 + NUM_CHUNKS;   // 4
-    pub const W_T_15: usize = W_T_7 + NUM_CHUNKS;  // 8
+    pub const W_T_2: usize = 0; // input W[t-2]
+    pub const W_T_7: usize = W_T_2 + NUM_CHUNKS; // 4
+    pub const W_T_15: usize = W_T_7 + NUM_CHUNKS; // 8
     pub const W_T_16: usize = W_T_15 + NUM_CHUNKS; // 12
-    pub const W_T: usize = W_T_16 + NUM_CHUNKS;    // 16 (output)
+    pub const W_T: usize = W_T_16 + NUM_CHUNKS; // 16 (output)
 
-    pub const SIGMA1_START: usize = W_T + NUM_CHUNKS;            // 20
-    pub const SIGMA0_START: usize = SIGMA1_START + SS_COLS;      // 220
-    pub const ADD_S1_START: usize = SIGMA0_START + SS_COLS;      // 420
-    pub const ADD_S2_START: usize = ADD_S1_START + ADD_COLS;     // 436
-    pub const ADD_OUT_START: usize = ADD_S2_START + ADD_COLS;    // 452
+    pub const SIGMA1_START: usize = W_T + NUM_CHUNKS; // 20
+    pub const SIGMA0_START: usize = SIGMA1_START + SS_COLS; // 220
+    pub const ADD_S1_START: usize = SIGMA0_START + SS_COLS; // 420
+    pub const ADD_S2_START: usize = ADD_S1_START + ADD_COLS; // 436
+    pub const ADD_OUT_START: usize = ADD_S2_START + ADD_COLS; // 452
 
-    pub const TOTAL: usize = ADD_OUT_START + ADD_COLS;            // 468
+    pub const TOTAL: usize = ADD_OUT_START + ADD_COLS; // 468
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ScheduleStepChip;
+
+impl Default for ScheduleStepChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ScheduleStepChip {
     pub const fn new() -> Self {
@@ -220,12 +226,7 @@ pub fn populate_schedule_step_at<F: Field + PrimeCharacteristicRing>(
 }
 
 /// Build a single-row trace exercising one schedule step.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    w_t_2: u64,
-    w_t_7: u64,
-    w_t_15: u64,
-    w_t_16: u64,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w_t_2: u64, w_t_7: u64, w_t_15: u64, w_t_16: u64) -> RowMajorMatrix<F> {
     use super::schedule::{small_sigma0, small_sigma1};
 
     const HEIGHT: usize = 4;
@@ -266,7 +267,11 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
     RowMajorMatrix::new(values, NUM_COLS)
 }
 
-fn populate_small_sigma<F: Field + PrimeCharacteristicRing>(values: &mut [F], start: usize, w: &super::small_sigma::SmallSigmaWitness) {
+fn populate_small_sigma<F: Field + PrimeCharacteristicRing>(
+    values: &mut [F],
+    start: usize,
+    w: &super::small_sigma::SmallSigmaWitness,
+) {
     use super::small_sigma::{NUM_BITS, NUM_CHUNKS};
     for i in 0..NUM_CHUNKS {
         values[start + ssc::X_CHUNKS + i] = F::from_u64(w.x_chunks[i]);
@@ -296,8 +301,8 @@ fn populate_add<F: Field + PrimeCharacteristicRing>(values: &mut [F], start: usi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::schedule::compute_schedule;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -364,12 +369,8 @@ mod tests {
 
     #[test]
     fn schedule_step_random_inputs() {
-        let trace = build_test_trace::<BabyBear>(
-            0xCAFE_BABE_DEAD_BEEF,
-            0x1234_5678_9ABC_DEF0,
-            0xFEDC_BA09_8765_4321,
-            0xAAAA_AAAA_AAAA_AAAA,
-        );
+        let trace =
+            build_test_trace::<BabyBear>(0xCAFE_BABE_DEAD_BEEF, 0x1234_5678_9ABC_DEF0, 0xFEDC_BA09_8765_4321, 0xAAAA_AAAA_AAAA_AAAA);
         check_constraints(&ScheduleStepChip, &trace, &[]);
     }
 
@@ -377,7 +378,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn schedule_step_rejects_tampered_output() {
         let mut trace = build_test_trace::<BabyBear>(0x18, 0, 0, 0);
-        trace.values[col::W_T] = trace.values[col::W_T] + BabyBear::ONE;
+        trace.values[col::W_T] += BabyBear::ONE;
         check_constraints(&ScheduleStepChip, &trace, &[]);
     }
 

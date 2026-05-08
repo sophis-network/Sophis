@@ -43,23 +43,23 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
+use super::NUM_LIMBS;
 use super::cond_p_sub::{CondPSubChip, NUM_COLS as CPS_COLS, col as cpc};
 use super::first_fold::{FirstFoldChip, NUM_COLS as FF_COLS, col as ffc};
-use super::second_fold::{SecondFoldOnePassChip, NUM_COLS as SF_COLS, col as sfc};
-use super::NUM_LIMBS;
+use super::second_fold::{NUM_COLS as SF_COLS, SecondFoldOnePassChip, col as sfc};
 
 const NUM_INPUT_LIMBS: usize = 18;
 
 pub mod col {
     use super::*;
     pub const L: usize = 0;
-    pub const C: usize = L + NUM_INPUT_LIMBS;            // 18
-    pub const FF_START: usize = C + NUM_LIMBS;           // 27
-    pub const SF1_START: usize = FF_START + FF_COLS;     // 137
-    pub const SF2_START: usize = SF1_START + SF_COLS;    // 178
-    pub const CPS1_START: usize = SF2_START + SF_COLS;   // 219
+    pub const C: usize = L + NUM_INPUT_LIMBS; // 18
+    pub const FF_START: usize = C + NUM_LIMBS; // 27
+    pub const SF1_START: usize = FF_START + FF_COLS; // 137
+    pub const SF2_START: usize = SF1_START + SF_COLS; // 178
+    pub const CPS1_START: usize = SF2_START + SF_COLS; // 219
     pub const CPS2_START: usize = CPS1_START + CPS_COLS; // 255
-    pub const TOTAL: usize = CPS2_START + CPS_COLS;      // 291
+    pub const TOTAL: usize = CPS2_START + CPS_COLS; // 291
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -67,6 +67,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct ModPChipFull {
     pub start_col: usize,
+}
+
+impl Default for ModPChipFull {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModPChipFull {
@@ -104,10 +110,15 @@ impl ModPChipFull {
         assert_chunks_eq(builder, self.start_col + col::SF2_START + sfc::ACC_IN, self.start_col + col::SF1_START + sfc::ACC_OUT, 10);
 
         // After SF2, limb 9 must be zero (canonical-input regime).
-        builder.assert_zero(row[self.start_col + col::SF2_START + sfc::ACC_OUT + 9].clone());
+        builder.assert_zero(row[self.start_col + col::SF2_START + sfc::ACC_OUT + 9]);
 
         // CPS1.A ← SF2.acc_out[0..9]
-        assert_chunks_eq(builder, self.start_col + col::CPS1_START + cpc::A, self.start_col + col::SF2_START + sfc::ACC_OUT, NUM_LIMBS);
+        assert_chunks_eq(
+            builder,
+            self.start_col + col::CPS1_START + cpc::A,
+            self.start_col + col::SF2_START + sfc::ACC_OUT,
+            NUM_LIMBS,
+        );
 
         // CPS2.A ← CPS1.C
         assert_chunks_eq(builder, self.start_col + col::CPS2_START + cpc::A, self.start_col + col::CPS1_START + cpc::C, NUM_LIMBS);
@@ -118,15 +129,24 @@ impl ModPChipFull {
 }
 
 impl<F: Field> BaseAir<F> for ModPChipFull {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for ModPChipFull
-where AB::F: Field,
+where
+    AB::F: Field,
 {
-    fn eval(&self, builder: &mut AB) { self.emit(builder); }
+    fn eval(&self, builder: &mut AB) {
+        self.emit(builder);
+    }
 }
 
 /// Populate one row at `(row_off, start_col)`.
@@ -136,10 +156,10 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     start_col: usize,
     input: &[u64; NUM_INPUT_LIMBS],
 ) {
+    use super::Field25519Element;
     use super::cond_p_sub::compute_cond_p_sub;
     use super::first_fold::compute_first_fold_witness;
     use super::second_fold::populate_row as sf_populate;
-    use super::Field25519Element;
 
     let base = row_off + start_col;
 
@@ -157,7 +177,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::FF_START + ffc::OUT + i] = F::from_u64(ff_w.out[i]);
         values[base + col::FF_START + ffc::CARRY + i] = F::from_u64(ff_w.carries[i]);
         // Etapa 3.8: 10-bit range bits for first_fold carry[i].
-        crate::chips::lookup::range_n::RangeNChip::<{super::first_fold::CARRY_BITS}>::populate_bits::<F>(
+        crate::chips::lookup::range_n::RangeNChip::<{ super::first_fold::CARRY_BITS }>::populate_bits::<F>(
             values,
             base + col::FF_START + ffc::CARRY_BITS_BASE + i * super::first_fold::CARRY_BITS,
             ff_w.carries[i],
@@ -203,9 +223,15 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // CPS1: input = SF2 output[0..9].
     let cps1_in = Field25519Element {
         limbs: [
-            sf2_w.acc_out[0], sf2_w.acc_out[1], sf2_w.acc_out[2],
-            sf2_w.acc_out[3], sf2_w.acc_out[4], sf2_w.acc_out[5],
-            sf2_w.acc_out[6], sf2_w.acc_out[7], sf2_w.acc_out[8],
+            sf2_w.acc_out[0],
+            sf2_w.acc_out[1],
+            sf2_w.acc_out[2],
+            sf2_w.acc_out[3],
+            sf2_w.acc_out[4],
+            sf2_w.acc_out[5],
+            sf2_w.acc_out[6],
+            sf2_w.acc_out[7],
+            sf2_w.acc_out[8],
         ],
     };
     let cps1_w = compute_cond_p_sub(&cps1_in);
@@ -232,9 +258,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    input: &[u64; NUM_INPUT_LIMBS],
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(input: &[u64; NUM_INPUT_LIMBS]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -249,9 +273,9 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::mod_p::compute_mod_p_reduction;
     use super::super::P_LIMBS;
+    use super::super::mod_p::compute_mod_p_reduction;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -357,7 +381,7 @@ mod tests {
         let mut input = [0u64; NUM_INPUT_LIMBS];
         input[0] = 7;
         let mut trace = build_test_trace::<BabyBear>(&input);
-        trace.values[col::C] = trace.values[col::C] + BabyBear::from_u64(1);
+        trace.values[col::C] += BabyBear::from_u64(1);
         check_constraints(&ModPChipFull::new(), &trace, &[]);
     }
 

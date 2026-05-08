@@ -44,9 +44,9 @@ use super::{Field25519Element, NUM_LIMBS};
 pub mod col {
     use super::NUM_LIMBS;
     pub const A: usize = 0;
-    pub const INV: usize = A + NUM_LIMBS;          // 9
-    pub const LIZ: usize = INV + NUM_LIMBS;         // 18 (limb_is_zero)
-    pub const M_BASE: usize = LIZ + NUM_LIMBS;      // 27 (intermediates m1..m8)
+    pub const INV: usize = A + NUM_LIMBS; // 9
+    pub const LIZ: usize = INV + NUM_LIMBS; // 18 (limb_is_zero)
+    pub const M_BASE: usize = LIZ + NUM_LIMBS; // 27 (intermediates m1..m8)
     pub const NUM_INTERMEDIATES: usize = NUM_LIMBS - 1; // 8
     pub const IS_ZERO: usize = M_BASE + NUM_INTERMEDIATES; // 35
 }
@@ -56,6 +56,12 @@ pub const NUM_COLS: usize = col::IS_ZERO + 1; // 36
 #[derive(Debug, Clone, Copy)]
 pub struct IsZeroChip {
     pub start_col: usize,
+}
+
+impl Default for IsZeroChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IsZeroChip {
@@ -85,9 +91,9 @@ impl IsZeroChip {
 
         // Chained ANDs: m_k = m_{k-1} · liz[k+1] for k in 0..8.
         // m1 reads liz[0] · liz[1]; m_k for k≥1 reads m_{k-1} · liz[k+1].
-        let liz0 = row[self.start_col + col::LIZ + 0];
+        let liz0 = row[self.start_col + col::LIZ];
         let liz1 = row[self.start_col + col::LIZ + 1];
-        let m1 = row[self.start_col + col::M_BASE + 0];
+        let m1 = row[self.start_col + col::M_BASE];
         builder.assert_eq(m1, liz0.into() * liz1.into());
 
         for k in 1..col::NUM_INTERMEDIATES {
@@ -162,18 +168,10 @@ where
     }
     let is_zero = intermediates[col::NUM_INTERMEDIATES - 1];
 
-    IsZeroWitness {
-        a_limbs: elem.limbs,
-        inv,
-        limb_is_zero: liz,
-        intermediates,
-        is_zero,
-    }
+    IsZeroWitness { a_limbs: elem.limbs, inv, limb_is_zero: liz, intermediates, is_zero }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(
-    w: &IsZeroWitness,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(w: &IsZeroWitness) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 

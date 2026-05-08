@@ -82,6 +82,12 @@ pub struct Word64AddChip {
     pub start_col: usize,
 }
 
+impl Default for Word64AddChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Word64AddChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -96,21 +102,9 @@ impl Word64AddChip {
         // BEFORE the linear add chain so the linear equation can't be
         // satisfied via out-of-range BabyBear values.
         for i in 0..NUM_CHUNKS {
-            Range16Chip::split(
-                self.start_col + col::A + i,
-                self.start_col + col::A_BITS + i * 16,
-            )
-            .emit(builder);
-            Range16Chip::split(
-                self.start_col + col::B + i,
-                self.start_col + col::B_BITS + i * 16,
-            )
-            .emit(builder);
-            Range16Chip::split(
-                self.start_col + col::C + i,
-                self.start_col + col::C_BITS + i * 16,
-            )
-            .emit(builder);
+            Range16Chip::split(self.start_col + col::A + i, self.start_col + col::A_BITS + i * 16).emit(builder);
+            Range16Chip::split(self.start_col + col::B + i, self.start_col + col::B_BITS + i * 16).emit(builder);
+            Range16Chip::split(self.start_col + col::C + i, self.start_col + col::C_BITS + i * 16).emit(builder);
         }
 
         let main = builder.main();
@@ -132,10 +126,7 @@ impl Word64AddChip {
             let carry_out = row[self.start_col + col::CARRY + i];
 
             // c[i] + 2^16 * carry_out = a[i] + b[i] + carry_in
-            builder.assert_eq(
-                c_i.into() + two_pow_16.clone() * carry_out.into(),
-                a_i.into() + b_i.into() + carry_in,
-            );
+            builder.assert_eq(c_i.into() + two_pow_16.clone() * carry_out.into(), a_i.into() + b_i.into() + carry_in);
 
             carry_in = carry_out.into();
         }
@@ -196,12 +187,7 @@ pub fn compute_add64(a: u64, b: u64) -> Word64AddWitness {
 
 /// Decompose a `u64` into 4 little-endian 16-bit chunks.
 pub fn decompose_u64(w: u64) -> [u64; NUM_CHUNKS] {
-    [
-        w & 0xFFFF,
-        (w >> 16) & 0xFFFF,
-        (w >> 32) & 0xFFFF,
-        (w >> 48) & 0xFFFF,
-    ]
+    [w & 0xFFFF, (w >> 16) & 0xFFFF, (w >> 32) & 0xFFFF, (w >> 48) & 0xFFFF]
 }
 
 /// Recompose 4 16-bit chunks back into a `u64` (low chunk first).
@@ -328,7 +314,7 @@ mod tests {
         let w = compute_add64(0xCAFE, 0xBABE);
         let mut trace = build_test_trace::<BabyBear>(&w);
         // Flip output chunk 0.
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&Word64AddTestAir, &trace, &[]);
     }
 
@@ -338,7 +324,7 @@ mod tests {
         // Force a real carry, then mutate the carry column.
         let w = compute_add64(0xFFFF, 1);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::CARRY] = trace.values[col::CARRY] + BabyBear::ONE; // bogus carry
+        trace.values[col::CARRY] += BabyBear::ONE; // bogus carry
         check_constraints(&Word64AddTestAir, &trace, &[]);
     }
 

@@ -47,6 +47,12 @@ pub struct MulCanonicalFullChip {
     pub start_col: usize,
 }
 
+impl Default for MulCanonicalFullChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MulCanonicalFullChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -71,21 +77,35 @@ impl MulCanonicalFullChip {
 
         assert_chunks_eq(builder, self.start_col + col::PIPE_START + mul_pipeline::col::A, self.start_col + col::A, NUM_LIMBS);
         assert_chunks_eq(builder, self.start_col + col::PIPE_START + mul_pipeline::col::B, self.start_col + col::B, NUM_LIMBS);
-        assert_chunks_eq(builder, self.start_col + col::MP_START + mod_p_chip_full::col::L, self.start_col + col::PIPE_START + mul_pipeline::col::L, 18);
+        assert_chunks_eq(
+            builder,
+            self.start_col + col::MP_START + mod_p_chip_full::col::L,
+            self.start_col + col::PIPE_START + mul_pipeline::col::L,
+            18,
+        );
         assert_chunks_eq(builder, self.start_col + col::C, self.start_col + col::MP_START + mod_p_chip_full::col::C, NUM_LIMBS);
     }
 }
 
 impl<F: Field> BaseAir<F> for MulCanonicalFullChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for MulCanonicalFullChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
-    fn eval(&self, builder: &mut AB) { self.emit(builder); }
+    fn eval(&self, builder: &mut AB) {
+        self.emit(builder);
+    }
 }
 
 /// Populate one row at `(row_off, start_col)`.
@@ -96,13 +116,13 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     a: &Field25519Element,
     b: &Field25519Element,
 ) {
+    use super::carry_fold::NUM_POSITIONS as CF_POS;
+    use super::carry_fold::col as cfc;
     use super::carry_fold::compute_carry_fold;
+    use super::limb_assembly::NUM_OUTPUT_LIMBS as LA_L;
+    use super::limb_assembly::col as lac;
     use super::limb_assembly::compute_limb_assembly_from_carry_fold;
     use super::mul::compute_mul;
-    use super::carry_fold::NUM_POSITIONS as CF_POS;
-    use super::limb_assembly::NUM_OUTPUT_LIMBS as LA_L;
-    use super::carry_fold::col as cfc;
-    use super::limb_assembly::col as lac;
 
     let mul_w = compute_mul(a, b);
     let fold_w = compute_carry_fold(&mul_w.out_positions);
@@ -125,13 +145,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::PIPE_START + mul_pipeline::col::L + i] = F::from_u64(assembly_w.limbs[i]);
     }
     // MulChip witness (limbs + pieces + positions + 10-bit range bits, Etapa 3.2).
-    super::mul::populate_row::<F>(
-        values,
-        base + col::PIPE_START + mul_pipeline::col::MUL_START,
-        a,
-        b,
-        &mul_w,
-    );
+    super::mul::populate_row::<F>(values, base + col::PIPE_START + mul_pipeline::col::MUL_START, a, b, &mul_w);
     {
         use super::carry_fold::{CANONICAL_BITS as CF_CAN_BITS, CARRY_BITS as CF_CARRY_BITS};
         for i in 0..CF_POS {
@@ -165,15 +179,12 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // Copy the canonical output from ModPChipFull's C slot to the
     // top-level C slot of mul_canonical_full.
     for i in 0..NUM_LIMBS {
-        let mp_c = values[base + col::MP_START + mod_p_chip_full::col::C + i].clone();
+        let mp_c = values[base + col::MP_START + mod_p_chip_full::col::C + i];
         values[base + col::C + i] = mp_c;
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -188,9 +199,9 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::arith::field_mul;
     use super::super::P_LIMBS;
+    use super::super::arith::field_mul;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -257,11 +268,8 @@ mod tests {
 
     #[test]
     fn mul_full_cross_validates_with_arith() {
-        let cases: Vec<(Field25519Element, Field25519Element)> = vec![
-            (small(0xCAFE), small(0xBABE)),
-            (small(0xDEAD_BEEF), small(0xFEDC_BA98)),
-            (small(2), small(3)),
-        ];
+        let cases: Vec<(Field25519Element, Field25519Element)> =
+            vec![(small(0xCAFE), small(0xBABE)), (small(0xDEAD_BEEF), small(0xFEDC_BA98)), (small(2), small(3))];
         for (a, b) in cases {
             let expected = field_mul(&a, &b);
             let trace = build_test_trace::<BabyBear>(&a, &b);
@@ -274,7 +282,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn mul_full_rejects_tampered() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::C] = trace.values[col::C] + BabyBear::from_u64(1);
+        trace.values[col::C] += BabyBear::from_u64(1);
         check_constraints(&MulCanonicalFullChip::new(), &trace, &[]);
     }
 

@@ -59,8 +59,7 @@ pub type Perm = Poseidon2BabyBear<16>;
 /// with unaudited upstream churn.
 pub type OracleHash = PaddingFreeSponge<Perm, 16, 8, 8>;
 pub type OracleCompress = TruncatedPermutation<Perm, 2, 8, 16>;
-pub type ValMmcs =
-    MerkleTreeMmcs<<Val as Field>::Packing, <Val as Field>::Packing, OracleHash, OracleCompress, 2, 8>;
+pub type ValMmcs = MerkleTreeMmcs<<Val as Field>::Packing, <Val as Field>::Packing, OracleHash, OracleCompress, 2, 8>;
 pub type ChallengeMmcs = ExtensionMmcs<Val, Challenge, ValMmcs>;
 pub type Dft = Radix2DitParallel<Val>;
 pub type OraclePcs = TwoAdicFriPcs<Val, Dft, ValMmcs, ChallengeMmcs>;

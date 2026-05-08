@@ -73,8 +73,8 @@ pub fn scalar_mul_u64(scalar: u64, point: &ExtendedPoint) -> ExtendedPoint {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::point::to_affine;
+    use super::*;
     use crate::chips::field25519::Field25519Element;
     use crate::chips::field25519::arith::{field_one, field_zero};
 
@@ -164,9 +164,9 @@ mod tests {
         // satisfy only the literal algorithmic composition.
         let p = synthetic_point(17);
         let seven_p = scalar_mul_u64(7, &p);
-        let three_p = point_add(&point_double(&p), &p);          // intermediate after i=1
-        let six_p = point_double(&three_p);                       // doubling at i=0
-        let seven_p_via_recipe = point_add(&six_p, &p);           // final add at i=0
+        let three_p = point_add(&point_double(&p), &p); // intermediate after i=1
+        let six_p = point_double(&three_p); // doubling at i=0
+        let seven_p_via_recipe = point_add(&six_p, &p); // final add at i=0
         assert!(affine_eq(&seven_p, &seven_p_via_recipe));
     }
 

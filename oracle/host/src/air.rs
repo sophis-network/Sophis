@@ -252,9 +252,7 @@ impl OraclePublicInputs {
 /// Field-generic version of `commit`. Used internally by the AIR's
 /// trace generator and by `OraclePublicInputs::commit` instantiated at
 /// BabyBear. Returns the canonical u32 form (as u64) of the field element.
-pub fn commit_in_field<F: Field + PrimeCharacteristicRing + p3_field::PrimeField32>(
-    witness: &OracleWitness,
-) -> u64 {
+pub fn commit_in_field<F: Field + PrimeCharacteristicRing + p3_field::PrimeField32>(witness: &OracleWitness) -> u64 {
     let f = F::from_u64(FOLD_K1) * F::from_u64(witness.price)
         + F::from_u64(FOLD_K2) * F::from_u64(witness.publish_time)
         + F::from_u64(FOLD_K3) * F::from_u64(witness.sequence);

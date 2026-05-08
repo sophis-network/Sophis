@@ -257,10 +257,8 @@ interval_secs = 30
 
     #[test]
     fn da_publish_can_be_enabled() {
-        let body = good_toml().replace(
-            "state_path = \"./relayer-state.json\"",
-            "state_path = \"./relayer-state.json\"\nda_publish = true",
-        );
+        let body =
+            good_toml().replace("state_path = \"./relayer-state.json\"", "state_path = \"./relayer-state.json\"\nda_publish = true");
         let f = write_tmp(&body);
         let cfg = RelayerConfig::load(f.path()).unwrap();
         assert!(cfg.submit.da_publish);

@@ -13,12 +13,10 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::point::ExtendedPoint;
-use crate::chips::ed25519::point_add_air_chunked::{
-    self, PointAddAirChunkedChip, NUM_COLS as PA_COLS,
-};
+use crate::chips::ed25519::point_add_air_chunked::{self, NUM_COLS as PA_COLS, PointAddAirChunkedChip};
 use crate::chips::field25519::{
-    mul_canonical_full_chunked::{self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS},
     Field25519Element, NUM_LIMBS,
+    mul_canonical_full_chunked::{self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS},
 };
 
 const POINT_LIMBS: usize = 4 * NUM_LIMBS;
@@ -124,35 +122,89 @@ where
         assert_chunks(builder, col::POINT_ADD_START + point_add_air_chunked::col::P3, col::RHS, POINT_LIMBS);
 
         // sB.X · rhs.Z
-        assert_chunks(builder, col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::A, col::SB + col::X_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::B, col::RHS + col::Z_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::cross_at(chip::MUL_SB_X_RHS_Z), col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::C, NUM_LIMBS);
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::A,
+            col::SB + col::X_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::B,
+            col::RHS + col::Z_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::cross_at(chip::MUL_SB_X_RHS_Z),
+            col::mul_at(chip::MUL_SB_X_RHS_Z) + mul_canonical_full_chunked::col::C,
+            NUM_LIMBS,
+        );
 
         // rhs.X · sB.Z
-        assert_chunks(builder, col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::A, col::RHS + col::X_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::B, col::SB + col::Z_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::cross_at(chip::MUL_RHS_X_SB_Z), col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::C, NUM_LIMBS);
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::A,
+            col::RHS + col::X_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::B,
+            col::SB + col::Z_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::cross_at(chip::MUL_RHS_X_SB_Z),
+            col::mul_at(chip::MUL_RHS_X_SB_Z) + mul_canonical_full_chunked::col::C,
+            NUM_LIMBS,
+        );
 
         // sB.Y · rhs.Z
-        assert_chunks(builder, col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::A, col::SB + col::Y_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::B, col::RHS + col::Z_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::cross_at(chip::MUL_SB_Y_RHS_Z), col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::C, NUM_LIMBS);
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::A,
+            col::SB + col::Y_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::B,
+            col::RHS + col::Z_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::cross_at(chip::MUL_SB_Y_RHS_Z),
+            col::mul_at(chip::MUL_SB_Y_RHS_Z) + mul_canonical_full_chunked::col::C,
+            NUM_LIMBS,
+        );
 
         // rhs.Y · sB.Z
-        assert_chunks(builder, col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::A, col::RHS + col::Y_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::B, col::SB + col::Z_OFF, NUM_LIMBS);
-        assert_chunks(builder, col::cross_at(chip::MUL_RHS_Y_SB_Z), col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::C, NUM_LIMBS);
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::A,
+            col::RHS + col::Y_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::B,
+            col::SB + col::Z_OFF,
+            NUM_LIMBS,
+        );
+        assert_chunks(
+            builder,
+            col::cross_at(chip::MUL_RHS_Y_SB_Z),
+            col::mul_at(chip::MUL_RHS_Y_SB_Z) + mul_canonical_full_chunked::col::C,
+            NUM_LIMBS,
+        );
 
         // Projective equality
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(
-                row[col::cross_at(chip::MUL_SB_X_RHS_Z) + i],
-                row[col::cross_at(chip::MUL_RHS_X_SB_Z) + i],
-            );
-            builder.assert_eq(
-                row[col::cross_at(chip::MUL_SB_Y_RHS_Z) + i],
-                row[col::cross_at(chip::MUL_RHS_Y_SB_Z) + i],
-            );
+            builder.assert_eq(row[col::cross_at(chip::MUL_SB_X_RHS_Z) + i], row[col::cross_at(chip::MUL_RHS_X_SB_Z) + i]);
+            builder.assert_eq(row[col::cross_at(chip::MUL_SB_Y_RHS_Z) + i], row[col::cross_at(chip::MUL_RHS_Y_SB_Z) + i]);
         }
     }
 }
@@ -240,7 +292,7 @@ pub fn build_verify_trace_chunked<F: Field + PrimeCharacteristicRing>(
         let row_off = row * NUM_COLS;
         let src_start = 0;
         for i in 0..NUM_COLS {
-            values[row_off + i] = values[src_start + i].clone();
+            values[row_off + i] = values[src_start + i];
         }
     }
 
@@ -257,14 +309,14 @@ mod tests {
     #[ignore = "slow (~30s release); validates full verify_air_chunked against RFC 8032"]
     fn verify_chunked_rfc8032_test_1() {
         let public_key: [u8; 32] = [
-            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a,
-            0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
+            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3,
+            0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
         ];
         let signature: [u8; 64] = [
-            0xe5, 0x56, 0x43, 0x00, 0xc3, 0x60, 0xac, 0x72, 0x90, 0x86, 0xe2, 0xcc, 0x80, 0x6e, 0x82, 0x8a,
-            0x84, 0x87, 0x7f, 0x1e, 0xb8, 0xe5, 0xd9, 0x74, 0xd8, 0x73, 0xe0, 0x65, 0x22, 0x49, 0x01, 0x55,
-            0x5f, 0xb8, 0x82, 0x15, 0x90, 0xa3, 0x3b, 0xac, 0xc6, 0x1e, 0x39, 0x70, 0x1c, 0xf9, 0xb4, 0x6b,
-            0xd2, 0x5b, 0xf5, 0xf0, 0x59, 0x5b, 0xbe, 0x24, 0x65, 0x51, 0x41, 0x43, 0x8e, 0x7a, 0x10, 0x0b,
+            0xe5, 0x56, 0x43, 0x00, 0xc3, 0x60, 0xac, 0x72, 0x90, 0x86, 0xe2, 0xcc, 0x80, 0x6e, 0x82, 0x8a, 0x84, 0x87, 0x7f, 0x1e,
+            0xb8, 0xe5, 0xd9, 0x74, 0xd8, 0x73, 0xe0, 0x65, 0x22, 0x49, 0x01, 0x55, 0x5f, 0xb8, 0x82, 0x15, 0x90, 0xa3, 0x3b, 0xac,
+            0xc6, 0x1e, 0x39, 0x70, 0x1c, 0xf9, 0xb4, 0x6b, 0xd2, 0x5b, 0xf5, 0xf0, 0x59, 0x5b, 0xbe, 0x24, 0x65, 0x51, 0x41, 0x43,
+            0x8e, 0x7a, 0x10, 0x0b,
         ];
         let trace = build_verify_trace_chunked::<BabyBear>(&public_key, &signature, b"");
         let pv: Vec<BabyBear> = (0..NUM_PUBLIC_VALUES).map(|i| trace.values[i]).collect();

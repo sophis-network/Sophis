@@ -179,10 +179,15 @@ impl SignedBundle {
 
         let mut out = Vec::with_capacity(
             4 + journal_bytes.len()
-                + 4 + self.bundle.oracle_proof_bytes.len()
-                + 4 + va_proof.len()
-                + 4 + va_pv.len()
-                + 8 + ML_DSA_44_VK_SIZE + ML_DSA_44_SIG_SIZE,
+                + 4
+                + self.bundle.oracle_proof_bytes.len()
+                + 4
+                + va_proof.len()
+                + 4
+                + va_pv.len()
+                + 8
+                + ML_DSA_44_VK_SIZE
+                + ML_DSA_44_SIG_SIZE,
         );
         push_lp(&mut out, &journal_bytes);
         push_lp(&mut out, &self.bundle.oracle_proof_bytes);
@@ -265,7 +270,7 @@ pub struct DecodedWire {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pipeline::{build_bundle, fixture_submission, PipelinePolicy};
+    use crate::pipeline::{PipelinePolicy, build_bundle, fixture_submission};
     use libcrux_ml_dsa::KEY_GENERATION_RANDOMNESS_SIZE;
     use sophis_oracle_core::{FeedId, PublisherKey};
     use std::io::Write;

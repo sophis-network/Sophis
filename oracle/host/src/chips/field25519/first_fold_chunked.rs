@@ -155,6 +155,12 @@ pub struct FirstFoldChunkedChip {
     pub start_col: usize,
 }
 
+impl Default for FirstFoldChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FirstFoldChunkedChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -177,46 +183,23 @@ impl FirstFoldChunkedChip {
         // an adversary could BB-wrap any of the linear equations.
         // -----------------------------------------------------------------
         for i in 0..L_PIECES_TOTAL {
-            RangeNChip::<PIECE_BITS>::split(
-                s + col::L_PIECES + i,
-                s + col::L_PIECES_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(s + col::L_PIECES + i, s + col::L_PIECES_BITS + i * PIECE_BITS).emit(builder);
         }
         for i in 0..Q_PIECES_TOTAL {
-            RangeNChip::<PIECE_BITS>::split(
-                s + col::Q_PIECES + i,
-                s + col::Q_PIECES_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(s + col::Q_PIECES + i, s + col::Q_PIECES_BITS + i * PIECE_BITS).emit(builder);
         }
         for i in 0..ACC_TOTAL {
-            RangeNChip::<PIECE_BITS>::split(
-                s + col::ACC + i,
-                s + col::ACC_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(s + col::ACC + i, s + col::ACC_BITS + i * PIECE_BITS).emit(builder);
         }
         for i in 0..Q_CARRY_TOTAL {
-            RangeNChip::<Q_CARRY_BITWIDTH>::split(
-                s + col::Q_CARRY + i,
-                s + col::Q_CARRY_BITS + i * Q_CARRY_BITWIDTH,
-            )
-            .emit(builder);
+            RangeNChip::<Q_CARRY_BITWIDTH>::split(s + col::Q_CARRY + i, s + col::Q_CARRY_BITS + i * Q_CARRY_BITWIDTH).emit(builder);
         }
         for i in 0..OUT_CHUNK_TOTAL {
-            RangeNChip::<PIECE_BITS>::split(
-                s + col::OUT_CHUNK + i,
-                s + col::OUT_CHUNK_BITS + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(s + col::OUT_CHUNK + i, s + col::OUT_CHUNK_BITS + i * PIECE_BITS).emit(builder);
         }
         for i in 0..OUT_CARRY_TOTAL {
-            RangeNChip::<OUT_CARRY_BITWIDTH>::split(
-                s + col::OUT_CARRY + i,
-                s + col::OUT_CARRY_BITS + i * OUT_CARRY_BITWIDTH,
-            )
-            .emit(builder);
+            RangeNChip::<OUT_CARRY_BITWIDTH>::split(s + col::OUT_CARRY + i, s + col::OUT_CARRY_BITS + i * OUT_CARRY_BITWIDTH)
+                .emit(builder);
         }
 
         let main = builder.main();
@@ -231,10 +214,7 @@ impl FirstFoldChunkedChip {
             let p0 = row[s + col::L_PIECES + 3 * i];
             let p1 = row[s + col::L_PIECES + 3 * i + 1];
             let p2 = row[s + col::L_PIECES + 3 * i + 2];
-            builder.assert_eq(
-                l_i,
-                p0.into() + two_pow_10.clone() * p1.into() + two_pow_20.clone() * p2.into(),
-            );
+            builder.assert_eq(l_i, p0.into() + two_pow_10.clone() * p1.into() + two_pow_20.clone() * p2.into());
         }
 
         // -----------------------------------------------------------------
@@ -291,30 +271,15 @@ impl FirstFoldChunkedChip {
 
             // Position chain (5 equations, all bounds < 2^14 < p).
             // pos 0
-            builder.assert_eq(
-                acc0.into() + two_pow_10.clone() * cc0.into(),
-                qa0.into(),
-            );
+            builder.assert_eq(acc0.into() + two_pow_10.clone() * cc0.into(), qa0.into());
             // pos 1
-            builder.assert_eq(
-                acc1.into() + two_pow_10.clone() * cc1.into(),
-                qa1.into() + qb0.into() + cc0.into(),
-            );
+            builder.assert_eq(acc1.into() + two_pow_10.clone() * cc1.into(), qa1.into() + qb0.into() + cc0.into());
             // pos 2
-            builder.assert_eq(
-                acc2.into() + two_pow_10.clone() * cc2.into(),
-                qa2.into() + qb1.into() + qc0.into() + cc1.into(),
-            );
+            builder.assert_eq(acc2.into() + two_pow_10.clone() * cc2.into(), qa2.into() + qb1.into() + qc0.into() + cc1.into());
             // pos 3
-            builder.assert_eq(
-                acc3.into() + two_pow_10.clone() * cc3.into(),
-                qb2.into() + qc1.into() + cc2.into(),
-            );
+            builder.assert_eq(acc3.into() + two_pow_10.clone() * cc3.into(), qb2.into() + qc1.into() + cc2.into());
             // pos 4 (final, no outgoing carry)
-            builder.assert_eq(
-                acc4.into(),
-                qc2.into() + cc3.into(),
-            );
+            builder.assert_eq(acc4.into(), qc2.into() + cc3.into());
         }
 
         // -----------------------------------------------------------------
@@ -326,10 +291,7 @@ impl FirstFoldChunkedChip {
             let oc0 = row[s + col::OUT_CHUNK + 3 * m];
             let oc1 = row[s + col::OUT_CHUNK + 3 * m + 1];
             let oc2 = row[s + col::OUT_CHUNK + 3 * m + 2];
-            builder.assert_eq(
-                out_m,
-                oc0.into() + two_pow_10.clone() * oc1.into() + two_pow_20.clone() * oc2.into(),
-            );
+            builder.assert_eq(out_m, oc0.into() + two_pow_10.clone() * oc1.into() + two_pow_20.clone() * oc2.into());
         }
 
         // -----------------------------------------------------------------
@@ -369,48 +331,39 @@ impl FirstFoldChunkedChip {
             // Position 0 RHS
             let mut rhs_p0: AB::Expr = prev_inter.clone();
             if m < NUM_LIMBS {
-                rhs_p0 = rhs_p0 + row[s + col::L_PIECES + 3 * m].into();
+                rhs_p0 += row[s + col::L_PIECES + 3 * m].into();
             }
             if m < NUM_HIGH {
-                rhs_p0 = rhs_p0 + row[s + col::ACC + 5 * m].into();
+                rhs_p0 += row[s + col::ACC + 5 * m].into();
             }
             if m >= 1 && (m - 1) < NUM_HIGH {
-                rhs_p0 = rhs_p0 + row[s + col::ACC + 5 * (m - 1) + 3].into();
+                rhs_p0 += row[s + col::ACC + 5 * (m - 1) + 3].into();
             }
-            builder.assert_eq(
-                oc0.into() + two_pow_10.clone() * cc_o0.into(),
-                rhs_p0,
-            );
+            builder.assert_eq(oc0.into() + two_pow_10.clone() * cc_o0.into(), rhs_p0);
 
             // Position 1 RHS
             let mut rhs_p1: AB::Expr = cc_o0.into();
             if m < NUM_LIMBS {
-                rhs_p1 = rhs_p1 + row[s + col::L_PIECES + 3 * m + 1].into();
+                rhs_p1 += row[s + col::L_PIECES + 3 * m + 1].into();
             }
             if m < NUM_HIGH {
-                rhs_p1 = rhs_p1 + row[s + col::ACC + 5 * m + 1].into();
+                rhs_p1 += row[s + col::ACC + 5 * m + 1].into();
             }
             if m >= 1 && (m - 1) < NUM_HIGH {
-                rhs_p1 = rhs_p1 + row[s + col::ACC + 5 * (m - 1) + 4].into();
+                rhs_p1 += row[s + col::ACC + 5 * (m - 1) + 4].into();
             }
-            builder.assert_eq(
-                oc1.into() + two_pow_10.clone() * cc_o1.into(),
-                rhs_p1,
-            );
+            builder.assert_eq(oc1.into() + two_pow_10.clone() * cc_o1.into(), rhs_p1);
 
             // Position 2 RHS
             let mut rhs_p2: AB::Expr = cc_o1.into();
             if m < NUM_LIMBS {
-                rhs_p2 = rhs_p2 + row[s + col::L_PIECES + 3 * m + 2].into();
+                rhs_p2 += row[s + col::L_PIECES + 3 * m + 2].into();
             }
             if m < NUM_HIGH {
-                rhs_p2 = rhs_p2 + row[s + col::ACC + 5 * m + 2].into();
+                rhs_p2 += row[s + col::ACC + 5 * m + 2].into();
             }
             // No high_20 contribution at position 2 (high_20 has only 2 chunks).
-            builder.assert_eq(
-                oc2.into() + two_pow_10.clone() * cc_o2.into(),
-                rhs_p2,
-            );
+            builder.assert_eq(oc2.into() + two_pow_10.clone() * cc_o2.into(), rhs_p2);
 
             prev_inter = cc_o2.into();
         }
@@ -438,9 +391,7 @@ pub struct FirstFoldChunkedWitness {
 }
 
 /// Compute the chunked witness for `compute_first_fold(input)`.
-pub fn compute_first_fold_chunked_witness(
-    input: &[u64; NUM_INPUT_LIMBS],
-) -> FirstFoldChunkedWitness {
+pub fn compute_first_fold_chunked_witness(input: &[u64; NUM_INPUT_LIMBS]) -> FirstFoldChunkedWitness {
     let mask_10 = (1u64 << PIECE_BITS) - 1;
 
     // L_pieces: 10-bit decomp of every input limb.
@@ -558,9 +509,7 @@ pub fn compute_first_fold_chunked_witness(
         out_carry[3 * m + 1] = cc_o1;
         out_carry[3 * m + 2] = cc_o2;
 
-        out[m] = out_chunk[3 * m]
-            + (out_chunk[3 * m + 1] << PIECE_BITS)
-            + (out_chunk[3 * m + 2] << (2 * PIECE_BITS));
+        out[m] = out_chunk[3 * m] + (out_chunk[3 * m + 1] << PIECE_BITS) + (out_chunk[3 * m + 2] << (2 * PIECE_BITS));
 
         prev_inter = cc_o2;
     }
@@ -569,22 +518,10 @@ pub fn compute_first_fold_chunked_witness(
     // witness function). Both must produce identical 30-bit limb values.
     let acc_loose = compute_first_fold(input);
     for i in 0..NUM_OUTPUT_LIMBS {
-        debug_assert_eq!(
-            out[i] as u128, acc_loose[i],
-            "first_fold_chunked diverges from compute_first_fold at limb {i}"
-        );
+        debug_assert_eq!(out[i] as u128, acc_loose[i], "first_fold_chunked diverges from compute_first_fold at limb {i}");
     }
 
-    FirstFoldChunkedWitness {
-        l: *input,
-        l_pieces,
-        q_pieces,
-        acc,
-        q_carry,
-        out,
-        out_chunk,
-        out_carry,
-    }
+    FirstFoldChunkedWitness { l: *input, l_pieces, q_pieces, acc, q_carry, out, out_chunk, out_carry }
 }
 
 /// Standalone test AIR wrapping the chip.
@@ -613,11 +550,7 @@ where
 }
 
 /// Populate one row's worth of cells starting at `start_off`.
-pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    start_off: usize,
-    w: &FirstFoldChunkedWitness,
-) {
+pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(values: &mut [F], start_off: usize, w: &FirstFoldChunkedWitness) {
     // Structural cells.
     for i in 0..NUM_INPUT_LIMBS {
         values[start_off + col::L + i] = F::from_u64(w.l[i]);
@@ -646,39 +579,19 @@ pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
 
     // Bit decomposition regions.
     for i in 0..L_PIECES_TOTAL {
-        RangeNChip::<PIECE_BITS>::populate_bits::<F>(
-            values,
-            start_off + col::L_PIECES_BITS + i * PIECE_BITS,
-            w.l_pieces[i],
-        );
+        RangeNChip::<PIECE_BITS>::populate_bits::<F>(values, start_off + col::L_PIECES_BITS + i * PIECE_BITS, w.l_pieces[i]);
     }
     for i in 0..Q_PIECES_TOTAL {
-        RangeNChip::<PIECE_BITS>::populate_bits::<F>(
-            values,
-            start_off + col::Q_PIECES_BITS + i * PIECE_BITS,
-            w.q_pieces[i],
-        );
+        RangeNChip::<PIECE_BITS>::populate_bits::<F>(values, start_off + col::Q_PIECES_BITS + i * PIECE_BITS, w.q_pieces[i]);
     }
     for i in 0..ACC_TOTAL {
-        RangeNChip::<PIECE_BITS>::populate_bits::<F>(
-            values,
-            start_off + col::ACC_BITS + i * PIECE_BITS,
-            w.acc[i],
-        );
+        RangeNChip::<PIECE_BITS>::populate_bits::<F>(values, start_off + col::ACC_BITS + i * PIECE_BITS, w.acc[i]);
     }
     for i in 0..Q_CARRY_TOTAL {
-        RangeNChip::<Q_CARRY_BITWIDTH>::populate_bits::<F>(
-            values,
-            start_off + col::Q_CARRY_BITS + i * Q_CARRY_BITWIDTH,
-            w.q_carry[i],
-        );
+        RangeNChip::<Q_CARRY_BITWIDTH>::populate_bits::<F>(values, start_off + col::Q_CARRY_BITS + i * Q_CARRY_BITWIDTH, w.q_carry[i]);
     }
     for i in 0..OUT_CHUNK_TOTAL {
-        RangeNChip::<PIECE_BITS>::populate_bits::<F>(
-            values,
-            start_off + col::OUT_CHUNK_BITS + i * PIECE_BITS,
-            w.out_chunk[i],
-        );
+        RangeNChip::<PIECE_BITS>::populate_bits::<F>(values, start_off + col::OUT_CHUNK_BITS + i * PIECE_BITS, w.out_chunk[i]);
     }
     for i in 0..OUT_CARRY_TOTAL {
         RangeNChip::<OUT_CARRY_BITWIDTH>::populate_bits::<F>(
@@ -691,9 +604,7 @@ pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
 
 /// Build a 4-row test trace exercising one fold. Padding rows reuse the
 /// zero-input witness (all zeros, all constraints trivially satisfied).
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    input: &[u64; NUM_INPUT_LIMBS],
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(input: &[u64; NUM_INPUT_LIMBS]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -790,9 +701,7 @@ mod tests {
         let w = compute_first_fold_chunked_witness(&input);
         // Sanity: out reconstructs from chunks.
         for m in 0..NUM_OUTPUT_LIMBS {
-            let recomp = w.out_chunk[3 * m]
-                + (w.out_chunk[3 * m + 1] << PIECE_BITS)
-                + (w.out_chunk[3 * m + 2] << (2 * PIECE_BITS));
+            let recomp = w.out_chunk[3 * m] + (w.out_chunk[3 * m + 1] << PIECE_BITS) + (w.out_chunk[3 * m + 2] << (2 * PIECE_BITS));
             assert_eq!(w.out[m], recomp, "out[{m}] != chunk recomp");
         }
         let trace = build_test_trace::<BabyBear>(&input);
@@ -808,7 +717,7 @@ mod tests {
         input[0] = 0x1234;
         input[NUM_LIMBS] = 0x5678;
         let mut trace = build_test_trace::<BabyBear>(&input);
-        trace.values[col::OUT] = trace.values[col::OUT] + BabyBear::ONE;
+        trace.values[col::OUT] += BabyBear::ONE;
         check_constraints(&FirstFoldChunkedTestAir, &trace, &[]);
     }
 
@@ -819,7 +728,7 @@ mod tests {
         input[NUM_LIMBS] = 1;
         let mut trace = build_test_trace::<BabyBear>(&input);
         // Mutate acc[0] (= low chunk of low_30[0]).
-        trace.values[col::ACC] = trace.values[col::ACC] + BabyBear::ONE;
+        trace.values[col::ACC] += BabyBear::ONE;
         check_constraints(&FirstFoldChunkedTestAir, &trace, &[]);
     }
 
@@ -914,7 +823,7 @@ mod tests {
         let mut trace = build_test_trace::<BabyBear>(&input);
         // Flip a low bit of acc[0]'s decomp without updating the value.
         let bit_off = col::ACC_BITS;
-        trace.values[bit_off] = trace.values[bit_off] + BabyBear::ONE;
+        trace.values[bit_off] += BabyBear::ONE;
         check_constraints(&FirstFoldChunkedTestAir, &trace, &[]);
     }
 

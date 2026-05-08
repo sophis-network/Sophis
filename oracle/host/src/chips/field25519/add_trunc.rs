@@ -52,9 +52,9 @@ use super::{Field25519Element, NUM_LIMBS};
 pub mod col {
     use super::*;
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_LIMBS;          // 9
-    pub const C: usize = B + NUM_LIMBS;          // 18
-    pub const ADD_START: usize = C + NUM_LIMBS;  // 27
+    pub const B: usize = A + NUM_LIMBS; // 9
+    pub const C: usize = B + NUM_LIMBS; // 18
+    pub const ADD_START: usize = C + NUM_LIMBS; // 27
     pub const REDUCE_START: usize = ADD_START + ADD_COLS; // 54
 
     pub const TOTAL: usize = REDUCE_START + RED_COLS; // 81
@@ -65,6 +65,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct AddTruncChip {
     pub start_col: usize,
+}
+
+impl Default for AddTruncChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AddTruncChip {
@@ -89,14 +95,9 @@ impl AddTruncChip {
             }
         };
 
-        assert_chunks_eq(builder, self.start_col + col::ADD_START + 0, self.start_col + col::A, NUM_LIMBS);
+        assert_chunks_eq(builder, self.start_col + col::ADD_START, self.start_col + col::A, NUM_LIMBS);
         assert_chunks_eq(builder, self.start_col + col::ADD_START + NUM_LIMBS, self.start_col + col::B, NUM_LIMBS);
-        assert_chunks_eq(
-            builder,
-            self.start_col + col::REDUCE_START + 0,
-            self.start_col + col::ADD_START + 2 * NUM_LIMBS,
-            NUM_LIMBS,
-        );
+        assert_chunks_eq(builder, self.start_col + col::REDUCE_START, self.start_col + col::ADD_START + 2 * NUM_LIMBS, NUM_LIMBS);
         assert_chunks_eq(builder, self.start_col + col::C, self.start_col + col::REDUCE_START + NUM_LIMBS, NUM_LIMBS);
     }
 }
@@ -123,10 +124,7 @@ where
 }
 
 /// Build a single-row trace exercising one composed add+reduce.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     use super::add::compute_add;
     use super::reduce::compute_reduce;
 
@@ -146,14 +144,14 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
     // Populate AddChip.
     for i in 0..NUM_LIMBS {
-        values[col::ADD_START + 0 + i] = F::from_u64(a.limbs[i]);
+        values[col::ADD_START + i] = F::from_u64(a.limbs[i]);
         values[col::ADD_START + NUM_LIMBS + i] = F::from_u64(b.limbs[i]);
         values[col::ADD_START + 2 * NUM_LIMBS + i] = F::from_u64(loose_c.limbs[i]);
     }
 
     // Populate ReduceChip.
     for i in 0..NUM_LIMBS {
-        values[col::REDUCE_START + 0 + i] = F::from_u64(loose_c.limbs[i]);
+        values[col::REDUCE_START + i] = F::from_u64(loose_c.limbs[i]);
         values[col::REDUCE_START + NUM_LIMBS + i] = F::from_u64(canonical_c.limbs[i]);
         values[col::REDUCE_START + 2 * NUM_LIMBS + i] = F::from_u64(carries[i]);
     }
@@ -163,8 +161,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::P_LIMBS;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -244,7 +242,7 @@ mod tests {
     fn add_trunc_rejects_tampered_c() {
         let trace_init = build_test_trace::<BabyBear>(&small(7), &small(13));
         let mut trace = trace_init;
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&AddTruncChip::new(), &trace, &[]);
     }
 
@@ -253,7 +251,7 @@ mod tests {
     fn add_trunc_rejects_tampered_a() {
         let trace_init = build_test_trace::<BabyBear>(&small(7), &small(13));
         let mut trace = trace_init;
-        trace.values[col::A] = trace.values[col::A] + BabyBear::ONE;
+        trace.values[col::A] += BabyBear::ONE;
         check_constraints(&AddTruncChip::new(), &trace, &[]);
     }
 

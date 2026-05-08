@@ -248,7 +248,7 @@ mod tests {
     fn oracle_air_real_proof_round_trip() {
         use borsh::BorshSerialize;
         use sophis_oracle_core::{FeedId, PriceUpdate, PublisherKey, SignedPriceUpdate};
-        use sophis_oracle_host::{prove, ProveInputs};
+        use sophis_oracle_host::{ProveInputs, prove};
 
         let signed = SignedPriceUpdate {
             update: PriceUpdate {

@@ -17,11 +17,11 @@ use p3_field::PrimeCharacteristicRing;
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::decompress_air_chunked::{
-    build_decompress_trace_chunked, DecompressAirChunkedChip, NUM_COLS, NUM_PUBLIC_VALUES,
+    DecompressAirChunkedChip, NUM_COLS, NUM_PUBLIC_VALUES, build_decompress_trace_chunked,
 };
 use crate::chips::ed25519::point::ExtendedPoint;
 use crate::chips::field25519::{Field25519Element, NUM_LIMBS};
-use crate::config::{oracle_stark_config, Val};
+use crate::config::{Val, oracle_stark_config};
 
 const COMPRESSED_BYTES: usize = 32;
 const POINT_LIMBS: usize = 4 * NUM_LIMBS;
@@ -75,19 +75,23 @@ pub fn derive_decompress_output(compressed_bytes: &[u8; 32]) -> (ExtendedPoint, 
     }
 }
 
-pub fn build_public_values(
-    compressed_bytes: &[u8; 32],
-    output: &ExtendedPoint,
-    valid: bool,
-) -> Vec<Val> {
+pub fn build_public_values(compressed_bytes: &[u8; 32], output: &ExtendedPoint, valid: bool) -> Vec<Val> {
     let mut out = Vec::with_capacity(NUM_PUBLIC_VALUES);
     for &b in compressed_bytes {
         out.push(Val::from_u64(b as u64));
     }
-    for &l in &output.x.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.y.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.z.limbs { out.push(Val::from_u64(l)); }
-    for &l in &output.t.limbs { out.push(Val::from_u64(l)); }
+    for &l in &output.x.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.y.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.z.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &output.t.limbs {
+        out.push(Val::from_u64(l));
+    }
     out.push(Val::from_u64(if valid { 1 } else { 0 }));
     debug_assert_eq!(out.len(), NUM_PUBLIC_VALUES);
     out
@@ -102,11 +106,8 @@ pub fn prove_decompress_air_chunked(
 ) -> Result<DecompressAirChunkedProof, DecompressAirChunkedProverError> {
     let trace: RowMajorMatrix<Val> = build_decompress_trace_chunked::<Val>(compressed_bytes);
 
-    if trace.values.len() % NUM_COLS != 0 {
-        return Err(DecompressAirChunkedProverError::BadTraceShape {
-            got: trace.values.len(),
-            want: NUM_COLS,
-        });
+    if !trace.values.len().is_multiple_of(NUM_COLS) {
+        return Err(DecompressAirChunkedProverError::BadTraceShape { got: trace.values.len(), want: NUM_COLS });
     }
 
     let (output, valid) = derive_decompress_output(compressed_bytes);
@@ -114,8 +115,7 @@ pub fn prove_decompress_air_chunked(
 
     let (_perm, config) = oracle_stark_config();
     let proof = p3_uni_stark::prove(&config, &DecompressAirChunkedChip, trace, &public_values);
-    let bytes = bincode::serialize(&proof)
-        .map_err(|e| DecompressAirChunkedProverError::Serialization(e.to_string()))?;
+    let bytes = bincode::serialize(&proof).map_err(|e| DecompressAirChunkedProverError::Serialization(e.to_string()))?;
     Ok(DecompressAirChunkedProof { bytes, output, valid })
 }
 
@@ -126,15 +126,11 @@ pub fn verify_decompress_air_chunked_proof(
     expected_valid: bool,
 ) -> Result<(), DecompressAirChunkedVerifyError> {
     let proof: p3_uni_stark::Proof<crate::config::OracleStarkConfig> =
-        bincode::deserialize(proof_bytes)
-            .map_err(|e| DecompressAirChunkedVerifyError::Deserialization(e.to_string()))?;
+        bincode::deserialize(proof_bytes).map_err(|e| DecompressAirChunkedVerifyError::Deserialization(e.to_string()))?;
 
     let public_values = build_public_values(compressed_bytes, expected_output, expected_valid);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(DecompressAirChunkedVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(DecompressAirChunkedVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
     let (_perm, config) = oracle_stark_config();
@@ -142,17 +138,21 @@ pub fn verify_decompress_air_chunked_proof(
         .map_err(|e| DecompressAirChunkedVerifyError::StarkRejected(format!("{e:?}")))
 }
 
-pub fn encode_public_values_bytes(
-    compressed_bytes: &[u8; 32],
-    output: &ExtendedPoint,
-    valid: bool,
-) -> Vec<u8> {
+pub fn encode_public_values_bytes(compressed_bytes: &[u8; 32], output: &ExtendedPoint, valid: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(PUBLIC_VALUES_WIRE_BYTES);
     out.extend_from_slice(compressed_bytes);
-    for &l in &output.x.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.y.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.z.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &output.t.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
+    for &l in &output.x.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.y.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.z.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &output.t.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
     out.push(if valid { 1 } else { 0 });
     debug_assert_eq!(out.len(), PUBLIC_VALUES_WIRE_BYTES);
     out
@@ -231,7 +231,6 @@ mod tests {
         let proof = prove_decompress_air_chunked(&bp).expect("prove must succeed");
         assert!(!proof.bytes.is_empty());
         assert!(proof.valid);
-        verify_decompress_air_chunked_proof(&proof.bytes, &bp, &proof.output, proof.valid)
-            .expect("verify must succeed");
+        verify_decompress_air_chunked_proof(&proof.bytes, &bp, &proof.output, proof.valid).expect("verify must succeed");
     }
 }

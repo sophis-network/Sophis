@@ -36,18 +36,11 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
-use super::carry_fold::{
-    col as cfc, CarryFoldChip, NUM_COLS as CF_COLS, NUM_POSITIONS as CF_POSITIONS,
-};
-use super::limb_assembly_chunked::{
-    col as lac, LimbAssemblyChunkedChip, NUM_COLS as LA_COLS,
-    NUM_OUTPUT_LIMBS as LA_LIMBS,
-};
-use super::mul::{
-    col as mlc, MulChip, NUM_COLS as MUL_COLS, OUTPUT_POSITIONS as MUL_POSITIONS,
-};
 use super::Field25519Element;
 use super::NUM_LIMBS;
+use super::carry_fold::{CarryFoldChip, NUM_COLS as CF_COLS, NUM_POSITIONS as CF_POSITIONS, col as cfc};
+use super::limb_assembly_chunked::{LimbAssemblyChunkedChip, NUM_COLS as LA_COLS, NUM_OUTPUT_LIMBS as LA_LIMBS, col as lac};
+use super::mul::{MulChip, NUM_COLS as MUL_COLS, OUTPUT_POSITIONS as MUL_POSITIONS, col as mlc};
 
 pub mod col {
     use super::*;
@@ -68,6 +61,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct MulPipelineChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for MulPipelineChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MulPipelineChunkedChip {
@@ -95,44 +94,17 @@ impl MulPipelineChunkedChip {
         };
 
         // a/b inputs to MulChip
-        assert_chunks_eq(
-            builder,
-            s + col::MUL_START + mlc::A_LIMBS,
-            s + col::A,
-            NUM_LIMBS,
-        );
-        assert_chunks_eq(
-            builder,
-            s + col::MUL_START + mlc::B_LIMBS,
-            s + col::B,
-            NUM_LIMBS,
-        );
+        assert_chunks_eq(builder, s + col::MUL_START + mlc::A_LIMBS, s + col::A, NUM_LIMBS);
+        assert_chunks_eq(builder, s + col::MUL_START + mlc::B_LIMBS, s + col::B, NUM_LIMBS);
         // MulChip.OUT_POS → CarryFoldChip.POS
-        assert_chunks_eq(
-            builder,
-            s + col::CARRY_FOLD_START + cfc::POS,
-            s + col::MUL_START + mlc::OUT_POS,
-            MUL_POSITIONS,
-        );
+        assert_chunks_eq(builder, s + col::CARRY_FOLD_START + cfc::POS, s + col::MUL_START + mlc::OUT_POS, MUL_POSITIONS);
         // CarryFoldChip.CAN → LimbAssemblyChunked.CAN
-        assert_chunks_eq(
-            builder,
-            s + col::LIMB_ASSEMBLY_START + lac::CAN,
-            s + col::CARRY_FOLD_START + cfc::CAN,
-            CF_POSITIONS,
-        );
+        assert_chunks_eq(builder, s + col::LIMB_ASSEMBLY_START + lac::CAN, s + col::CARRY_FOLD_START + cfc::CAN, CF_POSITIONS);
         // CarryFoldChip last carry → LimbAssemblyChunked.OVF
-        builder.assert_eq(
-            row[s + col::LIMB_ASSEMBLY_START + lac::OVF],
-            row[s + col::CARRY_FOLD_START + cfc::CARRY + CF_POSITIONS - 1],
-        );
+        builder
+            .assert_eq(row[s + col::LIMB_ASSEMBLY_START + lac::OVF], row[s + col::CARRY_FOLD_START + cfc::CARRY + CF_POSITIONS - 1]);
         // LimbAssemblyChunked.L → top-level L
-        assert_chunks_eq(
-            builder,
-            s + col::L,
-            s + col::LIMB_ASSEMBLY_START + lac::L,
-            LA_LIMBS,
-        );
+        assert_chunks_eq(builder, s + col::L, s + col::LIMB_ASSEMBLY_START + lac::L, LA_LIMBS);
     }
 }
 
@@ -158,10 +130,7 @@ where
 }
 
 /// Build a single-row trace exercising the chunked multiplication pipeline.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     use super::carry_fold::compute_carry_fold;
     use super::limb_assembly_chunked::{compute_limb_assembly_chunked, populate_row_to as la_populate};
     use super::mul::compute_mul;
@@ -269,9 +238,7 @@ mod tests {
         use super::super::limb_assembly::{compute_limb_assembly_from_carry_fold, reconstruct_limbs};
         use super::super::mul::compute_mul;
 
-        let max = Field25519Element {
-            limbs: [(1 << 30) - 1; NUM_LIMBS],
-        };
+        let max = Field25519Element { limbs: [(1 << 30) - 1; NUM_LIMBS] };
         let trace = build_test_trace::<BabyBear>(&max, &max);
         check_constraints(&MulPipelineChunkedChip::new(), &trace, &[]);
 
@@ -290,10 +257,7 @@ mod tests {
         let trace = build_test_trace::<BabyBear>(&p, &one);
         check_constraints(&MulPipelineChunkedChip::new(), &trace, &[]);
         for i in 0..NUM_LIMBS {
-            assert_eq!(
-                trace.values[col::L + i].as_canonical_u32() as u64,
-                super::super::P_LIMBS[i]
-            );
+            assert_eq!(trace.values[col::L + i].as_canonical_u32() as u64, super::super::P_LIMBS[i]);
         }
         for i in NUM_LIMBS..LA_LIMBS {
             assert_eq!(trace.values[col::L + i].as_canonical_u32(), 0);
@@ -304,7 +268,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn pipeline_chunked_rejects_tampered_l() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::L] = trace.values[col::L] + BabyBear::ONE;
+        trace.values[col::L] += BabyBear::ONE;
         check_constraints(&MulPipelineChunkedChip::new(), &trace, &[]);
     }
 
@@ -312,7 +276,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn pipeline_chunked_rejects_tampered_a() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::A] = trace.values[col::A] + BabyBear::ONE;
+        trace.values[col::A] += BabyBear::ONE;
         check_constraints(&MulPipelineChunkedChip::new(), &trace, &[]);
     }
 
@@ -329,4 +293,3 @@ mod tests {
         assert!(NUM_COLS > col::LIMB_ASSEMBLY_START);
     }
 }
-

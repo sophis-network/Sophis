@@ -42,14 +42,30 @@ impl Sha512State {
         Self(state)
     }
 
-    pub fn a(&self) -> u64 { self.0[0] }
-    pub fn b(&self) -> u64 { self.0[1] }
-    pub fn c(&self) -> u64 { self.0[2] }
-    pub fn d(&self) -> u64 { self.0[3] }
-    pub fn e(&self) -> u64 { self.0[4] }
-    pub fn f(&self) -> u64 { self.0[5] }
-    pub fn g(&self) -> u64 { self.0[6] }
-    pub fn h(&self) -> u64 { self.0[7] }
+    pub fn a(&self) -> u64 {
+        self.0[0]
+    }
+    pub fn b(&self) -> u64 {
+        self.0[1]
+    }
+    pub fn c(&self) -> u64 {
+        self.0[2]
+    }
+    pub fn d(&self) -> u64 {
+        self.0[3]
+    }
+    pub fn e(&self) -> u64 {
+        self.0[4]
+    }
+    pub fn f(&self) -> u64 {
+        self.0[5]
+    }
+    pub fn g(&self) -> u64 {
+        self.0[6]
+    }
+    pub fn h(&self) -> u64 {
+        self.0[7]
+    }
 }
 
 #[inline]
@@ -78,11 +94,7 @@ pub fn maj(x: u64, y: u64, z: u64) -> u64 {
 pub fn compute_round(state: Sha512State, k: u64, w: u64) -> Sha512State {
     let [a, b, c, d, e, f, g, h] = state.0;
 
-    let t1 = h
-        .wrapping_add(big_sigma1(e))
-        .wrapping_add(ch(e, f, g))
-        .wrapping_add(k)
-        .wrapping_add(w);
+    let t1 = h.wrapping_add(big_sigma1(e)).wrapping_add(ch(e, f, g)).wrapping_add(k).wrapping_add(w);
     let t2 = big_sigma0(a).wrapping_add(maj(a, b, c));
 
     Sha512State::new([

@@ -83,9 +83,7 @@ pub struct ReduceModLAirProof {
 ///
 /// **Slow** — the AIR has ~3106 columns × HEIGHT=4 (small) and runs in
 /// well under a second in release mode.
-pub fn prove_reduce_mod_l_air(
-    digest: &[u8; DIGEST_BYTES],
-) -> Result<ReduceModLAirProof, ReduceModLAirProverError> {
+pub fn prove_reduce_mod_l_air(digest: &[u8; DIGEST_BYTES]) -> Result<ReduceModLAirProof, ReduceModLAirProverError> {
     // Build trace and derive scalar via the witness function.
     let trace = build_reduce_mod_l_trace::<Val>(digest);
     let scalar = crate::chips::ed25519::verify::reduce_mod_l(digest);
@@ -93,8 +91,7 @@ pub fn prove_reduce_mod_l_air(
 
     let (_perm, config) = oracle_stark_config();
     let proof = prove(&config, &ReduceModLAirChip, trace, &public_values);
-    let bytes = bincode::serialize(&proof)
-        .map_err(|e| ReduceModLAirProverError::Serialization(e.to_string()))?;
+    let bytes = bincode::serialize(&proof).map_err(|e| ReduceModLAirProverError::Serialization(e.to_string()))?;
     Ok(ReduceModLAirProof { bytes, scalar })
 }
 
@@ -111,18 +108,14 @@ pub fn verify_reduce_mod_l_air_proof(
 ) -> Result<(), ReduceModLAirVerifyError> {
     let public_values = build_public_values::<Val>(digest, expected_scalar);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(ReduceModLAirVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(ReduceModLAirVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
-    let proof: p3_uni_stark::Proof<OracleStarkConfig> = bincode::deserialize(proof_bytes)
-        .map_err(|e| ReduceModLAirVerifyError::Deserialization(e.to_string()))?;
+    let proof: p3_uni_stark::Proof<OracleStarkConfig> =
+        bincode::deserialize(proof_bytes).map_err(|e| ReduceModLAirVerifyError::Deserialization(e.to_string()))?;
 
     let (_perm, config) = oracle_stark_config();
-    verify(&config, &ReduceModLAirChip, &proof, &public_values)
-        .map_err(|e| ReduceModLAirVerifyError::StarkRejected(format!("{e:?}")))
+    verify(&config, &ReduceModLAirChip, &proof, &public_values).map_err(|e| ReduceModLAirVerifyError::StarkRejected(format!("{e:?}")))
 }
 
 /// Encode `(digest, scalar)` as wire bytes: 64 + 32 = 96 bytes fixed.
@@ -197,11 +190,8 @@ mod tests {
     #[test]
     fn prove_scalar_matches_canonical() {
         use crate::chips::ed25519::verify::reduce_mod_l;
-        let digests: &[[u8; DIGEST_BYTES]] = &[
-            [0u8; DIGEST_BYTES],
-            core::array::from_fn(|i| (i as u8).wrapping_mul(7)),
-            [0xffu8; DIGEST_BYTES],
-        ];
+        let digests: &[[u8; DIGEST_BYTES]] =
+            &[[0u8; DIGEST_BYTES], core::array::from_fn(|i| (i as u8).wrapping_mul(7)), [0xffu8; DIGEST_BYTES]];
         for digest in digests {
             let proof = prove_reduce_mod_l_air(digest).expect("prove ok");
             assert_eq!(proof.scalar, reduce_mod_l(digest));

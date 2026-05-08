@@ -40,35 +40,32 @@ use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::lookup::range_n::{Range16Chip, RangeNChip};
 
-use super::add_canonical_chunked::{
-    p_hi, p_lo, split_limb, CHUNK_HI_BITS, CHUNK_HI_MASK, CHUNK_HI_MOD, CHUNK_LO_BITS, CHUNK_LO_MASK,
-    CHUNK_LO_MOD,
-};
+use super::add_canonical_chunked::{CHUNK_HI_BITS, CHUNK_HI_MOD, CHUNK_LO_BITS, CHUNK_LO_MOD, p_hi, p_lo, split_limb};
 use super::{Field25519Element, NUM_LIMBS};
 
 pub mod col {
     use super::*;
     pub const A_LO: usize = 0;
-    pub const A_HI: usize = A_LO + NUM_LIMBS;          // 9
-    pub const C_LO: usize = A_HI + NUM_LIMBS;          // 18
-    pub const C_HI: usize = C_LO + NUM_LIMBS;          // 27
-    pub const T_LO: usize = C_HI + NUM_LIMBS;          // 36
-    pub const T_HI: usize = T_LO + NUM_LIMBS;          // 45
-    pub const BORROW_LO: usize = T_HI + NUM_LIMBS;     // 54
+    pub const A_HI: usize = A_LO + NUM_LIMBS; // 9
+    pub const C_LO: usize = A_HI + NUM_LIMBS; // 18
+    pub const C_HI: usize = C_LO + NUM_LIMBS; // 27
+    pub const T_LO: usize = C_HI + NUM_LIMBS; // 36
+    pub const T_HI: usize = T_LO + NUM_LIMBS; // 45
+    pub const BORROW_LO: usize = T_HI + NUM_LIMBS; // 54
     pub const BORROW_HI: usize = BORROW_LO + NUM_LIMBS; // 63
     pub const STRUCTURAL_END: usize = BORROW_HI + NUM_LIMBS; // 72
 
     /// Range16 bit decomp (3 grupos × 9 × 16 = 432 cells).
-    pub const A_LO_BITS: usize = STRUCTURAL_END;                              // 72
-    pub const C_LO_BITS: usize = A_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 216
-    pub const T_LO_BITS: usize = C_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 360
+    pub const A_LO_BITS: usize = STRUCTURAL_END; // 72
+    pub const C_LO_BITS: usize = A_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 216
+    pub const T_LO_BITS: usize = C_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 360
 
     /// Range14 bit decomp (3 grupos × 9 × 14 = 378 cells).
-    pub const A_HI_BITS: usize = T_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 504
-    pub const C_HI_BITS: usize = A_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;       // 630
-    pub const T_HI_BITS: usize = C_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;       // 756
+    pub const A_HI_BITS: usize = T_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 504
+    pub const C_HI_BITS: usize = A_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 630
+    pub const T_HI_BITS: usize = C_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 756
 
-    pub const TOTAL: usize = T_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;           // 882
+    pub const TOTAL: usize = T_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 882
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -76,6 +73,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct CondPSubChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for CondPSubChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CondPSubChunkedChip {
@@ -124,15 +127,9 @@ impl CondPSubChunkedChip {
             builder.assert_bool(borrow_hi);
 
             // t_lo + p_lo + borrow_in = a_lo + 2^16 * borrow_lo
-            builder.assert_eq(
-                t_lo.into() + p_lo_i + borrow_in.clone(),
-                a_lo.into() + two_pow_lo.clone() * borrow_lo.into(),
-            );
+            builder.assert_eq(t_lo.into() + p_lo_i + borrow_in.clone(), a_lo.into() + two_pow_lo.clone() * borrow_lo.into());
             // t_hi + p_hi + borrow_lo = a_hi + 2^14 * borrow_hi
-            builder.assert_eq(
-                t_hi.into() + p_hi_i + borrow_lo.into(),
-                a_hi.into() + two_pow_hi.clone() * borrow_hi.into(),
-            );
+            builder.assert_eq(t_hi.into() + p_hi_i + borrow_lo.into(), a_hi.into() + two_pow_hi.clone() * borrow_hi.into());
 
             borrow_in = borrow_hi.into();
         }
@@ -216,33 +213,34 @@ pub fn compute_cond_p_sub_chunked(a: &Field25519Element) -> CondPSubChunkedWitne
         }
     }
 
-    CondPSubChunkedWitness {
-        a_lo, a_hi, c_lo, c_hi, t_lo, t_hi, borrow_lo, borrow_hi,
-    }
+    CondPSubChunkedWitness { a_lo, a_hi, c_lo, c_hi, t_lo, t_hi, borrow_lo, borrow_hi }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct CondPSubChunkedTestAir;
 
 impl<F: Field> BaseAir<F> for CondPSubChunkedTestAir {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for CondPSubChunkedTestAir
-where AB::F: Field
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         CondPSubChunkedChip::new().emit(builder);
     }
 }
 
-pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    start_off: usize,
-    w: &CondPSubChunkedWitness,
-) {
+pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(values: &mut [F], start_off: usize, w: &CondPSubChunkedWitness) {
     for i in 0..NUM_LIMBS {
         values[start_off + col::A_LO + i] = F::from_u64(w.a_lo[i]);
         values[start_off + col::A_HI + i] = F::from_u64(w.a_hi[i]);
@@ -265,9 +263,7 @@ pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -285,9 +281,9 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::add_canonical_chunked::assemble_element;
     use super::super::P_LIMBS;
+    use super::super::add_canonical_chunked::assemble_element;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -352,7 +348,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn cond_chunked_rejects_tampered_c_lo() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(42));
-        trace.values[col::C_LO] = trace.values[col::C_LO] + BabyBear::ONE;
+        trace.values[col::C_LO] += BabyBear::ONE;
         check_constraints(&CondPSubChunkedTestAir, &trace, &[]);
     }
 
@@ -360,7 +356,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn cond_chunked_rejects_tampered_t_lo() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(42));
-        trace.values[col::T_LO] = trace.values[col::T_LO] + BabyBear::ONE;
+        trace.values[col::T_LO] += BabyBear::ONE;
         check_constraints(&CondPSubChunkedTestAir, &trace, &[]);
     }
 

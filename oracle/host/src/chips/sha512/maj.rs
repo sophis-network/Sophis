@@ -43,17 +43,17 @@ pub const NUM_BITS: usize = 64;
 pub mod col {
     use super::{NUM_BITS, NUM_CHUNKS};
     pub const A_CHUNKS: usize = 0;
-    pub const B_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS;     // 4
-    pub const C_CHUNKS: usize = B_CHUNKS + NUM_CHUNKS;     // 8
-    pub const OUT_CHUNKS: usize = C_CHUNKS + NUM_CHUNKS;   // 12
-    pub const A_BITS: usize = OUT_CHUNKS + NUM_CHUNKS;     // 16
-    pub const B_BITS: usize = A_BITS + NUM_BITS;           // 80
-    pub const C_BITS: usize = B_BITS + NUM_BITS;           // 144
-    pub const OUT_BITS: usize = C_BITS + NUM_BITS;         // 208
-    pub const AB_BITS: usize = OUT_BITS + NUM_BITS;        // 272
-    pub const AC_BITS: usize = AB_BITS + NUM_BITS;         // 336
-    pub const BC_BITS: usize = AC_BITS + NUM_BITS;         // 400
-    pub const MID_BITS: usize = BC_BITS + NUM_BITS;        // 464
+    pub const B_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS; // 4
+    pub const C_CHUNKS: usize = B_CHUNKS + NUM_CHUNKS; // 8
+    pub const OUT_CHUNKS: usize = C_CHUNKS + NUM_CHUNKS; // 12
+    pub const A_BITS: usize = OUT_CHUNKS + NUM_CHUNKS; // 16
+    pub const B_BITS: usize = A_BITS + NUM_BITS; // 80
+    pub const C_BITS: usize = B_BITS + NUM_BITS; // 144
+    pub const OUT_BITS: usize = C_BITS + NUM_BITS; // 208
+    pub const AB_BITS: usize = OUT_BITS + NUM_BITS; // 272
+    pub const AC_BITS: usize = AB_BITS + NUM_BITS; // 336
+    pub const BC_BITS: usize = AC_BITS + NUM_BITS; // 400
+    pub const MID_BITS: usize = BC_BITS + NUM_BITS; // 464
 }
 
 pub const NUM_COLS: usize = col::MID_BITS + NUM_BITS; // 528
@@ -61,6 +61,12 @@ pub const NUM_COLS: usize = col::MID_BITS + NUM_BITS; // 528
 #[derive(Debug, Clone, Copy)]
 pub struct MajChip {
     pub start_col: usize,
+}
+
+impl Default for MajChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MajChip {
@@ -95,10 +101,10 @@ impl MajChip {
             let mut weight: u64 = 1;
             for k in 0..CHUNK_BITS {
                 let w = AB::Expr::from_u64(weight);
-                a_acc = a_acc + w.clone() * row[self.start_col + col::A_BITS + bit_base + k].into();
-                b_acc = b_acc + w.clone() * row[self.start_col + col::B_BITS + bit_base + k].into();
-                c_acc = c_acc + w.clone() * row[self.start_col + col::C_BITS + bit_base + k].into();
-                out_acc = out_acc + w * row[self.start_col + col::OUT_BITS + bit_base + k].into();
+                a_acc += w.clone() * row[self.start_col + col::A_BITS + bit_base + k].into();
+                b_acc += w.clone() * row[self.start_col + col::B_BITS + bit_base + k].into();
+                c_acc += w.clone() * row[self.start_col + col::C_BITS + bit_base + k].into();
+                out_acc += w * row[self.start_col + col::OUT_BITS + bit_base + k].into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::A_CHUNKS + chunk_idx], a_acc);
@@ -231,8 +237,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &MajWitness) -> R
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -301,7 +307,7 @@ mod tests {
     fn maj_rejects_tampered_out_bit() {
         let w = compute_maj(0xFFFF, 0xFFFF, 0xFFFF);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::OUT_BITS] = trace.values[col::OUT_BITS] - BabyBear::ONE;
+        trace.values[col::OUT_BITS] -= BabyBear::ONE;
         check_constraints(&MajTestAir, &trace, &[]);
     }
 
@@ -310,7 +316,7 @@ mod tests {
     fn maj_rejects_tampered_mid_bit() {
         let w = compute_maj(0x1234, 0x5678, 0x9ABC);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::MID_BITS] = trace.values[col::MID_BITS] + BabyBear::ONE;
+        trace.values[col::MID_BITS] += BabyBear::ONE;
         check_constraints(&MajTestAir, &trace, &[]);
     }
 

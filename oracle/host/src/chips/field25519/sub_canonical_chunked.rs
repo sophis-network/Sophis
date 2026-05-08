@@ -52,8 +52,7 @@ use p3_matrix::dense::RowMajorMatrix;
 use crate::chips::lookup::range_n::{Range16Chip, RangeNChip};
 
 use super::add_canonical_chunked::{
-    join_limb, p_hi, p_lo, CHUNK_HI_BITS, CHUNK_HI_MASK, CHUNK_HI_MOD, CHUNK_LO_BITS, CHUNK_LO_MASK,
-    CHUNK_LO_MOD,
+    CHUNK_HI_BITS, CHUNK_HI_MASK, CHUNK_HI_MOD, CHUNK_LO_BITS, CHUNK_LO_MASK, CHUNK_LO_MOD, join_limb, p_hi, p_lo,
 };
 use super::{Field25519Element, NUM_LIMBS};
 
@@ -63,46 +62,46 @@ pub mod col {
     /// A/B/C nos offsets 0/9/18, identificados via reconstruction
     /// constraints `A[i] = A_LO[i] + 2^16·A_HI[i]` (sound, < 2^30 < p).
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_LIMBS;            // 9
-    pub const C: usize = B + NUM_LIMBS;            // 18
+    pub const B: usize = A + NUM_LIMBS; // 9
+    pub const C: usize = B + NUM_LIMBS; // 18
 
-    pub const A_LO: usize = C + NUM_LIMBS;         // 27
-    pub const A_HI: usize = A_LO + NUM_LIMBS;      // 36
-    pub const B_LO: usize = A_HI + NUM_LIMBS;      // 45
-    pub const B_HI: usize = B_LO + NUM_LIMBS;      // 54
-    pub const C_LO: usize = B_HI + NUM_LIMBS;      // 63
-    pub const C_HI: usize = C_LO + NUM_LIMBS;      // 72
-    pub const NEG_B_LO: usize = C_HI + NUM_LIMBS;  // 81
+    pub const A_LO: usize = C + NUM_LIMBS; // 27
+    pub const A_HI: usize = A_LO + NUM_LIMBS; // 36
+    pub const B_LO: usize = A_HI + NUM_LIMBS; // 45
+    pub const B_HI: usize = B_LO + NUM_LIMBS; // 54
+    pub const C_LO: usize = B_HI + NUM_LIMBS; // 63
+    pub const C_HI: usize = C_LO + NUM_LIMBS; // 72
+    pub const NEG_B_LO: usize = C_HI + NUM_LIMBS; // 81
     pub const NEG_B_HI: usize = NEG_B_LO + NUM_LIMBS; // 90
     pub const SUB_BORROW_LO: usize = NEG_B_HI + NUM_LIMBS; // 99
     pub const SUB_BORROW_HI: usize = SUB_BORROW_LO + NUM_LIMBS; // 108
-    pub const SUM_LO: usize = SUB_BORROW_HI + NUM_LIMBS;   // 117
-    pub const SUM_HI: usize = SUM_LO + NUM_LIMBS;          // 126
-    pub const INTRA_CARRY: usize = SUM_HI + NUM_LIMBS;     // 135
-    pub const INTER_CARRY: usize = INTRA_CARRY + NUM_LIMBS;// 144
-    pub const T_LO: usize = INTER_CARRY + NUM_LIMBS;       // 153
-    pub const T_HI: usize = T_LO + NUM_LIMBS;              // 162
-    pub const BORROW_LO: usize = T_HI + NUM_LIMBS;         // 171
-    pub const BORROW_HI: usize = BORROW_LO + NUM_LIMBS;    // 180
+    pub const SUM_LO: usize = SUB_BORROW_HI + NUM_LIMBS; // 117
+    pub const SUM_HI: usize = SUM_LO + NUM_LIMBS; // 126
+    pub const INTRA_CARRY: usize = SUM_HI + NUM_LIMBS; // 135
+    pub const INTER_CARRY: usize = INTRA_CARRY + NUM_LIMBS; // 144
+    pub const T_LO: usize = INTER_CARRY + NUM_LIMBS; // 153
+    pub const T_HI: usize = T_LO + NUM_LIMBS; // 162
+    pub const BORROW_LO: usize = T_HI + NUM_LIMBS; // 171
+    pub const BORROW_HI: usize = BORROW_LO + NUM_LIMBS; // 180
     pub const STRUCTURAL_END: usize = BORROW_HI + NUM_LIMBS; // 189
 
     /// Range16 bit decomp regions (6 grupos × 9 × 16 = 864 cells).
-    pub const A_LO_BITS: usize = STRUCTURAL_END;                              // 189
-    pub const B_LO_BITS: usize = A_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 333
-    pub const C_LO_BITS: usize = B_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 477
-    pub const NEG_B_LO_BITS: usize = C_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;   // 621
+    pub const A_LO_BITS: usize = STRUCTURAL_END; // 189
+    pub const B_LO_BITS: usize = A_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 333
+    pub const C_LO_BITS: usize = B_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 477
+    pub const NEG_B_LO_BITS: usize = C_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 621
     pub const SUM_LO_BITS: usize = NEG_B_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 765
-    pub const T_LO_BITS: usize = SUM_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;     // 909
+    pub const T_LO_BITS: usize = SUM_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 909
 
     /// Range14 bit decomp regions (6 grupos × 9 × 14 = 756 cells).
-    pub const A_HI_BITS: usize = T_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS;       // 1053
-    pub const B_HI_BITS: usize = A_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;       // 1179
-    pub const C_HI_BITS: usize = B_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;       // 1305
-    pub const NEG_B_HI_BITS: usize = C_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;   // 1431
+    pub const A_HI_BITS: usize = T_LO_BITS + NUM_LIMBS * CHUNK_LO_BITS; // 1053
+    pub const B_HI_BITS: usize = A_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1179
+    pub const C_HI_BITS: usize = B_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1305
+    pub const NEG_B_HI_BITS: usize = C_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1431
     pub const SUM_HI_BITS: usize = NEG_B_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1557
-    pub const T_HI_BITS: usize = SUM_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;     // 1683
+    pub const T_HI_BITS: usize = SUM_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1683
 
-    pub const TOTAL: usize = T_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS;           // 1809
+    pub const TOTAL: usize = T_HI_BITS + NUM_LIMBS * CHUNK_HI_BITS; // 1809
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -110,6 +109,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct SubCanonicalChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for SubCanonicalChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SubCanonicalChunkedChip {
@@ -195,15 +200,11 @@ impl SubCanonicalChunkedChip {
             builder.assert_bool(sub_borrow_hi);
 
             // lo: neg_b_lo + b_lo + sub_borrow_in = p_lo + 2^16 * sub_borrow_lo
-            builder.assert_eq(
-                neg_b_lo.into() + b_lo.into() + sub_borrow_in.clone(),
-                p_lo_i + two_pow_lo.clone() * sub_borrow_lo.into(),
-            );
+            builder
+                .assert_eq(neg_b_lo.into() + b_lo.into() + sub_borrow_in.clone(), p_lo_i + two_pow_lo.clone() * sub_borrow_lo.into());
             // hi: neg_b_hi + b_hi + sub_borrow_lo = p_hi + 2^14 * sub_borrow_hi
-            builder.assert_eq(
-                neg_b_hi.into() + b_hi.into() + sub_borrow_lo.into(),
-                p_hi_i + two_pow_hi.clone() * sub_borrow_hi.into(),
-            );
+            builder
+                .assert_eq(neg_b_hi.into() + b_hi.into() + sub_borrow_lo.into(), p_hi_i + two_pow_hi.clone() * sub_borrow_hi.into());
 
             sub_borrow_in = sub_borrow_hi.into();
         }
@@ -259,14 +260,8 @@ impl SubCanonicalChunkedChip {
             builder.assert_bool(borrow_lo);
             builder.assert_bool(borrow_hi);
 
-            builder.assert_eq(
-                t_lo.into() + p_lo_i + borrow_in.clone(),
-                sum_lo.into() + two_pow_lo.clone() * borrow_lo.into(),
-            );
-            builder.assert_eq(
-                t_hi.into() + p_hi_i + borrow_lo.into(),
-                sum_hi.into() + two_pow_hi.clone() * borrow_hi.into(),
-            );
+            builder.assert_eq(t_lo.into() + p_lo_i + borrow_in.clone(), sum_lo.into() + two_pow_lo.clone() * borrow_lo.into());
+            builder.assert_eq(t_hi.into() + p_hi_i + borrow_lo.into(), sum_hi.into() + two_pow_hi.clone() * borrow_hi.into());
 
             borrow_in = borrow_hi.into();
         }
@@ -311,10 +306,7 @@ pub struct SubCanonicalChunkedWitness {
     pub borrow_hi: [u64; NUM_LIMBS],
 }
 
-pub fn compute_sub_canonical_chunked(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> SubCanonicalChunkedWitness {
+pub fn compute_sub_canonical_chunked(a: &Field25519Element, b: &Field25519Element) -> SubCanonicalChunkedWitness {
     use super::add_canonical_chunked::split_limb;
 
     let mut a_lo = [0u64; NUM_LIMBS];
@@ -359,11 +351,7 @@ pub fn compute_sub_canonical_chunked(
 
         sub_borrow_in = sub_borrow_hi[i] as i64;
     }
-    debug_assert_eq!(
-        sub_borrow_hi[NUM_LIMBS - 1],
-        0,
-        "p > b for canonical b — top sub_borrow must be 0"
-    );
+    debug_assert_eq!(sub_borrow_hi[NUM_LIMBS - 1], 0, "p > b for canonical b — top sub_borrow must be 0");
 
     // Step A — sum = a + neg_b chunked add.
     let mut sum_lo = [0u64; NUM_LIMBS];
@@ -382,11 +370,7 @@ pub fn compute_sub_canonical_chunked(
 
         inter_carry_in = inter_carry[i];
     }
-    debug_assert_eq!(
-        inter_carry[NUM_LIMBS - 1],
-        0,
-        "a + (p - b) < a + p < 2p < 2^256 → top inter_carry must be 0"
-    );
+    debug_assert_eq!(inter_carry[NUM_LIMBS - 1], 0, "a + (p - b) < a + p < 2p < 2^256 → top inter_carry must be 0");
 
     // Step B — cond_p_sub of sum.
     let mut t_lo = [0u64; NUM_LIMBS];
@@ -431,10 +415,24 @@ pub fn compute_sub_canonical_chunked(
     }
 
     SubCanonicalChunkedWitness {
-        a_lo, a_hi, b_lo, b_hi, c_lo, c_hi,
-        neg_b_lo, neg_b_hi, sub_borrow_lo, sub_borrow_hi,
-        sum_lo, sum_hi, intra_carry, inter_carry,
-        t_lo, t_hi, borrow_lo, borrow_hi,
+        a_lo,
+        a_hi,
+        b_lo,
+        b_hi,
+        c_lo,
+        c_hi,
+        neg_b_lo,
+        neg_b_hi,
+        sub_borrow_lo,
+        sub_borrow_hi,
+        sum_lo,
+        sum_hi,
+        intra_carry,
+        inter_carry,
+        t_lo,
+        t_hi,
+        borrow_lo,
+        borrow_hi,
     }
 }
 
@@ -476,11 +474,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     populate_row_to::<F>(values, row_off + start_col, &w);
 }
 
-pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    start_off: usize,
-    w: &SubCanonicalChunkedWitness,
-) {
+pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(values: &mut [F], start_off: usize, w: &SubCanonicalChunkedWitness) {
     for i in 0..NUM_LIMBS {
         // 30-bit interface (drop-in compat).
         values[start_off + col::A + i] = F::from_u64(join_limb(w.a_lo[i], w.a_hi[i]));
@@ -524,10 +518,7 @@ pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -546,9 +537,9 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::add_canonical_chunked::{assemble_element, join_limb};
     use super::super::P_LIMBS;
+    use super::super::add_canonical_chunked::{assemble_element, join_limb};
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -648,7 +639,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn sub_chunked_rejects_tampered_c_lo() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(20), &elem_from_u64(7));
-        trace.values[col::C_LO] = trace.values[col::C_LO] + BabyBear::ONE;
+        trace.values[col::C_LO] += BabyBear::ONE;
         check_constraints(&SubCanonicalChunkedTestAir, &trace, &[]);
     }
 
@@ -656,7 +647,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn sub_chunked_rejects_tampered_neg_b_lo() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(20), &elem_from_u64(7));
-        trace.values[col::NEG_B_LO] = trace.values[col::NEG_B_LO] + BabyBear::ONE;
+        trace.values[col::NEG_B_LO] += BabyBear::ONE;
         check_constraints(&SubCanonicalChunkedTestAir, &trace, &[]);
     }
 
@@ -664,7 +655,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn sub_chunked_rejects_tampered_sum_hi() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(20), &elem_from_u64(7));
-        trace.values[col::SUM_HI] = trace.values[col::SUM_HI] + BabyBear::ONE;
+        trace.values[col::SUM_HI] += BabyBear::ONE;
         check_constraints(&SubCanonicalChunkedTestAir, &trace, &[]);
     }
 
@@ -719,7 +710,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn sub_chunked_rejects_k1_collision_attempt_via_sum_chunks() {
         let mut trace = build_test_trace::<BabyBear>(&elem_from_u64(200), &elem_from_u64(100));
-        trace.values[col::SUM_LO] = trace.values[col::SUM_LO] + BabyBear::ONE;
+        trace.values[col::SUM_LO] += BabyBear::ONE;
         check_constraints(&SubCanonicalChunkedTestAir, &trace, &[]);
     }
 

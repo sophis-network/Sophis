@@ -47,19 +47,25 @@ pub mod col {
     pub const A_CHUNKS: usize = 0;
     pub const B_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS; // 4
     pub const C_CHUNKS: usize = B_CHUNKS + NUM_CHUNKS; // 8
-    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 12
-    pub const B_BITS: usize = A_BITS + NUM_BITS;       // 76
-    pub const C_BITS: usize = B_BITS + NUM_BITS;       // 140
+    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 12
+    pub const B_BITS: usize = A_BITS + NUM_BITS; // 76
+    pub const C_BITS: usize = B_BITS + NUM_BITS; // 140
 }
 
 pub const NUM_COLS: usize = col::C_BITS + NUM_BITS; // 204
 pub const NUM_CONSTRAINTS: usize = 3 * NUM_BITS // bool checks
     + 3 * NUM_CHUNKS                            // chunk recompositions
-    + NUM_BITS;                                  // per-bit XOR
+    + NUM_BITS; // per-bit XOR
 
 #[derive(Debug, Clone, Copy)]
 pub struct Word64XorChip {
     pub start_col: usize,
+}
+
+impl Default for Word64XorChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64XorChip {
@@ -98,9 +104,9 @@ impl Word64XorChip {
                 let b_bit = row[self.start_col + col::B_BITS + bit_base + k];
                 let c_bit = row[self.start_col + col::C_BITS + bit_base + k];
                 let w = AB::Expr::from_u64(weight);
-                a_acc = a_acc + w.clone() * a_bit.into();
-                b_acc = b_acc + w.clone() * b_bit.into();
-                c_acc = c_acc + w * c_bit.into();
+                a_acc += w.clone() * a_bit.into();
+                b_acc += w.clone() * b_bit.into();
+                c_acc += w * c_bit.into();
                 weight <<= 1;
             }
             let a_chunk = row[self.start_col + col::A_CHUNKS + chunk_idx];
@@ -198,8 +204,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64XorWitness
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -294,7 +300,7 @@ mod tests {
         let w = compute_xor64(0x1234, 0x5678);
         let mut trace = build_test_trace::<BabyBear>(&w);
         // Flip c bit 0 — XOR constraint must reject.
-        trace.values[col::C_BITS] = trace.values[col::C_BITS] + BabyBear::ONE;
+        trace.values[col::C_BITS] += BabyBear::ONE;
         check_constraints(&Word64XorTestAir, &trace, &[]);
     }
 
@@ -314,7 +320,7 @@ mod tests {
         let w = compute_xor64(0x1111, 0x2222);
         let mut trace = build_test_trace::<BabyBear>(&w);
         // Mutate a_chunks[0] without updating a_bits — recomposition rejects.
-        trace.values[col::A_CHUNKS] = trace.values[col::A_CHUNKS] + BabyBear::ONE;
+        trace.values[col::A_CHUNKS] += BabyBear::ONE;
         check_constraints(&Word64XorTestAir, &trace, &[]);
     }
 

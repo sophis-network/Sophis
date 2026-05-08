@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sophis_addresses::{Address, AddressError};
+use sophis_addresses::Address;
 use sophis_consensus_core::{
     ChainPath,
     acceptance_data::{AcceptanceData, MergesetBlockAcceptanceData},

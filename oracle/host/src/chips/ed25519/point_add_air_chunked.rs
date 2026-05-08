@@ -22,10 +22,10 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::field25519::{
+    Field25519Element, NUM_LIMBS,
     add_canonical_chunked::{self, AddCanonicalChunkedChip, NUM_COLS as ADC_COLS},
     mul_canonical_full_chunked::{self, MulCanonicalFullChunkedChip, NUM_COLS as MC_COLS},
-    sub_canonical_chunked::{self, SubCanonicalChunkedChip, NUM_COLS as SC_COLS},
-    Field25519Element, NUM_LIMBS,
+    sub_canonical_chunked::{self, NUM_COLS as SC_COLS, SubCanonicalChunkedChip},
 };
 
 const POINT_LIMBS: usize = 4 * NUM_LIMBS; // 36
@@ -101,6 +101,12 @@ pub struct PointAddAirChunkedChip {
     pub start_col: usize,
 }
 
+impl Default for PointAddAirChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PointAddAirChunkedChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -156,46 +162,134 @@ impl PointAddAirChunkedChip {
         assert_chunks(builder, s + col::sub_at(chip::SUB_YX2) + sub_canonical_chunked::col::B, s + col::P2 + col::X_OFF);
 
         // MUL_A: (Y1-X1) · (Y2-X2)
-        assert_chunks(builder, s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::A, s + col::sub_at(chip::SUB_YX1) + sub_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::B, s + col::sub_at(chip::SUB_YX2) + sub_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::A,
+            s + col::sub_at(chip::SUB_YX1) + sub_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::B,
+            s + col::sub_at(chip::SUB_YX2) + sub_canonical_chunked::col::C,
+        );
         // MUL_B: (Y1+X1) · (Y2+X2)
-        assert_chunks(builder, s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::A, s + col::add_at(chip::ADD_YX1) + add_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::B, s + col::add_at(chip::ADD_YX2) + add_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::A,
+            s + col::add_at(chip::ADD_YX1) + add_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::B,
+            s + col::add_at(chip::ADD_YX2) + add_canonical_chunked::col::C,
+        );
         // MUL_T1_2D: T1 · 2d
         assert_chunks(builder, s + col::mul_at(chip::MUL_T1_2D) + mul_canonical_full_chunked::col::A, s + col::P1 + col::T_OFF);
         assert_chunks(builder, s + col::mul_at(chip::MUL_T1_2D) + mul_canonical_full_chunked::col::B, s + col::TWO_D);
         // MUL_C: (T1·2d) · T2
-        assert_chunks(builder, s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::A, s + col::mul_at(chip::MUL_T1_2D) + mul_canonical_full_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::A,
+            s + col::mul_at(chip::MUL_T1_2D) + mul_canonical_full_chunked::col::C,
+        );
         assert_chunks(builder, s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::B, s + col::P2 + col::T_OFF);
         // MUL_D: (Z1+Z1) · Z2
-        assert_chunks(builder, s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::A, s + col::add_at(chip::ADD_ZZ) + add_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::A,
+            s + col::add_at(chip::ADD_ZZ) + add_canonical_chunked::col::C,
+        );
         assert_chunks(builder, s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::B, s + col::P2 + col::Z_OFF);
 
         // SUB_E: B - A
-        assert_chunks(builder, s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::A, s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::C);
-        assert_chunks(builder, s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::B, s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::A,
+            s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::B,
+            s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::C,
+        );
         // SUB_F: D - C
-        assert_chunks(builder, s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::A, s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::C);
-        assert_chunks(builder, s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::B, s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::A,
+            s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::B,
+            s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::C,
+        );
         // ADD_G: D + C
-        assert_chunks(builder, s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::A, s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::C);
-        assert_chunks(builder, s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::B, s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::A,
+            s + col::mul_at(chip::MUL_D) + mul_canonical_full_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::B,
+            s + col::mul_at(chip::MUL_C) + mul_canonical_full_chunked::col::C,
+        );
         // ADD_H: B + A
-        assert_chunks(builder, s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::A, s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::C);
-        assert_chunks(builder, s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::B, s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::A,
+            s + col::mul_at(chip::MUL_B) + mul_canonical_full_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::B,
+            s + col::mul_at(chip::MUL_A) + mul_canonical_full_chunked::col::C,
+        );
 
         // MUL_X3: E · F
-        assert_chunks(builder, s + col::mul_at(chip::MUL_X3) + mul_canonical_full_chunked::col::A, s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_X3) + mul_canonical_full_chunked::col::B, s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_X3) + mul_canonical_full_chunked::col::A,
+            s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_X3) + mul_canonical_full_chunked::col::B,
+            s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::C,
+        );
         // MUL_Y3: G · H
-        assert_chunks(builder, s + col::mul_at(chip::MUL_Y3) + mul_canonical_full_chunked::col::A, s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_Y3) + mul_canonical_full_chunked::col::B, s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_Y3) + mul_canonical_full_chunked::col::A,
+            s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_Y3) + mul_canonical_full_chunked::col::B,
+            s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::C,
+        );
         // MUL_T3: E · H
-        assert_chunks(builder, s + col::mul_at(chip::MUL_T3) + mul_canonical_full_chunked::col::A, s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_T3) + mul_canonical_full_chunked::col::B, s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_T3) + mul_canonical_full_chunked::col::A,
+            s + col::sub_at(chip::SUB_E) + sub_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_T3) + mul_canonical_full_chunked::col::B,
+            s + col::add_at(chip::ADD_H) + add_canonical_chunked::col::C,
+        );
         // MUL_Z3: F · G
-        assert_chunks(builder, s + col::mul_at(chip::MUL_Z3) + mul_canonical_full_chunked::col::A, s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::C);
-        assert_chunks(builder, s + col::mul_at(chip::MUL_Z3) + mul_canonical_full_chunked::col::B, s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::C);
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_Z3) + mul_canonical_full_chunked::col::A,
+            s + col::sub_at(chip::SUB_F) + sub_canonical_chunked::col::C,
+        );
+        assert_chunks(
+            builder,
+            s + col::mul_at(chip::MUL_Z3) + mul_canonical_full_chunked::col::B,
+            s + col::add_at(chip::ADD_G) + add_canonical_chunked::col::C,
+        );
 
         // P3 outputs ← MUL_{X3,Y3,T3,Z3}.C
         assert_chunks(builder, s + col::P3 + col::X_OFF, s + col::mul_at(chip::MUL_X3) + mul_canonical_full_chunked::col::C);
@@ -236,9 +330,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
 ) {
     use crate::chips::field25519::arith::{field_add, field_mul, field_sub};
 
-    let two_d = Field25519Element {
-        limbs: two_d_limbs(),
-    };
+    let two_d = Field25519Element { limbs: two_d_limbs() };
     let base = row_off + start_col;
 
     let put_field = |values: &mut [F], off: usize, e: &Field25519Element| {
@@ -281,24 +373,24 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // Sub-chips chunked variants.
     add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_YX1), &p1.y, &p1.x);
     add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_YX2), &p2.y, &p2.x);
-    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_ZZ),  &p1.z, &p1.z);
-    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_G),   &d_val, &c_val);
-    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_H),   &b_val, &a_val);
+    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_ZZ), &p1.z, &p1.z);
+    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_G), &d_val, &c_val);
+    add_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::add_at(chip::ADD_H), &b_val, &a_val);
 
     sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_YX1), &p1.y, &p1.x);
     sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_YX2), &p2.y, &p2.x);
-    sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_E),   &b_val, &a_val);
-    sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_F),   &d_val, &c_val);
+    sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_E), &b_val, &a_val);
+    sub_canonical_chunked::populate_row::<F>(values, row_off, start_col + col::sub_at(chip::SUB_F), &d_val, &c_val);
 
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_A),     &yx1_diff, &yx2_diff);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_B),     &yx1_sum,  &yx2_sum);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_A), &yx1_diff, &yx2_diff);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_B), &yx1_sum, &yx2_sum);
     mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_T1_2D), &p1.t, &two_d);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_C),     &t1_2d, &p2.t);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_D),     &zz_sum, &p2.z);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_X3),    &e_val, &f_val);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_Y3),    &g_val, &h_val);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_T3),    &e_val, &h_val);
-    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_Z3),    &f_val, &g_val);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_C), &t1_2d, &p2.t);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_D), &zz_sum, &p2.z);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_X3), &e_val, &f_val);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_Y3), &g_val, &h_val);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_T3), &e_val, &h_val);
+    mul_canonical_full_chunked::populate_row::<F>(values, row_off, start_col + col::mul_at(chip::MUL_Z3), &f_val, &g_val);
 
     put_field(values, base + col::P3 + col::X_OFF, &x3);
     put_field(values, base + col::P3 + col::Y_OFF, &y3);
@@ -324,7 +416,7 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::super::point::{point_add, ExtendedPoint};
+    use super::super::point::{ExtendedPoint, point_add};
     use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
@@ -388,7 +480,7 @@ mod tests {
     fn point_add_chunked_rejects_tampered_output() {
         let neutral = ExtendedPoint::neutral();
         let mut trace = build_test_trace::<BabyBear>(&neutral, &neutral);
-        trace.values[col::P3 + col::X_OFF] = trace.values[col::P3 + col::X_OFF] + BabyBear::from_u64(1);
+        trace.values[col::P3 + col::X_OFF] += BabyBear::from_u64(1);
         check_constraints(&PointAddAirChunkedChip::new(), &trace, &[]);
     }
 

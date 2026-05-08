@@ -80,12 +80,12 @@ pub const CARRY_BITS: usize = 10;
 pub mod col {
     use super::*;
     pub const L: usize = 0;
-    pub const OUT: usize = L + NUM_INPUT_LIMBS;        // 18
-    pub const CARRY: usize = OUT + NUM_OUTPUT_LIMBS;   // 28
+    pub const OUT: usize = L + NUM_INPUT_LIMBS; // 18
+    pub const CARRY: usize = OUT + NUM_OUTPUT_LIMBS; // 28
     pub const PIECES: usize = CARRY + NUM_OUTPUT_LIMBS; // 38
     pub const PRODUCTS: usize = PIECES + NUM_HIGH * PIECES_PER_HIGH; // 65
     pub const LOW_30: usize = PRODUCTS + NUM_HIGH * PIECES_PER_HIGH; // 92
-    pub const HIGH_20: usize = LOW_30 + NUM_HIGH;       // 101
+    pub const HIGH_20: usize = LOW_30 + NUM_HIGH; // 101
     pub const PIECE_BITS_BASE: usize = HIGH_20 + NUM_HIGH; // 110 — Etapa 3.3
     pub const LOW_30_BITS_BASE: usize = PIECE_BITS_BASE + NUM_HIGH * PIECES_PER_HIGH * PIECE_BITS; // 380 — Etapa 3.6
     pub const HIGH_20_BITS_BASE: usize = LOW_30_BITS_BASE + NUM_HIGH * LOW_30_BITS; // 650 — Etapa 3.6
@@ -98,6 +98,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct FirstFoldChip {
     pub start_col: usize,
+}
+
+impl Default for FirstFoldChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FirstFoldChip {
@@ -131,10 +137,7 @@ impl FirstFoldChip {
             let m_const = AB::Expr::from_u64(FOLD_M);
 
             // Decomposition: L[k+9] = a + 2^10·b + 2^20·c
-            builder.assert_eq(
-                l_high,
-                a_k.into() + two_pow_10.clone() * b_k.into() + two_pow_20.clone() * c_k.into(),
-            );
+            builder.assert_eq(l_high, a_k.into() + two_pow_10.clone() * b_k.into() + two_pow_20.clone() * c_k.into());
 
             // Partial products: q_x = M · piece_x.
             builder.assert_eq(q_a, m_const.clone() * a_k.into());
@@ -157,15 +160,15 @@ impl FirstFoldChip {
             let mut rhs: AB::Expr = carry_in;
             // V_lo[m] contribution (only if m < 9)
             if m < NUM_LIMBS {
-                rhs = rhs + row[self.start_col + col::L + m].into();
+                rhs += row[self.start_col + col::L + m].into();
             }
             // low_30[m] contribution (m < 9)
             if m < NUM_HIGH {
-                rhs = rhs + row[self.start_col + col::LOW_30 + m].into();
+                rhs += row[self.start_col + col::LOW_30 + m].into();
             }
             // high_20[m-1] contribution (m >= 1)
             if m >= 1 && m - 1 < NUM_HIGH {
-                rhs = rhs + row[self.start_col + col::HIGH_20 + (m - 1)].into();
+                rhs += row[self.start_col + col::HIGH_20 + (m - 1)].into();
             }
 
             // out[m] + 2^30 · carry_out = rhs
@@ -181,11 +184,8 @@ impl FirstFoldChip {
         // PIECE_BITS_BASE region.
         let total_pieces = NUM_HIGH * PIECES_PER_HIGH;
         for i in 0..total_pieces {
-            RangeNChip::<PIECE_BITS>::split(
-                self.start_col + col::PIECES + i,
-                self.start_col + col::PIECE_BITS_BASE + i * PIECE_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<PIECE_BITS>::split(self.start_col + col::PIECES + i, self.start_col + col::PIECE_BITS_BASE + i * PIECE_BITS)
+                .emit(builder);
         }
 
         // ── 30-bit range checks on LOW_30 (Etapa 3.6) ──────────────────
@@ -219,11 +219,8 @@ impl FirstFoldChip {
         // Real bound is ≤ ~4, but Range10 is uniform with other chips
         // and safely covers any future RHS adjustment.
         for m in 0..NUM_OUTPUT_LIMBS {
-            RangeNChip::<CARRY_BITS>::split(
-                self.start_col + col::CARRY + m,
-                self.start_col + col::CARRY_BITS_BASE + m * CARRY_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<CARRY_BITS>::split(self.start_col + col::CARRY + m, self.start_col + col::CARRY_BITS_BASE + m * CARRY_BITS)
+                .emit(builder);
         }
     }
 }
@@ -384,35 +381,19 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &FirstFoldWitness
         values[col::OUT + i] = F::from_u64(w.out[i]);
         values[col::CARRY + i] = F::from_u64(w.carries[i]);
         // Etapa 3.8: 10-bit range bits for first_fold carry[i].
-        RangeNChip::<CARRY_BITS>::populate_bits::<F>(
-            values.as_mut_slice(),
-            col::CARRY_BITS_BASE + i * CARRY_BITS,
-            w.carries[i],
-        );
+        RangeNChip::<CARRY_BITS>::populate_bits::<F>(values.as_mut_slice(), col::CARRY_BITS_BASE + i * CARRY_BITS, w.carries[i]);
     }
     for i in 0..NUM_HIGH * PIECES_PER_HIGH {
         values[col::PIECES + i] = F::from_u64(w.pieces[i]);
         values[col::PRODUCTS + i] = F::from_u64(w.products[i]);
-        RangeNChip::<PIECE_BITS>::populate_bits::<F>(
-            values.as_mut_slice(),
-            col::PIECE_BITS_BASE + i * PIECE_BITS,
-            w.pieces[i],
-        );
+        RangeNChip::<PIECE_BITS>::populate_bits::<F>(values.as_mut_slice(), col::PIECE_BITS_BASE + i * PIECE_BITS, w.pieces[i]);
     }
     for i in 0..NUM_HIGH {
         values[col::LOW_30 + i] = F::from_u64(w.low_30[i]);
         values[col::HIGH_20 + i] = F::from_u64(w.high_20[i]);
         // Etapa 3.6: 30-bit and 20-bit range bits.
-        RangeNChip::<LOW_30_BITS>::populate_bits::<F>(
-            values.as_mut_slice(),
-            col::LOW_30_BITS_BASE + i * LOW_30_BITS,
-            w.low_30[i],
-        );
-        RangeNChip::<HIGH_20_BITS>::populate_bits::<F>(
-            values.as_mut_slice(),
-            col::HIGH_20_BITS_BASE + i * HIGH_20_BITS,
-            w.high_20[i],
-        );
+        RangeNChip::<LOW_30_BITS>::populate_bits::<F>(values.as_mut_slice(), col::LOW_30_BITS_BASE + i * LOW_30_BITS, w.low_30[i]);
+        RangeNChip::<HIGH_20_BITS>::populate_bits::<F>(values.as_mut_slice(), col::HIGH_20_BITS_BASE + i * HIGH_20_BITS, w.high_20[i]);
     }
 
     RowMajorMatrix::new(values, NUM_COLS)
@@ -503,7 +484,7 @@ mod tests {
         input[NUM_LIMBS] = 0x5678;
         let w = compute_first_fold_witness(&input);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::OUT] = trace.values[col::OUT] + BabyBear::ONE;
+        trace.values[col::OUT] += BabyBear::ONE;
         check_constraints(&FirstFoldTestAir, &trace, &[]);
     }
 

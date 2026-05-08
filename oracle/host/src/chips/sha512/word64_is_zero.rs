@@ -49,16 +49,16 @@ pub const NUM_CHUNKS: usize = 4;
 pub mod col {
     use super::NUM_CHUNKS;
     pub const A: usize = 0;
-    pub const INV: usize = A + NUM_CHUNKS;          // 4
-    pub const CZ: usize = INV + NUM_CHUNKS;          // 8 (chunk_is_zero)
-    pub const M1: usize = CZ + NUM_CHUNKS;           // 12
-    pub const M2: usize = M1 + 1;                    // 13
-    pub const M3: usize = M2 + 1;                    // 14 (= is_zero)
-    pub const IS_ZERO: usize = M3 + 1;               // 15
+    pub const INV: usize = A + NUM_CHUNKS; // 4
+    pub const CZ: usize = INV + NUM_CHUNKS; // 8 (chunk_is_zero)
+    pub const M1: usize = CZ + NUM_CHUNKS; // 12
+    pub const M2: usize = M1 + 1; // 13
+    pub const M3: usize = M2 + 1; // 14 (= is_zero)
+    pub const IS_ZERO: usize = M3 + 1; // 15
 
-    pub const _UNUSED_PAD: usize = IS_ZERO + 1;      // 16 (we keep IS_ZERO as a separate
-                                                      // explicit output column for caller
-                                                      // ergonomics, even though it equals m3)
+    pub const _UNUSED_PAD: usize = IS_ZERO + 1; // 16 (we keep IS_ZERO as a separate
+    // explicit output column for caller
+    // ergonomics, even though it equals m3)
 }
 
 pub const NUM_COLS: usize = col::_UNUSED_PAD; // 16
@@ -66,6 +66,12 @@ pub const NUM_COLS: usize = col::_UNUSED_PAD; // 16
 #[derive(Debug, Clone, Copy)]
 pub struct Word64IsZeroChip {
     pub start_col: usize,
+}
+
+impl Default for Word64IsZeroChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64IsZeroChip {
@@ -97,7 +103,7 @@ impl Word64IsZeroChip {
         }
 
         // Chain ANDs: m1 = cz[0] · cz[1], m2 = m1 · cz[2], m3 = m2 · cz[3].
-        let cz0 = row[self.start_col + col::CZ + 0];
+        let cz0 = row[self.start_col + col::CZ];
         let cz1 = row[self.start_col + col::CZ + 1];
         let cz2 = row[self.start_col + col::CZ + 2];
         let cz3 = row[self.start_col + col::CZ + 3];
@@ -184,9 +190,7 @@ where
     Word64IsZeroWitness { a_chunks, inv, chunk_is_zero, m1, m2, m3, is_zero }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(
-    w: &Word64IsZeroWitness,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(w: &Word64IsZeroWitness) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -264,15 +268,7 @@ mod tests {
 
     #[test]
     fn is_zero_arbitrary_inputs() {
-        let cases: [u64; 7] = [
-            0,
-            1,
-            0xCAFE_BABE_DEAD_BEEF,
-            u64::MAX,
-            1u64 << 32,
-            (1u64 << 16) - 1,
-            0x0001_0000_0000_0001,
-        ];
+        let cases: [u64; 7] = [0, 1, 0xCAFE_BABE_DEAD_BEEF, u64::MAX, 1u64 << 32, (1u64 << 16) - 1, 0x0001_0000_0000_0001];
         for a in cases {
             let w = compute_is_zero64::<BabyBear>(a);
             assert_eq!(w.is_zero, if a == 0 { 1 } else { 0 }, "is_zero({a:#x})");

@@ -72,46 +72,48 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::field25519::{
+    Field25519Element, NUM_LIMBS,
     add_canonical::{self, AddCanonicalChip, NUM_COLS as ADC_COLS},
     mul_canonical_full::{self, MulCanonicalFullChip, NUM_COLS as MC_COLS},
-    sub_canonical::{self, SubCanonicalChip, NUM_COLS as SC_COLS},
-    Field25519Element, NUM_LIMBS,
+    sub_canonical::{self, NUM_COLS as SC_COLS, SubCanonicalChip},
 };
 
 const NUM_MULS: usize = 11;
 
 pub mod col {
     use super::*;
-    pub const BYTES: usize = 0;                                  // 32
-    pub const Y: usize = BYTES + 32;                             // 32
-    pub const Y2: usize = Y + NUM_LIMBS;                         // 41
-    pub const D_Y2: usize = Y2 + NUM_LIMBS;                      // 50
-    pub const U: usize = D_Y2 + NUM_LIMBS;                       // 59
-    pub const V: usize = U + NUM_LIMBS;                          // 68
-    pub const V2: usize = V + NUM_LIMBS;                         // 77
-    pub const V3: usize = V2 + NUM_LIMBS;                        // 86
-    pub const V4: usize = V3 + NUM_LIMBS;                        // 95
-    pub const V7: usize = V4 + NUM_LIMBS;                        // 104
-    pub const UV3: usize = V7 + NUM_LIMBS;                       // 113
-    pub const UV7: usize = UV3 + NUM_LIMBS;                      // 122
-    pub const POW_RESULT: usize = UV7 + NUM_LIMBS;               // 131
-    pub const CAND_X: usize = POW_RESULT + NUM_LIMBS;            // 140
-    pub const X_SQ: usize = CAND_X + NUM_LIMBS;                  // 149
-    pub const V_X2: usize = X_SQ + NUM_LIMBS;                    // 158
-    pub const D_CONST: usize = V_X2 + NUM_LIMBS;                 // 167
-    pub const ONE_CONST: usize = D_CONST + NUM_LIMBS;            // 176
-    pub const X_OUT: usize = ONE_CONST + NUM_LIMBS;              // 185
-    pub const T_OUT: usize = X_OUT + NUM_LIMBS;                  // 194
-    pub const Z_OUT: usize = T_OUT + NUM_LIMBS;                  // 203
-    pub const SIGN_BIT: usize = Z_OUT + NUM_LIMBS;               // 212
-    pub const VALID: usize = SIGN_BIT + 1;                       // 213
+    pub const BYTES: usize = 0; // 32
+    pub const Y: usize = BYTES + 32; // 32
+    pub const Y2: usize = Y + NUM_LIMBS; // 41
+    pub const D_Y2: usize = Y2 + NUM_LIMBS; // 50
+    pub const U: usize = D_Y2 + NUM_LIMBS; // 59
+    pub const V: usize = U + NUM_LIMBS; // 68
+    pub const V2: usize = V + NUM_LIMBS; // 77
+    pub const V3: usize = V2 + NUM_LIMBS; // 86
+    pub const V4: usize = V3 + NUM_LIMBS; // 95
+    pub const V7: usize = V4 + NUM_LIMBS; // 104
+    pub const UV3: usize = V7 + NUM_LIMBS; // 113
+    pub const UV7: usize = UV3 + NUM_LIMBS; // 122
+    pub const POW_RESULT: usize = UV7 + NUM_LIMBS; // 131
+    pub const CAND_X: usize = POW_RESULT + NUM_LIMBS; // 140
+    pub const X_SQ: usize = CAND_X + NUM_LIMBS; // 149
+    pub const V_X2: usize = X_SQ + NUM_LIMBS; // 158
+    pub const D_CONST: usize = V_X2 + NUM_LIMBS; // 167
+    pub const ONE_CONST: usize = D_CONST + NUM_LIMBS; // 176
+    pub const X_OUT: usize = ONE_CONST + NUM_LIMBS; // 185
+    pub const T_OUT: usize = X_OUT + NUM_LIMBS; // 194
+    pub const Z_OUT: usize = T_OUT + NUM_LIMBS; // 203
+    pub const SIGN_BIT: usize = Z_OUT + NUM_LIMBS; // 212
+    pub const VALID: usize = SIGN_BIT + 1; // 213
 
-    pub const ADD_START: usize = VALID + 1;                      // 214 — d·y² + 1
-    pub const SUB_START: usize = ADD_START + ADC_COLS;           // 358 — y² - 1
-    pub const MULS_BASE: usize = SUB_START + SC_COLS;            // 502
-    pub const TOTAL: usize = MULS_BASE + NUM_MULS * MC_COLS;     // 8312
+    pub const ADD_START: usize = VALID + 1; // 214 — d·y² + 1
+    pub const SUB_START: usize = ADD_START + ADC_COLS; // 358 — y² - 1
+    pub const MULS_BASE: usize = SUB_START + SC_COLS; // 502
+    pub const TOTAL: usize = MULS_BASE + NUM_MULS * MC_COLS; // 8312
 
-    pub const fn mul_at(i: usize) -> usize { MULS_BASE + i * MC_COLS }
+    pub const fn mul_at(i: usize) -> usize {
+        MULS_BASE + i * MC_COLS
+    }
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -136,17 +138,17 @@ pub const NUM_PUBLIC_VALUES: usize = 32 + NUM_BOUNDARY_LIMBS + 1; // 69
 
 /// Sub-chip indices for the 11 muls.
 pub mod chip {
-    pub const MUL_Y2: usize = 0;        // y · y
-    pub const MUL_D_Y2: usize = 1;      // d · y²
-    pub const MUL_V2: usize = 2;        // v · v
-    pub const MUL_V3: usize = 3;        // v² · v
-    pub const MUL_V4: usize = 4;        // v² · v²
-    pub const MUL_V7: usize = 5;        // v⁴ · v³
-    pub const MUL_UV3: usize = 6;       // u · v³
-    pub const MUL_UV7: usize = 7;       // u · v⁷
-    pub const MUL_CAND: usize = 8;      // uv3 · pow_result
-    pub const MUL_X_SQ: usize = 9;      // cand · cand
-    pub const MUL_V_X2: usize = 10;     // v · x²
+    pub const MUL_Y2: usize = 0; // y · y
+    pub const MUL_D_Y2: usize = 1; // d · y²
+    pub const MUL_V2: usize = 2; // v · v
+    pub const MUL_V3: usize = 3; // v² · v
+    pub const MUL_V4: usize = 4; // v² · v²
+    pub const MUL_V7: usize = 5; // v⁴ · v³
+    pub const MUL_UV3: usize = 6; // u · v³
+    pub const MUL_UV7: usize = 7; // u · v⁷
+    pub const MUL_CAND: usize = 8; // uv3 · pow_result
+    pub const MUL_X_SQ: usize = 9; // cand · cand
+    pub const MUL_V_X2: usize = 10; // v · x²
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -164,14 +166,23 @@ fn d_limbs() -> [u64; NUM_LIMBS] {
 }
 
 impl<F: Field> BaseAir<F> for DecompressAirChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn num_public_values(&self) -> usize { NUM_PUBLIC_VALUES }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn num_public_values(&self) -> usize {
+        NUM_PUBLIC_VALUES
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for DecompressAirChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         // Embed sub-chips.
@@ -188,19 +199,19 @@ where AB::F: Field,
         let one = one_limbs();
         let d = d_limbs();
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(row[col::ONE_CONST + i].clone(), AB::Expr::from_u64(one[i]));
-            builder.assert_eq(row[col::D_CONST + i].clone(), AB::Expr::from_u64(d[i]));
+            builder.assert_eq(row[col::ONE_CONST + i], AB::Expr::from_u64(one[i]));
+            builder.assert_eq(row[col::D_CONST + i], AB::Expr::from_u64(d[i]));
             // z_out = 1
-            builder.assert_eq(row[col::Z_OUT + i].clone(), AB::Expr::from_u64(one[i]));
+            builder.assert_eq(row[col::Z_OUT + i], AB::Expr::from_u64(one[i]));
         }
         // Boolean booleans.
-        builder.assert_bool(row[col::SIGN_BIT].clone());
-        builder.assert_bool(row[col::VALID].clone());
+        builder.assert_bool(row[col::SIGN_BIT]);
+        builder.assert_bool(row[col::VALID]);
 
         // Connection helper.
         let assert_chunks = |b: &mut AB, off_a: usize, off_b: usize| {
             for i in 0..NUM_LIMBS {
-                b.assert_eq(row[off_a + i].clone(), row[off_b + i].clone());
+                b.assert_eq(row[off_a + i], row[off_b + i]);
             }
         };
 
@@ -293,35 +304,31 @@ where AB::F: Field,
         };
         // Input bytes: PV[0..32] == row[col::BYTES..col::BYTES+32]
         for i in 0..32 {
-            builder.assert_eq(row[col::BYTES + i].clone(), pub_copies[i]);
+            builder.assert_eq(row[col::BYTES + i], pub_copies[i]);
         }
         // Output X: PV[32..41] == row[col::X_OUT..]
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(row[col::X_OUT + i].clone(), pub_copies[32 + i]);
+            builder.assert_eq(row[col::X_OUT + i], pub_copies[32 + i]);
         }
         // Output Y: PV[41..50] == row[col::Y..]
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(row[col::Y + i].clone(), pub_copies[32 + NUM_LIMBS + i]);
+            builder.assert_eq(row[col::Y + i], pub_copies[32 + NUM_LIMBS + i]);
         }
         // Output Z: PV[50..59] == row[col::Z_OUT..]
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(row[col::Z_OUT + i].clone(), pub_copies[32 + 2 * NUM_LIMBS + i]);
+            builder.assert_eq(row[col::Z_OUT + i], pub_copies[32 + 2 * NUM_LIMBS + i]);
         }
         // Output T: PV[59..68] == row[col::T_OUT..]
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(row[col::T_OUT + i].clone(), pub_copies[32 + 3 * NUM_LIMBS + i]);
+            builder.assert_eq(row[col::T_OUT + i], pub_copies[32 + 3 * NUM_LIMBS + i]);
         }
         // Valid flag: PV[68] == row[col::VALID]
-        builder.assert_eq(row[col::VALID].clone(), pub_copies[32 + NUM_BOUNDARY_LIMBS]);
+        builder.assert_eq(row[col::VALID], pub_copies[32 + NUM_BOUNDARY_LIMBS]);
     }
 }
 
 /// Populate one row at row offset `row_off` (start_col = 0).
-pub fn populate_row<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    row_off: usize,
-    compressed: &[u8; 32],
-) {
+pub fn populate_row<F: Field + PrimeCharacteristicRing>(values: &mut [F], row_off: usize, compressed: &[u8; 32]) {
     use crate::chips::ed25519::decompress::decompress;
     use crate::chips::ed25519::point::two_d_constant;
     use crate::chips::field25519::arith::{field_add, field_mul, field_sub};
@@ -350,7 +357,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // pow_result is a boundary input. For the populated trace we compute it
     // here so the round-trip succeeds; in production it comes from a
     // separate pow_air proof.
-    use crate::chips::ed25519::decompress::{field_pow, P_MINUS_5_OVER_8};
+    use crate::chips::ed25519::decompress::{P_MINUS_5_OVER_8, field_pow};
     let pow_result = field_pow(&uv7, &P_MINUS_5_OVER_8);
 
     let cand_x = field_mul(&uv3, &pow_result);
@@ -401,22 +408,20 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // Sub-chip witnesses.
     add_canonical::populate_row::<F>(values, row_off, col::ADD_START, &d_y2, &one);
     sub_canonical::populate_row::<F>(values, row_off, col::SUB_START, &y2, &one);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_Y2),   &y, &y);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_Y2), &y, &y);
     mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_D_Y2), &d, &y2);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V2),   &v, &v);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V3),   &v2, &v);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V4),   &v2, &v2);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V7),   &v4, &v3);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV3),  &u, &v3);
-    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV7),  &u, &v7);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V2), &v, &v);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V3), &v2, &v);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V4), &v2, &v2);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V7), &v4, &v3);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV3), &u, &v3);
+    mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_UV7), &u, &v7);
     mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_CAND), &uv3, &pow_result);
     mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_X_SQ), &cand_x, &cand_x);
     mul_canonical_full::populate_row::<F>(values, row_off, col::mul_at(chip::MUL_V_X2), &v, &x_sq);
 }
 
-pub fn build_decompress_trace<F: Field + PrimeCharacteristicRing>(
-    compressed: &[u8; 32],
-) -> RowMajorMatrix<F> {
+pub fn build_decompress_trace<F: Field + PrimeCharacteristicRing>(compressed: &[u8; 32]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -449,18 +454,34 @@ mod tests {
                 crate::chips::ed25519::point::ExtendedPoint {
                     x: Field25519Element::ZERO,
                     y: Field25519Element::from_canonical_bytes(compressed),
-                    z: Field25519Element { limbs: { let mut o = [0u64; NUM_LIMBS]; o[0] = 1; o } },
+                    z: Field25519Element {
+                        limbs: {
+                            let mut o = [0u64; NUM_LIMBS];
+                            o[0] = 1;
+                            o
+                        },
+                    },
                     t: Field25519Element::ZERO,
                 },
                 0u64,
             ),
         };
         let mut out = Vec::with_capacity(NUM_PUBLIC_VALUES);
-        for &b in compressed { out.push(F::from_u64(b as u64)); }
-        for &l in &point.x.limbs { out.push(F::from_u64(l)); }
-        for &l in &point.y.limbs { out.push(F::from_u64(l)); }
-        for &l in &point.z.limbs { out.push(F::from_u64(l)); }
-        for &l in &point.t.limbs { out.push(F::from_u64(l)); }
+        for &b in compressed {
+            out.push(F::from_u64(b as u64));
+        }
+        for &l in &point.x.limbs {
+            out.push(F::from_u64(l));
+        }
+        for &l in &point.y.limbs {
+            out.push(F::from_u64(l));
+        }
+        for &l in &point.z.limbs {
+            out.push(F::from_u64(l));
+        }
+        for &l in &point.t.limbs {
+            out.push(F::from_u64(l));
+        }
         out.push(F::from_u64(valid));
         out
     }

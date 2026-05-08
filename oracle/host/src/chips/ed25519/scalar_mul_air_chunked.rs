@@ -14,9 +14,7 @@ use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::point::ExtendedPoint;
-use crate::chips::ed25519::point_add_air_chunked::{
-    self, PointAddAirChunkedChip, NUM_COLS as PA_COLS,
-};
+use crate::chips::ed25519::point_add_air_chunked::{self, NUM_COLS as PA_COLS, PointAddAirChunkedChip};
 use crate::chips::field25519::NUM_LIMBS;
 
 const POINT_LIMBS: usize = 4 * NUM_LIMBS;
@@ -115,9 +113,7 @@ where
 
         // First-row boundary: PRE_ACC[0] = neutral.
         for i in 0..POINT_LIMBS {
-            builder
-                .when_first_row()
-                .assert_eq(cur[col::PRE_ACC + i], AB::Expr::from_u64(neutral_limb_at(i)));
+            builder.when_first_row().assert_eq(cur[col::PRE_ACC + i], AB::Expr::from_u64(neutral_limb_at(i)));
         }
 
         // Bit shift register binding.
@@ -126,9 +122,7 @@ where
             builder.assert_bool(cur[col::BITS_START + i]);
         }
         for i in 0..SCALAR_BITS - 1 {
-            builder
-                .when_transition()
-                .assert_eq(next[col::BITS_START + i], cur[col::BITS_START + i + 1]);
+            builder.when_transition().assert_eq(next[col::BITS_START + i], cur[col::BITS_START + i + 1]);
         }
 
         // Transitions: PRE_ACC and BASE_POINT propagate.
@@ -149,21 +143,17 @@ where
             for k in 0..8 {
                 let bit_idx = 255 - (8 * j + k);
                 let coeff = AB::Expr::from_u64(pow2[k]);
-                sum = sum + cur[col::BITS_START + bit_idx].into() * coeff;
+                sum += cur[col::BITS_START + bit_idx].into() * coeff;
             }
             builder.when_first_row().assert_eq(sum, pub_copies[j].into());
         }
 
         for i in 0..POINT_LIMBS {
-            builder
-                .when_first_row()
-                .assert_eq(cur[col::BASE_POINT + i], pub_copies[32 + i].into());
+            builder.when_first_row().assert_eq(cur[col::BASE_POINT + i], pub_copies[32 + i].into());
         }
 
         for i in 0..POINT_LIMBS {
-            builder
-                .when_last_row()
-                .assert_eq(cur[col::POST_ACC + i], pub_copies[32 + POINT_LIMBS + i].into());
+            builder.when_last_row().assert_eq(cur[col::POST_ACC + i], pub_copies[32 + POINT_LIMBS + i].into());
         }
     }
 }
@@ -238,14 +228,30 @@ pub fn build_public_values<F: Field + PrimeCharacteristicRing>(
     for &b in scalar_le_bytes {
         out.push(F::from_u64(b as u64));
     }
-    for &l in &base_point.x.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.y.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.z.limbs { out.push(F::from_u64(l)); }
-    for &l in &base_point.t.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.x.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.y.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.z.limbs { out.push(F::from_u64(l)); }
-    for &l in &output.t.limbs { out.push(F::from_u64(l)); }
+    for &l in &base_point.x.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.y.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.z.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &base_point.t.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.x.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.y.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.z.limbs {
+        out.push(F::from_u64(l));
+    }
+    for &l in &output.t.limbs {
+        out.push(F::from_u64(l));
+    }
     debug_assert_eq!(out.len(), NUM_PUBLIC_VALUES);
     out
 }

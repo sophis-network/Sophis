@@ -46,17 +46,11 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
-use super::add_canonical_chunked::{p_hi as _p_hi, split_limb, CHUNK_LO_BITS, CHUNK_LO_MOD};
-use super::cond_p_sub_chunked::{
-    col as cps_col, CondPSubChunkedChip, NUM_COLS as CPS_COLS,
-};
-use super::first_fold_chunked::{
-    col as ff_col, FirstFoldChunkedChip, NUM_COLS as FF_COLS,
-};
-use super::second_fold_chunked::{
-    col as sf_col, SecondFoldChunkedChip, NUM_COLS as SF_COLS,
-};
 use super::NUM_LIMBS;
+use super::add_canonical_chunked::{CHUNK_LO_BITS, CHUNK_LO_MOD, p_hi as _p_hi, split_limb};
+use super::cond_p_sub_chunked::{CondPSubChunkedChip, NUM_COLS as CPS_COLS, col as cps_col};
+use super::first_fold_chunked::{FirstFoldChunkedChip, NUM_COLS as FF_COLS, col as ff_col};
+use super::second_fold_chunked::{NUM_COLS as SF_COLS, SecondFoldChunkedChip, col as sf_col};
 
 const NUM_INPUT_LIMBS: usize = 18;
 
@@ -78,6 +72,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct ModPChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for ModPChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModPChunkedChip {
@@ -106,26 +106,17 @@ impl ModPChunkedChip {
         // ── Wiring constraints ────────────────────────────────────────
         // FirstFoldChunked.L ← top-level L (18 limbs)
         for i in 0..NUM_INPUT_LIMBS {
-            builder.assert_eq(
-                row[s + col::FF_START + ff_col::L + i],
-                row[s + col::L + i],
-            );
+            builder.assert_eq(row[s + col::FF_START + ff_col::L + i], row[s + col::L + i]);
         }
 
         // SecondFoldChunked[1].acc_in ← FirstFoldChunked.out (10 limbs)
         for i in 0..10 {
-            builder.assert_eq(
-                row[s + col::SF1_START + sf_col::ACC_IN + i],
-                row[s + col::FF_START + ff_col::OUT + i],
-            );
+            builder.assert_eq(row[s + col::SF1_START + sf_col::ACC_IN + i], row[s + col::FF_START + ff_col::OUT + i]);
         }
 
         // SecondFoldChunked[2].acc_in ← SecondFoldChunked[1].acc_out (10 limbs)
         for i in 0..10 {
-            builder.assert_eq(
-                row[s + col::SF2_START + sf_col::ACC_IN + i],
-                row[s + col::SF1_START + sf_col::ACC_OUT + i],
-            );
+            builder.assert_eq(row[s + col::SF2_START + sf_col::ACC_IN + i], row[s + col::SF1_START + sf_col::ACC_OUT + i]);
         }
 
         // After SF2, limb 9 must be zero (canonical-input regime).
@@ -137,32 +128,20 @@ impl ModPChunkedChip {
         for i in 0..NUM_LIMBS {
             let a_lo = row[s + col::CPS1_START + cps_col::A_LO + i];
             let a_hi = row[s + col::CPS1_START + cps_col::A_HI + i];
-            builder.assert_eq(
-                row[s + col::SF2_START + sf_col::ACC_OUT + i],
-                a_lo.into() + two_pow_lo.clone() * a_hi.into(),
-            );
+            builder.assert_eq(row[s + col::SF2_START + sf_col::ACC_OUT + i], a_lo.into() + two_pow_lo.clone() * a_hi.into());
         }
 
         // CPS2.a_lo/a_hi ← CPS1.c_lo/c_hi (direct chunked-to-chunked passthrough).
         for i in 0..NUM_LIMBS {
-            builder.assert_eq(
-                row[s + col::CPS2_START + cps_col::A_LO + i],
-                row[s + col::CPS1_START + cps_col::C_LO + i],
-            );
-            builder.assert_eq(
-                row[s + col::CPS2_START + cps_col::A_HI + i],
-                row[s + col::CPS1_START + cps_col::C_HI + i],
-            );
+            builder.assert_eq(row[s + col::CPS2_START + cps_col::A_LO + i], row[s + col::CPS1_START + cps_col::C_LO + i]);
+            builder.assert_eq(row[s + col::CPS2_START + cps_col::A_HI + i], row[s + col::CPS1_START + cps_col::C_HI + i]);
         }
 
         // Top-level C[i] = CPS2.c_lo[i] + 2^16·CPS2.c_hi[i] (sound, < 2^30 < p).
         for i in 0..NUM_LIMBS {
             let c_lo = row[s + col::CPS2_START + cps_col::C_LO + i];
             let c_hi = row[s + col::CPS2_START + cps_col::C_HI + i];
-            builder.assert_eq(
-                row[s + col::C + i],
-                c_lo.into() + two_pow_lo.clone() * c_hi.into(),
-            );
+            builder.assert_eq(row[s + col::C + i], c_lo.into() + two_pow_lo.clone() * c_hi.into());
         }
 
         let _ = _p_hi;
@@ -219,10 +198,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     // SecondFoldChunked[2]: input = SecondFoldChunked[1].acc_out.
     let sf2_in: [u128; 10] = std::array::from_fn(|i| sf1_w.acc_out[i] as u128);
     let sf2_w = sf_populate::<F>(values, row_off, start_col + col::SF2_START, &sf2_in);
-    debug_assert_eq!(
-        sf2_w.acc_out[9], 0,
-        "ModPChunkedChip: limb 9 must be 0 after 2 second_fold passes"
-    );
+    debug_assert_eq!(sf2_w.acc_out[9], 0, "ModPChunkedChip: limb 9 must be 0 after 2 second_fold passes");
 
     // CondPSubChunked[1]: input = SF2.acc_out[0..9] (canonical-loose 30-bit).
     let cps1_a_limbs: [u64; NUM_LIMBS] = std::array::from_fn(|i| sf2_w.acc_out[i]);
@@ -230,9 +206,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     cps_populate_to::<F>(values, base + col::CPS1_START, &cps1_w);
 
     // CondPSubChunked[2]: input = CPS1.c (chunked passthrough).
-    let cps2_a_limbs: [u64; NUM_LIMBS] = std::array::from_fn(|i| {
-        cps1_w.c_lo[i] | (cps1_w.c_hi[i] << CHUNK_LO_BITS)
-    });
+    let cps2_a_limbs: [u64; NUM_LIMBS] = std::array::from_fn(|i| cps1_w.c_lo[i] | (cps1_w.c_hi[i] << CHUNK_LO_BITS));
     let cps2_w = compute_cps_chunked_witness(&cps2_a_limbs);
     cps_populate_to::<F>(values, base + col::CPS2_START, &cps2_w);
 
@@ -244,18 +218,14 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
 }
 
 /// Compute CondPSubChunkedWitness from canonical-loose 30-bit limbs.
-fn compute_cps_chunked_witness(
-    a_limbs: &[u64; NUM_LIMBS],
-) -> super::cond_p_sub_chunked::CondPSubChunkedWitness {
-    use super::cond_p_sub_chunked::compute_cond_p_sub_chunked;
+fn compute_cps_chunked_witness(a_limbs: &[u64; NUM_LIMBS]) -> super::cond_p_sub_chunked::CondPSubChunkedWitness {
     use super::Field25519Element;
+    use super::cond_p_sub_chunked::compute_cond_p_sub_chunked;
     let elem = Field25519Element { limbs: *a_limbs };
     compute_cond_p_sub_chunked(&elem)
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    input: &[u64; NUM_INPUT_LIMBS],
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(input: &[u64; NUM_INPUT_LIMBS]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -268,10 +238,17 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
     RowMajorMatrix::new(values, NUM_COLS)
 }
 
+// ─── helpers ─────────────────────────────────────────────────────────────
+
+#[allow(dead_code)] // exposed for wider future composition; kept silent for now
+fn split(limb: u64) -> (u64, u64) {
+    split_limb(limb)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::super::mod_p::compute_mod_p_reduction;
     use super::super::P_LIMBS;
+    use super::super::mod_p::compute_mod_p_reduction;
     use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
@@ -372,7 +349,7 @@ mod tests {
         let mut input = [0u64; NUM_INPUT_LIMBS];
         input[0] = 7;
         let mut trace = build_test_trace::<BabyBear>(&input);
-        trace.values[col::C] = trace.values[col::C] + BabyBear::from_u64(1);
+        trace.values[col::C] += BabyBear::from_u64(1);
         check_constraints(&ModPChunkedChip::new(), &trace, &[]);
     }
 
@@ -390,11 +367,4 @@ mod tests {
         assert_eq!(col::CPS2_START, 27 + 2668 + 2 * 1073 + 882);
         assert_eq!(NUM_COLS, 27 + 2668 + 2 * 1073 + 2 * 882);
     }
-}
-
-// ─── helpers ─────────────────────────────────────────────────────────────
-
-#[allow(dead_code)] // exposed for wider future composition; kept silent for now
-fn split(limb: u64) -> (u64, u64) {
-    split_limb(limb)
 }

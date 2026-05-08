@@ -80,27 +80,27 @@ pub const NUM_LIMB9_PIECES: usize = 3;
 pub mod col {
     use super::*;
     pub const ACC_IN: usize = 0;
-    pub const ACC_OUT: usize = ACC_IN + 10;            // 10
-    pub const LIMB_9_PIECES: usize = ACC_OUT + 10;     // 20
-    pub const Q_PIECES: usize = LIMB_9_PIECES + 3;     // 23
-    pub const PROD_9_LOW: usize = Q_PIECES + 3;        // 26
-    pub const PROD_9_HIGH: usize = PROD_9_LOW + 1;     // 27
-    pub const HIGH_8: usize = PROD_9_HIGH + 1;         // 28
-    pub const LOW_15: usize = HIGH_8 + 1;              // 29
-    pub const PROD_8_LOW: usize = LOW_15 + 1;          // 30
-    pub const PROD_8_HIGH: usize = PROD_8_LOW + 1;     // 31
-    pub const CARRY: usize = PROD_8_HIGH + 1;          // 32 (carry[1..10])
+    pub const ACC_OUT: usize = ACC_IN + 10; // 10
+    pub const LIMB_9_PIECES: usize = ACC_OUT + 10; // 20
+    pub const Q_PIECES: usize = LIMB_9_PIECES + 3; // 23
+    pub const PROD_9_LOW: usize = Q_PIECES + 3; // 26
+    pub const PROD_9_HIGH: usize = PROD_9_LOW + 1; // 27
+    pub const HIGH_8: usize = PROD_9_HIGH + 1; // 28
+    pub const LOW_15: usize = HIGH_8 + 1; // 29
+    pub const PROD_8_LOW: usize = LOW_15 + 1; // 30
+    pub const PROD_8_HIGH: usize = PROD_8_LOW + 1; // 31
+    pub const CARRY: usize = PROD_8_HIGH + 1; // 32 (carry[1..10])
 
     // Etapa 3.9 — range bit regions appended after CARRY.
-    pub const LIMB9_BITS_BASE: usize = CARRY + NUM_CARRY;                            // 41
+    pub const LIMB9_BITS_BASE: usize = CARRY + NUM_CARRY; // 41
     pub const PROD_9_LOW_BITS_BASE: usize = LIMB9_BITS_BASE + NUM_LIMB9_PIECES * LIMB9_BITS; // 62
     pub const PROD_9_HIGH_BITS_BASE: usize = PROD_9_LOW_BITS_BASE + PROD_9_LOW_BITS; // 92
-    pub const HIGH_8_BITS_BASE: usize = PROD_9_HIGH_BITS_BASE + PROD_9_HIGH_BITS;    // 104
-    pub const LOW_15_BITS_BASE: usize = HIGH_8_BITS_BASE + HIGH_8_BITS;              // 119
-    pub const PROD_8_LOW_BITS_BASE: usize = LOW_15_BITS_BASE + LOW_15_BITS;          // 134
-    pub const CARRY_BITS_BASE: usize = PROD_8_LOW_BITS_BASE + PROD_8_LOW_BITS;       // 154
+    pub const HIGH_8_BITS_BASE: usize = PROD_9_HIGH_BITS_BASE + PROD_9_HIGH_BITS; // 104
+    pub const LOW_15_BITS_BASE: usize = HIGH_8_BITS_BASE + HIGH_8_BITS; // 119
+    pub const PROD_8_LOW_BITS_BASE: usize = LOW_15_BITS_BASE + LOW_15_BITS; // 134
+    pub const CARRY_BITS_BASE: usize = PROD_8_LOW_BITS_BASE + PROD_8_LOW_BITS; // 154
 
-    pub const TOTAL: usize = CARRY_BITS_BASE + NUM_CARRY * CARRY_BITS;               // 244
+    pub const TOTAL: usize = CARRY_BITS_BASE + NUM_CARRY * CARRY_BITS; // 244
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -108,6 +108,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct SecondFoldOnePassChip {
     pub start_col: usize,
+}
+
+impl Default for SecondFoldOnePassChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SecondFoldOnePassChip {
@@ -132,69 +138,53 @@ impl SecondFoldOnePassChip {
         let nineteen = AB::Expr::from_u64(19);
 
         // 1. limb_9 piece reassembly: a_lo + 128·a_mid + 16384·a_hi = acc_in[9]
-        let a_lo = row[s + col::LIMB_9_PIECES + 0].clone();
-        let a_mid = row[s + col::LIMB_9_PIECES + 1].clone();
-        let a_hi = row[s + col::LIMB_9_PIECES + 2].clone();
-        builder.assert_eq(
-            a_lo.clone() + two_to_7.clone() * a_mid.clone() + two_to_14.clone() * a_hi.clone(),
-            row[s + col::ACC_IN + 9].clone(),
-        );
+        let a_lo = row[s + col::LIMB_9_PIECES];
+        let a_mid = row[s + col::LIMB_9_PIECES + 1];
+        let a_hi = row[s + col::LIMB_9_PIECES + 2];
+        builder.assert_eq(a_lo + two_to_7.clone() * a_mid + two_to_14.clone() * a_hi, row[s + col::ACC_IN + 9]);
 
         // 2. q_lo = a_lo · M, q_mid = a_mid · M, q_hi = a_hi · M
-        let q_lo = row[s + col::Q_PIECES + 0].clone();
-        let q_mid = row[s + col::Q_PIECES + 1].clone();
-        let q_hi = row[s + col::Q_PIECES + 2].clone();
-        builder.assert_eq(q_lo.clone(), a_lo * m_field.clone());
-        builder.assert_eq(q_mid.clone(), a_mid * m_field.clone());
-        builder.assert_eq(q_hi.clone(), a_hi * m_field.clone());
+        let q_lo = row[s + col::Q_PIECES];
+        let q_mid = row[s + col::Q_PIECES + 1];
+        let q_hi = row[s + col::Q_PIECES + 2];
+        builder.assert_eq(q_lo, a_lo * m_field.clone());
+        builder.assert_eq(q_mid, a_mid * m_field.clone());
+        builder.assert_eq(q_hi, a_hi * m_field.clone());
 
         // 3. prod_9 split: prod_9_low + 2³⁰ · prod_9_high
         //               = q_lo + 2⁷ · q_mid + 2¹⁴ · q_hi
-        let prod_9_low = row[s + col::PROD_9_LOW].clone();
-        let prod_9_high = row[s + col::PROD_9_HIGH].clone();
-        builder.assert_eq(
-            prod_9_low.clone() + two_to_30.clone() * prod_9_high.clone(),
-            q_lo + two_to_7 * q_mid + two_to_14 * q_hi,
-        );
+        let prod_9_low = row[s + col::PROD_9_LOW];
+        let prod_9_high = row[s + col::PROD_9_HIGH];
+        builder.assert_eq(prod_9_low + two_to_30.clone() * prod_9_high, q_lo + two_to_7 * q_mid + two_to_14 * q_hi);
 
         // 4. limb_8 decomp: high_8 · 2¹⁵ + low_15 = acc_in[8]
-        let high_8 = row[s + col::HIGH_8].clone();
-        let low_15 = row[s + col::LOW_15].clone();
-        builder.assert_eq(
-            high_8.clone() * two_to_15.clone() + low_15.clone(),
-            row[s + col::ACC_IN + 8].clone(),
-        );
+        let high_8 = row[s + col::HIGH_8];
+        let low_15 = row[s + col::LOW_15];
+        builder.assert_eq(high_8 * two_to_15.clone() + low_15, row[s + col::ACC_IN + 8]);
 
         // 5. prod_8 split: prod_8_low + 2³⁰ · prod_8_high = high_8 · 19
-        let prod_8_low = row[s + col::PROD_8_LOW].clone();
-        let prod_8_high = row[s + col::PROD_8_HIGH].clone();
-        builder.assert_eq(
-            prod_8_low.clone() + two_to_30.clone() * prod_8_high.clone(),
-            high_8 * nineteen,
-        );
+        let prod_8_low = row[s + col::PROD_8_LOW];
+        let prod_8_high = row[s + col::PROD_8_HIGH];
+        builder.assert_eq(prod_8_low + two_to_30.clone() * prod_8_high, high_8 * nineteen);
 
         // 6. Carry chain limbs 0..9.
         // carry[0] = 0 (implicit), carry[1..10] live in CARRY..CARRY+9.
         for i in 0..NUM_LIMBS_OUT {
-            let acc_out_i = row[s + col::ACC_OUT + i].clone();
-            let carry_in: AB::Expr = if i == 0 {
-                AB::Expr::from_u64(0)
-            } else {
-                row[s + col::CARRY + (i - 1)].clone().into()
-            };
+            let acc_out_i = row[s + col::ACC_OUT + i];
+            let carry_in: AB::Expr = if i == 0 { AB::Expr::from_u64(0) } else { row[s + col::CARRY + (i - 1)].into() };
             let carry_out: AB::Expr = if i < NUM_LIMBS_OUT - 1 {
-                row[s + col::CARRY + i].clone().into()
+                row[s + col::CARRY + i].into()
             } else {
                 // No carry beyond limb 9; chip caller must guarantee acc_out[9] is final.
                 AB::Expr::from_u64(0)
             };
             // RHS additions per limb position.
             let rhs = match i {
-                0 => row[s + col::ACC_IN + 0].clone().into() + prod_9_low.clone() + prod_8_low.clone() + carry_in,
-                1 => row[s + col::ACC_IN + 1].clone().into() + prod_9_high.clone() + prod_8_high.clone() + carry_in,
-                8 => low_15.clone().into() + carry_in, // limb 8 replaced by low_15
-                9 => carry_in.clone(), // limb 9 cleared, only carry-in remains
-                _ => row[s + col::ACC_IN + i].clone().into() + carry_in,
+                0 => row[s + col::ACC_IN].into() + prod_9_low + prod_8_low + carry_in,
+                1 => row[s + col::ACC_IN + 1].into() + prod_9_high + prod_8_high + carry_in,
+                8 => low_15.into() + carry_in, // limb 8 replaced by low_15
+                9 => carry_in.clone(),         // limb 9 cleared, only carry-in remains
+                _ => row[s + col::ACC_IN + i].into() + carry_in,
             };
             builder.assert_eq(acc_out_i + two_to_30.clone() * carry_out, rhs);
         }
@@ -202,15 +192,11 @@ impl SecondFoldOnePassChip {
         // ── Etapa 3.9: range checks on every witness column ────────────
         // PROD_8_HIGH = 0 always (since high_8 ≤ 2^15 and 19 < 2^5,
         // prod_8 < 2^20 < 2^30 → high half is 0).
-        builder.assert_zero(row[s + col::PROD_8_HIGH].clone());
+        builder.assert_zero(row[s + col::PROD_8_HIGH]);
 
         // 3 limb_9 pieces × 7 bits.
         for i in 0..NUM_LIMB9_PIECES {
-            RangeNChip::<LIMB9_BITS>::split(
-                s + col::LIMB_9_PIECES + i,
-                s + col::LIMB9_BITS_BASE + i * LIMB9_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<LIMB9_BITS>::split(s + col::LIMB_9_PIECES + i, s + col::LIMB9_BITS_BASE + i * LIMB9_BITS).emit(builder);
         }
         // PROD_9_LOW: 30 bits.
         RangeNChip::<PROD_9_LOW_BITS>::split(s + col::PROD_9_LOW, s + col::PROD_9_LOW_BITS_BASE).emit(builder);
@@ -224,25 +210,30 @@ impl SecondFoldOnePassChip {
         RangeNChip::<PROD_8_LOW_BITS>::split(s + col::PROD_8_LOW, s + col::PROD_8_LOW_BITS_BASE).emit(builder);
         // 9 carries × 10 bits.
         for i in 0..NUM_CARRY {
-            RangeNChip::<CARRY_BITS>::split(
-                s + col::CARRY + i,
-                s + col::CARRY_BITS_BASE + i * CARRY_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<CARRY_BITS>::split(s + col::CARRY + i, s + col::CARRY_BITS_BASE + i * CARRY_BITS).emit(builder);
         }
     }
 }
 
 impl<F: Field> BaseAir<F> for SecondFoldOnePassChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for SecondFoldOnePassChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
-    fn eval(&self, builder: &mut AB) { self.emit(builder); }
+    fn eval(&self, builder: &mut AB) {
+        self.emit(builder);
+    }
 }
 
 /// Witness for one second-fold pass.
@@ -370,9 +361,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     w
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    acc_in: &[u128; 10],
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(acc_in: &[u128; 10]) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -466,7 +455,7 @@ mod tests {
         let mut acc_in = [0u128; 10];
         acc_in[9] = 5;
         let mut trace = build_test_trace::<BabyBear>(&acc_in);
-        trace.values[col::ACC_OUT] = trace.values[col::ACC_OUT] + BabyBear::from_u64(1);
+        trace.values[col::ACC_OUT] += BabyBear::from_u64(1);
         check_constraints(&SecondFoldOnePassChip::new(), &trace, &[]);
     }
 

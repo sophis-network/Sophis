@@ -66,29 +66,34 @@ pub const CHUNK_MOD: u64 = 1u64 << CHUNK_BITS;
 pub const CARRY_BITS: usize = 2;
 
 pub mod col {
-    use super::{CARRY_BITS, NUM_CHUNKS};
+    use super::NUM_CHUNKS;
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_CHUNKS;       // 4
-    pub const C: usize = B + NUM_CHUNKS;       // 8
-    pub const OUT: usize = C + NUM_CHUNKS;     // 12
+    pub const B: usize = A + NUM_CHUNKS; // 4
+    pub const C: usize = B + NUM_CHUNKS; // 8
+    pub const OUT: usize = C + NUM_CHUNKS; // 12
     pub const CARRY: usize = OUT + NUM_CHUNKS; // 16
-    pub const A_BITS: usize = CARRY + NUM_CHUNKS;          // 20
-    pub const B_BITS: usize = A_BITS + NUM_CHUNKS * 16;    // 84
-    pub const C_BITS: usize = B_BITS + NUM_CHUNKS * 16;    // 148
-    pub const OUT_BITS: usize = C_BITS + NUM_CHUNKS * 16;  // 212
+    pub const A_BITS: usize = CARRY + NUM_CHUNKS; // 20
+    pub const B_BITS: usize = A_BITS + NUM_CHUNKS * 16; // 84
+    pub const C_BITS: usize = B_BITS + NUM_CHUNKS * 16; // 148
+    pub const OUT_BITS: usize = C_BITS + NUM_CHUNKS * 16; // 212
     pub const CARRY_BITS_OFF: usize = OUT_BITS + NUM_CHUNKS * 16; // 276
 }
 
 pub const NUM_COLS: usize = col::CARRY_BITS_OFF + NUM_CHUNKS * CARRY_BITS; // 284
-pub const NUM_CONSTRAINTS: usize =
-    NUM_CHUNKS                                  // 4: linear add chain
+pub const NUM_CONSTRAINTS: usize = NUM_CHUNKS                                  // 4: linear add chain
     + 4 * NUM_CHUNKS * (1 + 16)                 // 4 vars × 4 chunks × (16 bool + 1 recomp) = 272
-    + NUM_CHUNKS * (1 + CARRY_BITS);            // 4 carries × (2 bool + 1 recomp) = 12
+    + NUM_CHUNKS * (1 + CARRY_BITS); // 4 carries × (2 bool + 1 recomp) = 12
 // Total: 4 + 272 + 12 = 288.
 
 #[derive(Debug, Clone, Copy)]
 pub struct Word64Add3Chip {
     pub start_col: usize,
+}
+
+impl Default for Word64Add3Chip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64Add3Chip {
@@ -109,11 +114,8 @@ impl Word64Add3Chip {
             Range16Chip::split(self.start_col + col::B + i, self.start_col + col::B_BITS + i * 16).emit(builder);
             Range16Chip::split(self.start_col + col::C + i, self.start_col + col::C_BITS + i * 16).emit(builder);
             Range16Chip::split(self.start_col + col::OUT + i, self.start_col + col::OUT_BITS + i * 16).emit(builder);
-            RangeNChip::<2>::split(
-                self.start_col + col::CARRY + i,
-                self.start_col + col::CARRY_BITS_OFF + i * CARRY_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<2>::split(self.start_col + col::CARRY + i, self.start_col + col::CARRY_BITS_OFF + i * CARRY_BITS)
+                .emit(builder);
         }
 
         let main = builder.main();
@@ -129,10 +131,7 @@ impl Word64Add3Chip {
             let carry_out = row[self.start_col + col::CARRY + i];
 
             // out[i] + 2^16 * carry_out = a[i] + b[i] + c[i] + carry_in
-            builder.assert_eq(
-                out_i.into() + two_pow_16.clone() * carry_out.into(),
-                a_i.into() + b_i.into() + c_i.into() + carry_in,
-            );
+            builder.assert_eq(out_i.into() + two_pow_16.clone() * carry_out.into(), a_i.into() + b_i.into() + c_i.into() + carry_in);
 
             carry_in = carry_out.into();
         }
@@ -208,8 +207,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64Add3Witnes
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -274,11 +273,7 @@ mod tests {
         ];
         for (a, b, c) in cases {
             let w = compute_add3_64(a, b, c);
-            assert_eq!(
-                recompose_u64(&w.out_chunks),
-                a.wrapping_add(b).wrapping_add(c),
-                "mismatch for {a:#x} + {b:#x} + {c:#x}"
-            );
+            assert_eq!(recompose_u64(&w.out_chunks), a.wrapping_add(b).wrapping_add(c), "mismatch for {a:#x} + {b:#x} + {c:#x}");
             let trace = build_test_trace::<BabyBear>(&w);
             check_constraints(&Word64Add3TestAir, &trace, &[]);
         }
@@ -300,7 +295,7 @@ mod tests {
     fn add3_rejects_tampered_out() {
         let w = compute_add3_64(0xCAFE, 0xBABE, 0xDEAD);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::OUT] = trace.values[col::OUT] + BabyBear::ONE;
+        trace.values[col::OUT] += BabyBear::ONE;
         check_constraints(&Word64Add3TestAir, &trace, &[]);
     }
 
@@ -310,7 +305,7 @@ mod tests {
         // Force a real carry, then tamper.
         let w = compute_add3_64(0xFFFF, 0xFFFF, 0xFFFF);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::CARRY] = trace.values[col::CARRY] + BabyBear::ONE;
+        trace.values[col::CARRY] += BabyBear::ONE;
         check_constraints(&Word64Add3TestAir, &trace, &[]);
     }
 

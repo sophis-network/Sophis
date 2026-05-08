@@ -63,6 +63,12 @@ pub struct LimbAssemblyChip {
     pub start_col: usize,
 }
 
+impl Default for LimbAssemblyChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LimbAssemblyChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -195,10 +201,10 @@ pub fn reconstruct_limbs(w: &LimbAssemblyWitness) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::carry_fold::compute_carry_fold;
     use super::super::mul::{compute_mul, reconstruct_product};
     use super::super::{Field25519Element, NUM_LIMBS};
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -303,7 +309,7 @@ mod tests {
         positions[0] = 42;
         let w = compute_limb_assembly(&positions, 0);
         let mut trace = build_test_trace::<BabyBear>(&positions, 0, &w);
-        trace.values[col::L] = trace.values[col::L] + BabyBear::ONE;
+        trace.values[col::L] += BabyBear::ONE;
         check_constraints(&LimbAssemblyTestAir, &trace, &[]);
     }
 
@@ -314,7 +320,7 @@ mod tests {
         positions[1] = 7;
         let w = compute_limb_assembly(&positions, 0);
         let mut trace = build_test_trace::<BabyBear>(&positions, 0, &w);
-        trace.values[col::CAN + 1] = trace.values[col::CAN + 1] + BabyBear::ONE;
+        trace.values[col::CAN + 1] += BabyBear::ONE;
         check_constraints(&LimbAssemblyTestAir, &trace, &[]);
     }
 

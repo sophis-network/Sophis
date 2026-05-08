@@ -51,14 +51,11 @@
 use std::sync::OnceLock;
 
 use p3_uni_stark::{
-    PreprocessedProverData, PreprocessedVerifierKey, prove_with_preprocessed, setup_preprocessed,
-    verify_with_preprocessed,
+    PreprocessedProverData, PreprocessedVerifierKey, prove_with_preprocessed, setup_preprocessed, verify_with_preprocessed,
 };
 
 use crate::chips::sha512::compression::compute_compression;
-use crate::chips::sha512::compression_chip::{
-    CompressionChip, build_compression_trace, build_public_values, fips_pad_multi_block,
-};
+use crate::chips::sha512::compression_chip::{CompressionChip, build_compression_trace, build_public_values, fips_pad_multi_block};
 use crate::chips::sha512::constants::H_INITIAL;
 use crate::chips::sha512::round::Sha512State;
 use crate::config::{OracleStarkConfig, Val, oracle_stark_config};
@@ -75,15 +72,10 @@ const DIGEST_BYTES: usize = 64;
 /// (Merkle commit over a 7-col × 128-row matrix). The setup is
 /// deterministic across runs of the same chip + degree, so we cache
 /// the result globally and reuse it for every prove/verify call.
-static SHA512_PREPROCESSED: OnceLock<(
-    PreprocessedProverData<OracleStarkConfig>,
-    PreprocessedVerifierKey<OracleStarkConfig>,
-)> = OnceLock::new();
+static SHA512_PREPROCESSED: OnceLock<(PreprocessedProverData<OracleStarkConfig>, PreprocessedVerifierKey<OracleStarkConfig>)> =
+    OnceLock::new();
 
-fn preprocessed_setup() -> &'static (
-    PreprocessedProverData<OracleStarkConfig>,
-    PreprocessedVerifierKey<OracleStarkConfig>,
-) {
+fn preprocessed_setup() -> &'static (PreprocessedProverData<OracleStarkConfig>, PreprocessedVerifierKey<OracleStarkConfig>) {
     SHA512_PREPROCESSED.get_or_init(|| {
         let (_perm, config) = oracle_stark_config();
         setup_preprocessed(&config, &CompressionChip, LOG_TRACE_DEGREE)
@@ -151,16 +143,14 @@ pub fn prove_sha512_air(message: &[u8]) -> Result<Sha512AirProof, Sha512AirProve
         let trace = build_compression_trace::<Val>(&iv, block);
         let public_values = build_public_values::<Val>(&iv, block, &digest_words);
         let proof = prove_with_preprocessed(&config, &CompressionChip, trace, &public_values, Some(&setup.0));
-        let proof_bytes =
-            bincode::serialize(&proof).map_err(|e| Sha512AirProverError::Serialization(e.to_string()))?;
+        let proof_bytes = bincode::serialize(&proof).map_err(|e| Sha512AirProverError::Serialization(e.to_string()))?;
         proofs.push(proof_bytes);
 
         last_digest = digest_words;
         iv = digest_words; // Next block chains.
     }
 
-    let aggregated = bincode::serialize(&proofs)
-        .map_err(|e| Sha512AirProverError::Serialization(e.to_string()))?;
+    let aggregated = bincode::serialize(&proofs).map_err(|e| Sha512AirProverError::Serialization(e.to_string()))?;
 
     let mut digest_bytes = [0u8; DIGEST_BYTES];
     for (i, word) in last_digest.iter().enumerate() {
@@ -194,8 +184,7 @@ pub fn verify_sha512_air_proof(
         return Err(Sha512AirVerifyError::Deserialization("no blocks after padding".into()));
     }
 
-    let proofs: Vec<Vec<u8>> = bincode::deserialize(proof_bytes)
-        .map_err(|e| Sha512AirVerifyError::Deserialization(e.to_string()))?;
+    let proofs: Vec<Vec<u8>> = bincode::deserialize(proof_bytes).map_err(|e| Sha512AirVerifyError::Deserialization(e.to_string()))?;
     if proofs.len() != blocks.len() {
         return Err(Sha512AirVerifyError::ChainIntegrity(format!(
             "proof count {} != expected block count {} for message of {} bytes",
@@ -208,11 +197,7 @@ pub fn verify_sha512_air_proof(
     // Decompose the supplied expected_digest into 8 BE u64 words.
     let mut expected_digest_words = [0u64; 8];
     for (i, word) in expected_digest_words.iter_mut().enumerate() {
-        *word = u64::from_be_bytes(
-            expected_digest[i * 8..(i + 1) * 8]
-                .try_into()
-                .expect("64-byte digest"),
-        );
+        *word = u64::from_be_bytes(expected_digest[i * 8..(i + 1) * 8].try_into().expect("64-byte digest"));
     }
 
     let setup = preprocessed_setup();
@@ -232,9 +217,7 @@ pub fn verify_sha512_air_proof(
         let public_values = build_public_values::<Val>(&iv, block, &digest_words);
 
         let proof: p3_uni_stark::Proof<OracleStarkConfig> =
-            bincode::deserialize(proof_serialized).map_err(|e| {
-                Sha512AirVerifyError::Deserialization(format!("block {k}: {e}"))
-            })?;
+            bincode::deserialize(proof_serialized).map_err(|e| Sha512AirVerifyError::Deserialization(format!("block {k}: {e}")))?;
 
         verify_with_preprocessed(&config, &CompressionChip, &proof, &public_values, Some(&setup.1))
             .map_err(|e| Sha512AirVerifyError::StarkRejected(format!("block {k}: {e:?}")))?;
@@ -327,11 +310,7 @@ mod tests {
         let proof = prove_sha512_air(b"hello").expect("prove ok");
         let r = verify_sha512_air_proof(&proof.bytes, b"world", &proof.digest);
         assert!(
-            matches!(
-                r,
-                Err(Sha512AirVerifyError::StarkRejected(_))
-                    | Err(Sha512AirVerifyError::ChainIntegrity(_))
-            ),
+            matches!(r, Err(Sha512AirVerifyError::StarkRejected(_)) | Err(Sha512AirVerifyError::ChainIntegrity(_))),
             "expected STARK or chain rejection, got {:?}",
             r
         );
@@ -348,11 +327,7 @@ mod tests {
         let mut bad = proof.digest;
         bad[0] ^= 1;
         let r = verify_sha512_air_proof(&proof.bytes, b"hello", &bad);
-        assert!(
-            matches!(r, Err(Sha512AirVerifyError::ChainIntegrity(_))),
-            "expected ChainIntegrity rejection, got {:?}",
-            r
-        );
+        assert!(matches!(r, Err(Sha512AirVerifyError::ChainIntegrity(_))), "expected ChainIntegrity rejection, got {:?}", r);
     }
 
     /// Sub-fase 5.6.c.1.d.multi — round-trip on a 200-byte message
@@ -382,7 +357,9 @@ mod tests {
         // pure parser; we test it independently.
         let msg = b"Sophis ZK-Oracle test vector";
         let mut digest = [0u8; DIGEST_BYTES];
-        for (i, b) in digest.iter_mut().enumerate() { *b = (i as u8).wrapping_mul(7); }
+        for (i, b) in digest.iter_mut().enumerate() {
+            *b = (i as u8).wrapping_mul(7);
+        }
         let bytes = encode_public_values_bytes(msg, &digest);
         let (msg2, digest2) = decode_public_values_bytes(&bytes).expect("decode ok");
         assert_eq!(msg, msg2.as_slice());

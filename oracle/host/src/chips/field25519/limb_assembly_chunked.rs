@@ -42,7 +42,7 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
-use super::add_canonical_chunked::{split_limb, CHUNK_HI_BITS, CHUNK_LO_BITS, CHUNK_LO_MOD};
+use super::add_canonical_chunked::{CHUNK_HI_BITS, CHUNK_LO_BITS, CHUNK_LO_MOD, split_limb};
 use super::carry_fold::NUM_POSITIONS;
 use super::mul::{PIECE_BITS, PIECE_MOD};
 use crate::chips::lookup::range_n::{Range16Chip, RangeNChip};
@@ -52,22 +52,22 @@ pub const NUM_OUTPUT_LIMBS: usize = 18;
 pub mod col {
     use super::*;
     pub const CAN: usize = 0;
-    pub const OVF: usize = CAN + NUM_POSITIONS;       // 53
-    pub const L: usize = OVF + 1;                      // 54
-    pub const L_LO: usize = L + NUM_OUTPUT_LIMBS;     // 72
-    pub const L_HI: usize = L_LO + NUM_OUTPUT_LIMBS;  // 90
+    pub const OVF: usize = CAN + NUM_POSITIONS; // 53
+    pub const L: usize = OVF + 1; // 54
+    pub const L_LO: usize = L + NUM_OUTPUT_LIMBS; // 72
+    pub const L_HI: usize = L_LO + NUM_OUTPUT_LIMBS; // 90
     pub const STRUCTURAL_END: usize = L_HI + NUM_OUTPUT_LIMBS; // 108
 
     /// Range10 bit decomp para 53 can cells.
-    pub const CAN_BITS: usize = STRUCTURAL_END;       // 108
+    pub const CAN_BITS: usize = STRUCTURAL_END; // 108
     /// Range10 bit decomp para ovf.
     pub const OVF_BITS: usize = CAN_BITS + NUM_POSITIONS * PIECE_BITS; // 648
     /// Range16 bit decomp para L_lo.
-    pub const L_LO_BITS: usize = OVF_BITS + PIECE_BITS;                // 658
+    pub const L_LO_BITS: usize = OVF_BITS + PIECE_BITS; // 658
     /// Range14 bit decomp para L_hi.
     pub const L_HI_BITS: usize = L_LO_BITS + NUM_OUTPUT_LIMBS * CHUNK_LO_BITS; // 946
 
-    pub const TOTAL: usize = L_HI_BITS + NUM_OUTPUT_LIMBS * CHUNK_HI_BITS;     // 1198
+    pub const TOTAL: usize = L_HI_BITS + NUM_OUTPUT_LIMBS * CHUNK_HI_BITS; // 1198
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -75,6 +75,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct LimbAssemblyChunkedChip {
     pub start_col: usize,
+}
+
+impl Default for LimbAssemblyChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LimbAssemblyChunkedChip {
@@ -113,11 +119,7 @@ impl LimbAssemblyChunkedChip {
             let pos1 = 3 * k + 1;
             let pos2 = 3 * k + 2;
 
-            let p0 = if pos0 < NUM_POSITIONS {
-                row[s + col::CAN + pos0]
-            } else {
-                row[s + col::OVF]
-            };
+            let p0 = if pos0 < NUM_POSITIONS { row[s + col::CAN + pos0] } else { row[s + col::OVF] };
             let p1 = if pos1 < NUM_POSITIONS {
                 row[s + col::CAN + pos1]
             } else if pos1 == NUM_POSITIONS {
@@ -154,10 +156,7 @@ pub struct LimbAssemblyChunkedWitness {
     pub l_hi: [u64; NUM_OUTPUT_LIMBS],
 }
 
-pub fn compute_limb_assembly_chunked(
-    can: &[u64; NUM_POSITIONS],
-    ovf: u64,
-) -> LimbAssemblyChunkedWitness {
+pub fn compute_limb_assembly_chunked(can: &[u64; NUM_POSITIONS], ovf: u64) -> LimbAssemblyChunkedWitness {
     let mut l = [0u64; NUM_OUTPUT_LIMBS];
     for k in 0..NUM_OUTPUT_LIMBS {
         let pos0 = 3 * k;
@@ -165,8 +164,20 @@ pub fn compute_limb_assembly_chunked(
         let pos2 = 3 * k + 2;
 
         let p0 = if pos0 < NUM_POSITIONS { can[pos0] } else { ovf };
-        let p1 = if pos1 < NUM_POSITIONS { can[pos1] } else if pos1 == NUM_POSITIONS { ovf } else { 0 };
-        let p2 = if pos2 < NUM_POSITIONS { can[pos2] } else if pos2 == NUM_POSITIONS { ovf } else { 0 };
+        let p1 = if pos1 < NUM_POSITIONS {
+            can[pos1]
+        } else if pos1 == NUM_POSITIONS {
+            ovf
+        } else {
+            0
+        };
+        let p2 = if pos2 < NUM_POSITIONS {
+            can[pos2]
+        } else if pos2 == NUM_POSITIONS {
+            ovf
+        } else {
+            0
+        };
 
         l[k] = p0 + (p1 << PIECE_BITS) + (p2 << (2 * PIECE_BITS));
     }
@@ -186,24 +197,27 @@ pub fn compute_limb_assembly_chunked(
 pub struct LimbAssemblyChunkedTestAir;
 
 impl<F: Field> BaseAir<F> for LimbAssemblyChunkedTestAir {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for LimbAssemblyChunkedTestAir
-where AB::F: Field
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         LimbAssemblyChunkedChip::new().emit(builder);
     }
 }
 
-pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    start_off: usize,
-    w: &LimbAssemblyChunkedWitness,
-) {
+pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(values: &mut [F], start_off: usize, w: &LimbAssemblyChunkedWitness) {
     for k in 0..NUM_POSITIONS {
         values[start_off + col::CAN + k] = F::from_u64(w.can[k]);
         RangeNChip::<PIECE_BITS>::populate_bits::<F>(values, start_off + col::CAN_BITS + k * PIECE_BITS, w.can[k]);
@@ -220,10 +234,7 @@ pub fn populate_row_to<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    can: &[u64; NUM_POSITIONS],
-    ovf: u64,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(can: &[u64; NUM_POSITIONS], ovf: u64) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -304,7 +315,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "constraints not satisfied")]
     fn limb_assembly_chunked_rejects_can_above_2_to_10() {
-        let mut can = [0u64; NUM_POSITIONS];
+        let can = [0u64; NUM_POSITIONS];
         let trace_init = build_test_trace::<BabyBear>(&can, 0);
         let mut trace = trace_init;
         trace.values[col::CAN] = BabyBear::from_u64(1 << 10);
@@ -326,7 +337,7 @@ mod tests {
         let mut can = [0u64; NUM_POSITIONS];
         can[0] = 5;
         let mut trace = build_test_trace::<BabyBear>(&can, 0);
-        trace.values[col::L] = trace.values[col::L] + BabyBear::ONE;
+        trace.values[col::L] += BabyBear::ONE;
         check_constraints(&LimbAssemblyChunkedTestAir, &trace, &[]);
     }
 
@@ -337,7 +348,7 @@ mod tests {
         can[0] = 5;
         let mut trace = build_test_trace::<BabyBear>(&can, 0);
         // Tamper L_lo: flip a bit. L_hi unchanged so recomp fails.
-        trace.values[col::L_LO] = trace.values[col::L_LO] + BabyBear::ONE;
+        trace.values[col::L_LO] += BabyBear::ONE;
         check_constraints(&LimbAssemblyChunkedTestAir, &trace, &[]);
     }
 

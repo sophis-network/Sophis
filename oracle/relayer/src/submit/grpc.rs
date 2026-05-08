@@ -22,9 +22,7 @@ use sophis_consensus_core::{
     hashing::sighash_type::SIG_HASH_ALL,
     sign::sign_input_dilithium,
     subnets::SUBNETWORK_ID_NATIVE,
-    tx::{
-        MutableTransaction, ScriptPublicKey, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry,
-    },
+    tx::{MutableTransaction, ScriptPublicKey, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry},
 };
 use sophis_grpc_client::GrpcClient;
 use sophis_notify::subscription::context::SubscriptionContext;
@@ -34,13 +32,15 @@ use sophis_rpc_core::{
     model::{RpcTransaction, RpcTransactionInput, RpcTransactionOutput},
     notify::mode::NotificationMode,
 };
-use sophis_txscript::standard::{dilithium_address, dilithium_redeem_script, pay_to_address_script, pay_to_script_hash_signature_script};
+use sophis_txscript::standard::{
+    dilithium_address, dilithium_redeem_script, pay_to_address_script, pay_to_script_hash_signature_script,
+};
 
 use crate::pipeline::RelayerBundle;
 use crate::sign::{SignedBundle, sign_bundle};
 use crate::submit::{
-    GRPC_CONNECT_TIMEOUT_MS, GrpcSubmit, INVOCATION_UTXO_VALUE, NON_COINBASE_MATURITY, SUBMIT_TX_FEE, SubmitError,
-    COINBASE_MATURITY_DEVNET,
+    COINBASE_MATURITY_DEVNET, GRPC_CONNECT_TIMEOUT_MS, GrpcSubmit, INVOCATION_UTXO_VALUE, NON_COINBASE_MATURITY, SUBMIT_TX_FEE,
+    SubmitError,
 };
 
 /// Top-level submit driver invoked by `<GrpcSubmit as L1Submit>::submit_bundle`.
@@ -53,11 +53,7 @@ use crate::submit::{
 pub async fn submit_bundle_grpc(submit: &GrpcSubmit, bundle: &RelayerBundle) -> Result<[u8; 32], SubmitError> {
     // Sign + encode (no I/O).
     let signature = sign_bundle(bundle, &submit.key)?;
-    let signed = SignedBundle {
-        bundle: bundle.clone(),
-        signature,
-        verification_key: submit.key.verification_key.clone(),
-    };
+    let signed = SignedBundle { bundle: bundle.clone(), signature, verification_key: submit.key.verification_key.clone() };
     let wire = signed.encode_wire()?;
 
     // Connect.
@@ -69,10 +65,7 @@ pub async fn submit_bundle_grpc(submit: &GrpcSubmit, bundle: &RelayerBundle) -> 
         .map_err(|e| SubmitError::BadAddress(format!("dilithium_address: {e}")))?;
 
     // Fetch DAA + UTXOs.
-    let dag_info = rpc
-        .get_block_dag_info()
-        .await
-        .map_err(|e| SubmitError::Transport(format!("get_block_dag_info: {e}")))?;
+    let dag_info = rpc.get_block_dag_info().await.map_err(|e| SubmitError::Transport(format!("get_block_dag_info: {e}")))?;
     let daa_score = dag_info.virtual_daa_score;
 
     let raw_utxos = rpc
@@ -170,8 +163,7 @@ pub async fn publish_carrier_grpc(submit: &GrpcSubmit, wire_bytes: &[u8], expect
     let relayer_addr = dilithium_address(&submit.key.verification_key, prefix)
         .map_err(|e| SubmitError::BadAddress(format!("dilithium_address: {e}")))?;
 
-    let dag_info =
-        rpc.get_block_dag_info().await.map_err(|e| SubmitError::Transport(format!("get_block_dag_info: {e}")))?;
+    let dag_info = rpc.get_block_dag_info().await.map_err(|e| SubmitError::Transport(format!("get_block_dag_info: {e}")))?;
     let daa_score = dag_info.virtual_daa_score;
 
     let raw_utxos = rpc
@@ -204,21 +196,13 @@ pub async fn publish_carrier_grpc(submit: &GrpcSubmit, wire_bytes: &[u8], expect
     // 4. Build outputs: V5 carriers (value=0) + change.
     let mut outputs: Vec<TransactionOutput> = scripts
         .into_iter()
-        .map(|script| TransactionOutput {
-            value: 0,
-            script_public_key: ScriptPublicKey::from_vec(SCRIPT_VERSION_CARRIER, script),
-        })
+        .map(|script| TransactionOutput { value: 0, script_public_key: ScriptPublicKey::from_vec(SCRIPT_VERSION_CARRIER, script) })
         .collect();
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: change_spk });
     }
 
-    let inputs = vec![TransactionInput {
-        previous_outpoint: fee_utxo.0,
-        signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
-    }];
+    let inputs = vec![TransactionInput { previous_outpoint: fee_utxo.0, signature_script: vec![], sequence: 0, sig_op_count: 1 }];
     let unsigned = Transaction::new_non_finalized(TX_VERSION, inputs, outputs, 0, SUBNETWORK_ID_NATIVE, 0, vec![]);
     let entries = vec![fee_utxo.1.clone()];
     let mut mutable = MutableTransaction::with_entries(unsigned, entries);
@@ -275,12 +259,7 @@ fn build_signed_invocation_tx(
     redeem_script: &[u8],
     signing_key: &[u8; 2560],
 ) -> Result<Transaction, SubmitError> {
-    let inputs = vec![TransactionInput {
-        previous_outpoint: fee_utxo.0,
-        signature_script: vec![],
-        sequence: 0,
-        sig_op_count: 1,
-    }];
+    let inputs = vec![TransactionInput { previous_outpoint: fee_utxo.0, signature_script: vec![], sequence: 0, sig_op_count: 1 }];
     let mut outputs = vec![TransactionOutput { value: INVOCATION_UTXO_VALUE, script_public_key: invocation_spk }];
     if change > 0 {
         outputs.push(TransactionOutput { value: change, script_public_key: change_spk });

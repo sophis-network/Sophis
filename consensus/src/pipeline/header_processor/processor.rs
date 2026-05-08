@@ -33,7 +33,6 @@ use itertools::Itertools;
 use parking_lot::RwLock;
 use rayon::ThreadPool;
 use rocksdb::WriteBatch;
-use sophis_core::warn;
 use sophis_consensus_core::{
     BlockHashSet, BlockLevel, BlueWorkType,
     blockhash::{BlockHashes, ORIGIN},
@@ -42,6 +41,7 @@ use sophis_consensus_core::{
     header::Header,
 };
 use sophis_consensusmanager::SessionLock;
+use sophis_core::warn;
 use sophis_database::prelude::{StoreResultExt, StoreResultUnitExt};
 use sophis_hashes::Hash;
 use sophis_utils::vec::VecExtensions;

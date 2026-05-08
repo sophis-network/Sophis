@@ -41,16 +41,16 @@ use super::mul_canonical_full::{self, MulCanonicalFullChip, NUM_COLS as MC_COLS}
 use crate::chips::field25519::{Field25519Element, NUM_LIMBS};
 
 pub mod col {
-    use super::{NUM_LIMBS, MC_COLS};
+    use super::{MC_COLS, NUM_LIMBS};
     pub const BIT: usize = 0;
     pub const PRE_RESULT: usize = 1;
-    pub const PRE_CURRENT: usize = PRE_RESULT + NUM_LIMBS;       // 10
-    pub const POST_RESULT: usize = PRE_CURRENT + NUM_LIMBS;       // 19
-    pub const POST_CURRENT: usize = POST_RESULT + NUM_LIMBS;      // 28
-    pub const MUL_RESULT: usize = POST_CURRENT + NUM_LIMBS;       // 37
-    pub const SQUARE_START: usize = MUL_RESULT + NUM_LIMBS;       // 46
-    pub const COND_MUL_START: usize = SQUARE_START + MC_COLS;     // 756
-    pub const TOTAL: usize = COND_MUL_START + MC_COLS;            // 1466
+    pub const PRE_CURRENT: usize = PRE_RESULT + NUM_LIMBS; // 10
+    pub const POST_RESULT: usize = PRE_CURRENT + NUM_LIMBS; // 19
+    pub const POST_CURRENT: usize = POST_RESULT + NUM_LIMBS; // 28
+    pub const MUL_RESULT: usize = POST_CURRENT + NUM_LIMBS; // 37
+    pub const SQUARE_START: usize = MUL_RESULT + NUM_LIMBS; // 46
+    pub const COND_MUL_START: usize = SQUARE_START + MC_COLS; // 756
+    pub const TOTAL: usize = COND_MUL_START + MC_COLS; // 1466
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -59,13 +59,20 @@ pub const NUM_COLS: usize = col::TOTAL;
 pub struct PowAirChip;
 
 impl<F: Field> BaseAir<F> for PowAirChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { (0..NUM_COLS).collect() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        (0..NUM_COLS).collect()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for PowAirChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         // Embed the two MulCanonicalFull chips at their offsets.
@@ -96,11 +103,11 @@ where AB::F: Field,
 
         // Conditional select: post_result = bit ? mul_result : pre_result
         for i in 0..NUM_LIMBS {
-            let post = cur[col::POST_RESULT + i].clone();
-            let pre = cur[col::PRE_RESULT + i].clone();
-            let mul = cur[col::MUL_RESULT + i].clone();
-            let bit = cur[col::BIT].clone();
-            builder.assert_eq(post - pre.clone(), bit * (mul - pre));
+            let post = cur[col::POST_RESULT + i];
+            let pre = cur[col::PRE_RESULT + i];
+            let mul = cur[col::MUL_RESULT + i];
+            let bit = cur[col::BIT];
+            builder.assert_eq(post - pre, bit * (mul - pre));
         }
 
         // Transitions: row[t+1].pre = row[t].post
@@ -123,7 +130,7 @@ pub fn build_pow_trace<F: Field + PrimeCharacteristicRing>(
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
     let mut result = field_one();
-    let mut current = base.clone();
+    let mut current = *base;
 
     for row in 0..TOTAL_BITS {
         let row_off = row * NUM_COLS;
@@ -136,7 +143,7 @@ pub fn build_pow_trace<F: Field + PrimeCharacteristicRing>(
         values[row_off + col::BIT] = F::from_u64(bit as u64);
 
         let raw_mul = field_mul(&result, &current);
-        let new_result = if bit == 1 { raw_mul.clone() } else { result.clone() };
+        let new_result = if bit == 1 { raw_mul } else { result };
         let new_current = field_mul(&current, &current);
 
         put_elem::<F>(&mut values, row_off + col::POST_RESULT, &new_result);

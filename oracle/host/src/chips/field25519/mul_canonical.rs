@@ -60,6 +60,12 @@ pub struct MulCanonicalChip {
     pub start_col: usize,
 }
 
+impl Default for MulCanonicalChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MulCanonicalChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -87,7 +93,12 @@ impl MulCanonicalChip {
         assert_chunks_eq(builder, self.start_col + col::PIPE_START + mul_pipeline::col::B, self.start_col + col::B, NUM_LIMBS);
 
         // ModP's L input ← MulPipeline's L output (18 limbs)
-        assert_chunks_eq(builder, self.start_col + col::MP_START + mod_p_chip::col::L, self.start_col + col::PIPE_START + mul_pipeline::col::L, 18);
+        assert_chunks_eq(
+            builder,
+            self.start_col + col::MP_START + mod_p_chip::col::L,
+            self.start_col + col::PIPE_START + mul_pipeline::col::L,
+            18,
+        );
 
         // top-level c ← ModP's C output
         assert_chunks_eq(builder, self.start_col + col::C, self.start_col + col::MP_START + mod_p_chip::col::C, NUM_LIMBS);
@@ -95,15 +106,24 @@ impl MulCanonicalChip {
 }
 
 impl<F: Field> BaseAir<F> for MulCanonicalChip {
-    fn width(&self) -> usize { NUM_COLS }
-    fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-    fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+    fn width(&self) -> usize {
+        NUM_COLS
+    }
+    fn main_next_row_columns(&self) -> Vec<usize> {
+        Vec::new()
+    }
+    fn max_constraint_degree(&self) -> Option<usize> {
+        Some(2)
+    }
 }
 
 impl<AB: AirBuilder> Air<AB> for MulCanonicalChip
-where AB::F: Field,
+where
+    AB::F: Field,
 {
-    fn eval(&self, builder: &mut AB) { self.emit(builder); }
+    fn eval(&self, builder: &mut AB) {
+        self.emit(builder);
+    }
 }
 
 /// Populate witness columns for one MulCanonicalChip instance at a
@@ -124,29 +144,29 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     a: &Field25519Element,
     b: &Field25519Element,
 ) {
+    use super::carry_fold::NUM_POSITIONS as CF_POS;
+    use super::carry_fold::col as cfc;
     use super::carry_fold::compute_carry_fold;
+    use super::cond_p_sub::col as cpc;
     use super::cond_p_sub::compute_cond_p_sub;
+    use super::first_fold::col as ffc;
     use super::first_fold::compute_first_fold_witness;
+    use super::limb_assembly::NUM_OUTPUT_LIMBS as LA_L;
+    use super::limb_assembly::col as lac;
     use super::limb_assembly::compute_limb_assembly_from_carry_fold;
     use super::mul::compute_mul;
-    use super::carry_fold::NUM_POSITIONS as CF_POS;
-    use super::limb_assembly::NUM_OUTPUT_LIMBS as LA_L;
-    use super::carry_fold::col as cfc;
-    use super::limb_assembly::col as lac;
-    use super::cond_p_sub::col as cpc;
-    use super::first_fold::col as ffc;
 
     let mul_w = compute_mul(a, b);
     let fold_w = compute_carry_fold(&mul_w.out_positions);
     let assembly_w = compute_limb_assembly_from_carry_fold(&fold_w);
     let ff_w = compute_first_fold_witness(&assembly_w.limbs);
-    debug_assert_eq!(ff_w.out[9], 0, "mul_canonical::populate_row precondition: first_fold limb 9 must be 0 (a·b too large for single-pass mod_p)");
+    debug_assert_eq!(
+        ff_w.out[9], 0,
+        "mul_canonical::populate_row precondition: first_fold limb 9 must be 0 (a·b too large for single-pass mod_p)"
+    );
 
     let ff_out_9 = Field25519Element {
-        limbs: [
-            ff_w.out[0], ff_w.out[1], ff_w.out[2], ff_w.out[3], ff_w.out[4],
-            ff_w.out[5], ff_w.out[6], ff_w.out[7], ff_w.out[8],
-        ],
+        limbs: [ff_w.out[0], ff_w.out[1], ff_w.out[2], ff_w.out[3], ff_w.out[4], ff_w.out[5], ff_w.out[6], ff_w.out[7], ff_w.out[8]],
     };
     let cps_w = compute_cond_p_sub(&ff_out_9);
 
@@ -167,13 +187,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::PIPE_START + mul_pipeline::col::L + i] = F::from_u64(assembly_w.limbs[i]);
     }
     // MulChip witness (limbs + pieces + positions + 10-bit range bits, Etapa 3.2).
-    super::mul::populate_row::<F>(
-        values,
-        base + col::PIPE_START + mul_pipeline::col::MUL_START,
-        a,
-        b,
-        &mul_w,
-    );
+    super::mul::populate_row::<F>(values, base + col::PIPE_START + mul_pipeline::col::MUL_START, a, b, &mul_w);
     {
         use super::carry_fold::{CANONICAL_BITS as CF_CAN_BITS, CARRY_BITS as CF_CARRY_BITS};
         for i in 0..CF_POS {
@@ -214,7 +228,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::MP_START + mod_p_chip::col::FF_START + ffc::OUT + i] = F::from_u64(ff_w.out[i]);
         values[base + col::MP_START + mod_p_chip::col::FF_START + ffc::CARRY + i] = F::from_u64(ff_w.carries[i]);
         // Etapa 3.8: 10-bit range bits for first_fold carry[i].
-        crate::chips::lookup::range_n::RangeNChip::<{super::first_fold::CARRY_BITS}>::populate_bits::<F>(
+        crate::chips::lookup::range_n::RangeNChip::<{ super::first_fold::CARRY_BITS }>::populate_bits::<F>(
             values,
             base + col::MP_START + mod_p_chip::col::FF_START + ffc::CARRY_BITS_BASE + i * super::first_fold::CARRY_BITS,
             ff_w.carries[i],
@@ -255,10 +269,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -273,8 +284,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::arith::field_mul;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -312,11 +323,8 @@ mod tests {
     #[test]
     fn mul_canonical_small_inputs() {
         // Limit to small values where first_fold limb 9 = 0 (precondition).
-        let cases: Vec<(Field25519Element, Field25519Element)> = vec![
-            (small(2), small(3)),
-            (small(0xFFFF), small(0xFF)),
-            (small(0xCAFE), small(0xBABE)),
-        ];
+        let cases: Vec<(Field25519Element, Field25519Element)> =
+            vec![(small(2), small(3)), (small(0xFFFF), small(0xFF)), (small(0xCAFE), small(0xBABE))];
         for (a, b) in cases {
             let expected = field_mul(&a, &b);
             let trace = build_test_trace::<BabyBear>(&a, &b);
@@ -329,7 +337,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn mul_canonical_rejects_tampered() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&MulCanonicalChip::new(), &trace, &[]);
     }
 

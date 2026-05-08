@@ -38,5 +38,5 @@ pub mod word64_xor;
 
 pub use compression::{compute_compression, sha512};
 pub use constants::{H_INITIAL, K};
-pub use round::{Sha512State, ch, compute_round, big_sigma0, big_sigma1, maj};
+pub use round::{Sha512State, big_sigma0, big_sigma1, ch, compute_round, maj};
 pub use schedule::{compute_schedule, small_sigma0, small_sigma1};

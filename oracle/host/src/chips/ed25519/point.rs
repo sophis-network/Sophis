@@ -41,8 +41,8 @@
 //! intermediate results, putting the per-point-add chip at well over
 //! 1500 columns. It lands in a dedicated session.
 
-use crate::chips::field25519::arith::{field_add, field_mul, field_sub, field_zero};
 use crate::chips::field25519::Field25519Element;
+use crate::chips::field25519::arith::{field_add, field_mul, field_sub, field_zero};
 
 /// An Edwards curve point in extended coordinates.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,12 +59,7 @@ impl ExtendedPoint {
     pub fn neutral() -> Self {
         let mut one = Field25519Element::ZERO;
         one.limbs[0] = 1;
-        Self {
-            x: field_zero(),
-            y: one.clone(),
-            z: one,
-            t: field_zero(),
-        }
+        Self { x: field_zero(), y: one, z: one, t: field_zero() }
     }
 }
 
@@ -77,8 +72,8 @@ impl ExtendedPoint {
 /// `Field25519Element::from_canonical_bytes`.
 pub fn d_constant() -> Field25519Element {
     let bytes: [u8; 32] = [
-        0xa3, 0x78, 0x59, 0x13, 0xca, 0x4d, 0xeb, 0x75, 0xab, 0xd8, 0x41, 0x41, 0x4d, 0x0a, 0x70, 0x00,
-        0x98, 0xe8, 0x79, 0x77, 0x79, 0x40, 0xc7, 0x8c, 0x73, 0xfe, 0x6f, 0x2b, 0xee, 0x6c, 0x03, 0x52,
+        0xa3, 0x78, 0x59, 0x13, 0xca, 0x4d, 0xeb, 0x75, 0xab, 0xd8, 0x41, 0x41, 0x4d, 0x0a, 0x70, 0x00, 0x98, 0xe8, 0x79, 0x77, 0x79,
+        0x40, 0xc7, 0x8c, 0x73, 0xfe, 0x6f, 0x2b, 0xee, 0x6c, 0x03, 0x52,
     ];
     Field25519Element::from_canonical_bytes(&bytes)
 }
@@ -102,12 +97,7 @@ pub fn point_add(p1: &ExtendedPoint, p2: &ExtendedPoint) -> ExtendedPoint {
     let g = field_add(&d, &c);
     let h = field_add(&b, &a);
 
-    ExtendedPoint {
-        x: field_mul(&e, &f),
-        y: field_mul(&g, &h),
-        t: field_mul(&e, &h),
-        z: field_mul(&f, &g),
-    }
+    ExtendedPoint { x: field_mul(&e, &f), y: field_mul(&g, &h), t: field_mul(&e, &h), z: field_mul(&f, &g) }
 }
 
 /// Convert an extended point to its affine `(x, y)` coordinates by
@@ -137,7 +127,7 @@ pub fn field_invert(a: &Field25519Element) -> Field25519Element {
         one_limbs[0] = 1;
         Field25519Element { limbs: one_limbs }
     };
-    let mut base = a.clone();
+    let mut base = *a;
     // Square-and-multiply: scan bits of p_minus_2 from LSB to MSB.
     for byte in p_minus_2.iter() {
         for bit_idx in 0..8 {
@@ -224,8 +214,8 @@ mod tests {
         let d = d_constant();
         let bytes = d.to_canonical_bytes();
         let expected: [u8; 32] = [
-            0xa3, 0x78, 0x59, 0x13, 0xca, 0x4d, 0xeb, 0x75, 0xab, 0xd8, 0x41, 0x41, 0x4d, 0x0a, 0x70, 0x00,
-            0x98, 0xe8, 0x79, 0x77, 0x79, 0x40, 0xc7, 0x8c, 0x73, 0xfe, 0x6f, 0x2b, 0xee, 0x6c, 0x03, 0x52,
+            0xa3, 0x78, 0x59, 0x13, 0xca, 0x4d, 0xeb, 0x75, 0xab, 0xd8, 0x41, 0x41, 0x4d, 0x0a, 0x70, 0x00, 0x98, 0xe8, 0x79, 0x77,
+            0x79, 0x40, 0xc7, 0x8c, 0x73, 0xfe, 0x6f, 0x2b, 0xee, 0x6c, 0x03, 0x52,
         ];
         assert_eq!(bytes, expected);
     }
@@ -262,12 +252,7 @@ mod tests {
         // a Z=1 ExtendedPoint should produce the same affine coords.
         let p = synthetic_point(42);
         let (x, y) = to_affine(&p);
-        let p_z1 = ExtendedPoint {
-            x: x.clone(),
-            y: y.clone(),
-            z: field_one(),
-            t: field_mul(&x, &y),
-        };
+        let p_z1 = ExtendedPoint { x, y, z: field_one(), t: field_mul(&x, &y) };
         let (x2, y2) = to_affine(&p_z1);
         assert_eq!(x, x2);
         assert_eq!(y, y2);

@@ -12,17 +12,15 @@
 use p3_matrix::dense::RowMajorMatrix;
 
 use crate::chips::ed25519::point::ExtendedPoint;
-use crate::chips::ed25519::scalar_mul_air_chunked::{
-    build_public_values, build_scalar_mul_trace_chunked, ScalarMulAirChunkedChip, NUM_BOUNDARY_LIMBS,
-    NUM_COLS, NUM_PUBLIC_VALUES,
-};
 use crate::chips::ed25519::scalar_mul_air::derive_scalar_mul_air_output;
-use crate::config::{oracle_stark_config, Val};
+use crate::chips::ed25519::scalar_mul_air_chunked::{
+    NUM_BOUNDARY_LIMBS, NUM_COLS, NUM_PUBLIC_VALUES, ScalarMulAirChunkedChip, build_public_values, build_scalar_mul_trace_chunked,
+};
+use crate::config::{Val, oracle_stark_config};
 
 const SCALAR_BYTES: usize = 32;
 
-pub const PUBLIC_VALUES_WIRE_BYTES: usize =
-    SCALAR_BYTES + NUM_BOUNDARY_LIMBS * 4 + NUM_BOUNDARY_LIMBS * 4;
+pub const PUBLIC_VALUES_WIRE_BYTES: usize = SCALAR_BYTES + NUM_BOUNDARY_LIMBS * 4 + NUM_BOUNDARY_LIMBS * 4;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ScalarMulAirChunkedProverError {
@@ -47,10 +45,7 @@ pub struct ScalarMulAirChunkedProof {
     pub output: ExtendedPoint,
 }
 
-pub fn derive_scalar_mul_output(
-    scalar_le_bytes: &[u8; 32],
-    base_point: &ExtendedPoint,
-) -> ExtendedPoint {
+pub fn derive_scalar_mul_output(scalar_le_bytes: &[u8; 32], base_point: &ExtendedPoint) -> ExtendedPoint {
     derive_scalar_mul_air_output(scalar_le_bytes, base_point)
 }
 
@@ -58,14 +53,10 @@ pub fn prove_scalar_mul_air_chunked(
     scalar_le_bytes: &[u8; 32],
     base_point: &ExtendedPoint,
 ) -> Result<ScalarMulAirChunkedProof, ScalarMulAirChunkedProverError> {
-    let trace: RowMajorMatrix<Val> =
-        build_scalar_mul_trace_chunked::<Val>(scalar_le_bytes, base_point);
+    let trace: RowMajorMatrix<Val> = build_scalar_mul_trace_chunked::<Val>(scalar_le_bytes, base_point);
 
-    if trace.values.len() % NUM_COLS != 0 {
-        return Err(ScalarMulAirChunkedProverError::BadTraceShape {
-            got: trace.values.len(),
-            want: NUM_COLS,
-        });
+    if !trace.values.len().is_multiple_of(NUM_COLS) {
+        return Err(ScalarMulAirChunkedProverError::BadTraceShape { got: trace.values.len(), want: NUM_COLS });
     }
 
     let output = derive_scalar_mul_air_output(scalar_le_bytes, base_point);
@@ -73,8 +64,7 @@ pub fn prove_scalar_mul_air_chunked(
 
     let (_perm, config) = oracle_stark_config();
     let proof = p3_uni_stark::prove(&config, &ScalarMulAirChunkedChip, trace, &public_values);
-    let bytes = bincode::serialize(&proof)
-        .map_err(|e| ScalarMulAirChunkedProverError::Serialization(e.to_string()))?;
+    let bytes = bincode::serialize(&proof).map_err(|e| ScalarMulAirChunkedProverError::Serialization(e.to_string()))?;
     Ok(ScalarMulAirChunkedProof { bytes, output })
 }
 
@@ -85,15 +75,11 @@ pub fn verify_scalar_mul_air_chunked_proof(
     expected_output: &ExtendedPoint,
 ) -> Result<(), ScalarMulAirChunkedVerifyError> {
     let proof: p3_uni_stark::Proof<crate::config::OracleStarkConfig> =
-        bincode::deserialize(proof_bytes)
-            .map_err(|e| ScalarMulAirChunkedVerifyError::Deserialization(e.to_string()))?;
+        bincode::deserialize(proof_bytes).map_err(|e| ScalarMulAirChunkedVerifyError::Deserialization(e.to_string()))?;
 
     let public_values = build_public_values::<Val>(scalar_le_bytes, base_point, expected_output);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(ScalarMulAirChunkedVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(ScalarMulAirChunkedVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
     let (_perm, config) = oracle_stark_config();
@@ -101,11 +87,7 @@ pub fn verify_scalar_mul_air_chunked_proof(
         .map_err(|e| ScalarMulAirChunkedVerifyError::StarkRejected(format!("{e:?}")))
 }
 
-pub fn encode_public_values_bytes(
-    scalar_le_bytes: &[u8; 32],
-    base_point: &ExtendedPoint,
-    output: &ExtendedPoint,
-) -> Vec<u8> {
+pub fn encode_public_values_bytes(scalar_le_bytes: &[u8; 32], base_point: &ExtendedPoint, output: &ExtendedPoint) -> Vec<u8> {
     let mut out = Vec::with_capacity(PUBLIC_VALUES_WIRE_BYTES);
     out.extend_from_slice(scalar_le_bytes);
     push_point_bytes(&mut out, base_point);
@@ -115,15 +97,21 @@ pub fn encode_public_values_bytes(
 }
 
 fn push_point_bytes(out: &mut Vec<u8>, p: &ExtendedPoint) {
-    for &l in &p.x.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.y.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.z.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.t.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
+    for &l in &p.x.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.y.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.z.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.t.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
 }
 
-pub fn decode_public_values_bytes(
-    bytes: &[u8],
-) -> Option<([u8; 32], ExtendedPoint, ExtendedPoint)> {
+pub fn decode_public_values_bytes(bytes: &[u8]) -> Option<([u8; 32], ExtendedPoint, ExtendedPoint)> {
     use crate::chips::field25519::{Field25519Element, NUM_LIMBS};
 
     if bytes.len() != PUBLIC_VALUES_WIRE_BYTES {
@@ -138,10 +126,18 @@ pub fn decode_public_values_bytes(
         let mut y = [0u64; NUM_LIMBS];
         let mut z = [0u64; NUM_LIMBS];
         let mut t = [0u64; NUM_LIMBS];
-        for limb in &mut x { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut y { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut z { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut t { *limb = read_u32_le(bytes, &mut cur) as u64; }
+        for limb in &mut x {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut y {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut z {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut t {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
         ExtendedPoint {
             x: Field25519Element { limbs: x },
             y: Field25519Element { limbs: y },
@@ -202,7 +198,6 @@ mod tests {
         s[0] = 1;
         let bp = basepoint();
         let proof = prove_scalar_mul_air_chunked(&s, &bp).expect("prove ok");
-        verify_scalar_mul_air_chunked_proof(&proof.bytes, &s, &bp, &proof.output)
-            .expect("verify ok");
+        verify_scalar_mul_air_chunked_proof(&proof.bytes, &s, &bp, &proof.output).expect("verify ok");
     }
 }

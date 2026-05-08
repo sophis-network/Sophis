@@ -214,10 +214,7 @@ mod tests {
         store
             .index_carrier_direct(
                 block,
-                &[
-                    CarrierIndex { payload_id: pid_a, entry: entry_a },
-                    CarrierIndex { payload_id: pid_b, entry: entry_b },
-                ],
+                &[CarrierIndex { payload_id: pid_a, entry: entry_a }, CarrierIndex { payload_id: pid_b, entry: entry_b }],
             )
             .unwrap();
 

@@ -88,11 +88,7 @@ pub trait L1Client: Send + Sync {
     ///
     /// Default impl is a no-op so existing test mocks compile unchanged.
     /// `GrpcL1Client` overrides to actually submit the tx.
-    async fn submit_carrier_calldata(
-        &self,
-        _calldata: &[u8],
-        _expected_bundle_id: [u8; 48],
-    ) -> Result<(), SequencerError> {
+    async fn submit_carrier_calldata(&self, _calldata: &[u8], _expected_bundle_id: [u8; 48]) -> Result<(), SequencerError> {
         Ok(())
     }
 }
@@ -300,17 +296,13 @@ impl L1Client for GrpcL1Client {
         Ok(())
     }
 
-    async fn submit_carrier_calldata(
-        &self,
-        calldata: &[u8],
-        expected_bundle_id: [u8; 48],
-    ) -> Result<(), SequencerError> {
+    async fn submit_carrier_calldata(&self, calldata: &[u8], expected_bundle_id: [u8; 48]) -> Result<(), SequencerError> {
         use sophis_consensus_core::constants::SCRIPT_VERSION_CARRIER;
         use sophis_consensus_core::da::{CarrierDomain, MAX_CARRIER_OUTPUTS_PER_TX, encode_bundle};
 
         // Encode the calldata as V5 carrier scripts in one shot.
-        let scripts =
-            encode_bundle(calldata, Some(CarrierDomain::Rollup)).map_err(|e| SequencerError::L1Client(format!("encode_bundle: {e}")))?;
+        let scripts = encode_bundle(calldata, Some(CarrierDomain::Rollup))
+            .map_err(|e| SequencerError::L1Client(format!("encode_bundle: {e}")))?;
         // Phase 6.3 simplification: a single T_carrier tx must fit all fragments.
         // Batches large enough to exceed 8 * 64 KiB = 512 KiB are rejected here;
         // multi-tx splitting is a future enhancement.
@@ -353,10 +345,8 @@ impl L1Client for GrpcL1Client {
             .collect();
         fee_utxos.sort_by(|a, b| b.1.amount.cmp(&a.1.amount));
 
-        let fee_utxo = fee_utxos
-            .into_iter()
-            .next()
-            .ok_or_else(|| SequencerError::L1Client("no spendable fee UTXOs for carrier tx".into()))?;
+        let fee_utxo =
+            fee_utxos.into_iter().next().ok_or_else(|| SequencerError::L1Client("no spendable fee UTXOs for carrier tx".into()))?;
 
         if fee_utxo.1.amount < CARRIER_TX_FEE {
             return Err(SequencerError::L1Client(format!(
@@ -374,10 +364,7 @@ impl L1Client for GrpcL1Client {
         // Build outputs: V5 carriers (value=0) + change.
         let mut outputs: Vec<TransactionOutput> = scripts
             .into_iter()
-            .map(|script| TransactionOutput {
-                value: 0,
-                script_public_key: ScriptPublicKey::from_vec(SCRIPT_VERSION_CARRIER, script),
-            })
+            .map(|script| TransactionOutput { value: 0, script_public_key: ScriptPublicKey::from_vec(SCRIPT_VERSION_CARRIER, script) })
             .collect();
         if change > 0 {
             outputs.push(TransactionOutput { value: change, script_public_key: seq_p2sh_spk.clone() });

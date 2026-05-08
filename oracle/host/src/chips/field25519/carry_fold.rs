@@ -73,6 +73,12 @@ pub struct CarryFoldChip {
     pub start_col: usize,
 }
 
+impl Default for CarryFoldChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CarryFoldChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -112,11 +118,8 @@ impl CarryFoldChip {
 
         // ── 16-bit range checks on every carry[k] (Etapa 3.8) ──────────
         for k in 0..NUM_POSITIONS {
-            RangeNChip::<CARRY_BITS>::split(
-                self.start_col + col::CARRY + k,
-                self.start_col + col::CARRY_BITS_BASE + k * CARRY_BITS,
-            )
-            .emit(builder);
+            RangeNChip::<CARRY_BITS>::split(self.start_col + col::CARRY + k, self.start_col + col::CARRY_BITS_BASE + k * CARRY_BITS)
+                .emit(builder);
         }
     }
 }
@@ -187,11 +190,7 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
             col::CAN_BITS_BASE + k * CANONICAL_BITS,
             w.canonical[k],
         );
-        RangeNChip::<CARRY_BITS>::populate_bits::<F>(
-            values.as_mut_slice(),
-            col::CARRY_BITS_BASE + k * CARRY_BITS,
-            w.carries[k],
-        );
+        RangeNChip::<CARRY_BITS>::populate_bits::<F>(values.as_mut_slice(), col::CARRY_BITS_BASE + k * CARRY_BITS, w.carries[k]);
     }
     RowMajorMatrix::new(values, NUM_COLS)
 }
@@ -216,9 +215,9 @@ pub fn reconstruct_canonical(w: &CarryFoldWitness) -> u128 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::mul::{OUTPUT_POSITIONS, compute_mul, reconstruct_product};
     use super::super::{Field25519Element, NUM_LIMBS};
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -324,7 +323,7 @@ mod tests {
         positions[0] = 42;
         let w = compute_carry_fold(&positions);
         let mut trace = build_test_trace::<BabyBear>(&positions, &w);
-        trace.values[col::CAN] = trace.values[col::CAN] + BabyBear::ONE;
+        trace.values[col::CAN] += BabyBear::ONE;
         check_constraints(&CarryFoldTestAir, &trace, &[]);
     }
 
@@ -335,7 +334,7 @@ mod tests {
         positions[0] = PIECE_MOD; // forces a real carry
         let w = compute_carry_fold(&positions);
         let mut trace = build_test_trace::<BabyBear>(&positions, &w);
-        trace.values[col::CARRY] = trace.values[col::CARRY] + BabyBear::ONE; // bogus carry
+        trace.values[col::CARRY] += BabyBear::ONE; // bogus carry
         check_constraints(&CarryFoldTestAir, &trace, &[]);
     }
 

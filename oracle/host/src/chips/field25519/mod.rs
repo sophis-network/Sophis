@@ -65,13 +65,7 @@ pub const LIMB_MOD: u64 = 1u64 << LIMB_BITS;
 pub const P_LIMBS: [u64; NUM_LIMBS] = [
     0x3FFFFFED, // 2³⁰ - 19
     0x3FFFFFFF, // 2³⁰ - 1
-    0x3FFFFFFF,
-    0x3FFFFFFF,
-    0x3FFFFFFF,
-    0x3FFFFFFF,
-    0x3FFFFFFF,
-    0x3FFFFFFF,
-    0x00007FFF, // 2¹⁵ - 1
+    0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x00007FFF, // 2¹⁵ - 1
 ];
 
 /// Convenience wrapper around 9 BabyBear-sized limbs. Stored as `u64` so

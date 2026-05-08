@@ -62,7 +62,8 @@ impl PythnetClient {
         let alphabet = b"123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
         let mut num = vec![0u8; 0];
         for c in s.bytes() {
-            let v = alphabet.iter().position(|&x| x == c).ok_or_else(|| FeedError::BadResponse(format!("invalid base58 char: {c:?}")))?;
+            let v =
+                alphabet.iter().position(|&x| x == c).ok_or_else(|| FeedError::BadResponse(format!("invalid base58 char: {c:?}")))?;
             let mut carry = v;
             for byte in num.iter_mut() {
                 carry += (*byte as usize) * 58;
@@ -126,10 +127,8 @@ impl PriceFeed for PythnetClient {
                 break;
             }
         }
-        let (message, signature, slot) = matched.ok_or(FeedError::NoPublisherSubmission {
-            publisher: hex_short(&publisher.0),
-            window: PUBLISHER_SIGNATURE_SCAN_WINDOW,
-        })?;
+        let (message, signature, slot) = matched
+            .ok_or(FeedError::NoPublisherSubmission { publisher: hex_short(&publisher.0), window: PUBLISHER_SIGNATURE_SCAN_WINDOW })?;
 
         // 4. Build the parsed view (`update`). `publish_time` here is taken
         //    from the *aggregated* account timestamp — Pyth's per-publisher

@@ -40,20 +40,20 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
+use super::Field25519Element;
+use super::NUM_LIMBS;
 use super::carry_fold::{CarryFoldChip, NUM_COLS as CF_COLS, NUM_POSITIONS as CF_POSITIONS, col as cfc};
 use super::limb_assembly::{LimbAssemblyChip, NUM_COLS as LA_COLS, NUM_OUTPUT_LIMBS as LA_LIMBS, col as lac};
 use super::mul::{MulChip, NUM_COLS as MUL_COLS, OUTPUT_POSITIONS as MUL_POSITIONS, col as mlc};
-use super::Field25519Element;
-use super::NUM_LIMBS;
 
 pub mod col {
     use super::*;
 
-    pub const A: usize = 0;                              // 9 cols
-    pub const B: usize = A + NUM_LIMBS;                  // 9
-    pub const L: usize = B + NUM_LIMBS;                  // 18 (output)
+    pub const A: usize = 0; // 9 cols
+    pub const B: usize = A + NUM_LIMBS; // 9
+    pub const L: usize = B + NUM_LIMBS; // 18 (output)
 
-    pub const MUL_START: usize = L + LA_LIMBS;           // 36
+    pub const MUL_START: usize = L + LA_LIMBS; // 36
     pub const CARRY_FOLD_START: usize = MUL_START + MUL_COLS; // 161
     pub const LIMB_ASSEMBLY_START: usize = CARRY_FOLD_START + CF_COLS; // 320
 
@@ -65,6 +65,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct MulPipelineChip {
     pub start_col: usize,
+}
+
+impl Default for MulPipelineChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MulPipelineChip {
@@ -134,10 +140,7 @@ where
 }
 
 /// Build a single-row trace exercising one full multiplication pipeline.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     use super::carry_fold::compute_carry_fold;
     use super::limb_assembly::compute_limb_assembly_from_carry_fold;
     use super::mul::compute_mul;
@@ -195,8 +198,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::limb_assembly::reconstruct_limbs;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -287,7 +290,7 @@ mod tests {
     fn pipeline_rejects_tampered_l() {
         let trace_init = build_test_trace::<BabyBear>(&small(7), &small(13));
         let mut trace = trace_init;
-        trace.values[col::L] = trace.values[col::L] + BabyBear::ONE;
+        trace.values[col::L] += BabyBear::ONE;
         check_constraints(&MulPipelineChip::new(), &trace, &[]);
     }
 
@@ -296,7 +299,7 @@ mod tests {
     fn pipeline_rejects_tampered_a() {
         let trace_init = build_test_trace::<BabyBear>(&small(7), &small(13));
         let mut trace = trace_init;
-        trace.values[col::A] = trace.values[col::A] + BabyBear::ONE;
+        trace.values[col::A] += BabyBear::ONE;
         check_constraints(&MulPipelineChip::new(), &trace, &[]);
     }
 

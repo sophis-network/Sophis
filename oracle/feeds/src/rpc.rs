@@ -80,7 +80,8 @@ impl SolanaRpc {
                 ]),
             )
             .await?;
-        let slot = v.get("slot").and_then(|s| s.as_u64()).ok_or_else(|| FeedError::BadResponse("getTransaction: missing slot".into()))?;
+        let slot =
+            v.get("slot").and_then(|s| s.as_u64()).ok_or_else(|| FeedError::BadResponse("getTransaction: missing slot".into()))?;
         let tx_arr = v
             .get("transaction")
             .and_then(|x| x.as_array())

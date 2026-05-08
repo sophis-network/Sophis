@@ -52,9 +52,9 @@ use super::{Field25519Element, LIMB_MOD, NUM_LIMBS, P_LIMBS};
 pub mod col {
     use super::NUM_LIMBS;
     pub const A: usize = 0;
-    pub const C: usize = A + NUM_LIMBS;        // 9
-    pub const T: usize = C + NUM_LIMBS;        // 18
-    pub const BORROW: usize = T + NUM_LIMBS;   // 27
+    pub const C: usize = A + NUM_LIMBS; // 9
+    pub const T: usize = C + NUM_LIMBS; // 18
+    pub const BORROW: usize = T + NUM_LIMBS; // 27
 }
 
 pub const NUM_COLS: usize = col::BORROW + NUM_LIMBS; // 36
@@ -62,6 +62,12 @@ pub const NUM_COLS: usize = col::BORROW + NUM_LIMBS; // 36
 #[derive(Debug, Clone, Copy)]
 pub struct CondPSubChip {
     pub start_col: usize,
+}
+
+impl Default for CondPSubChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CondPSubChip {
@@ -105,10 +111,7 @@ impl CondPSubChip {
             // c = (1 - bf) * t + bf * a
             //   = t + bf * (a - t)
             // Use the second form to keep the constraint degree 2 cleanly.
-            builder.assert_eq(
-                c_i,
-                t_i.into() + final_borrow.into() * (a_i.into() - t_i.into()),
-            );
+            builder.assert_eq(c_i, t_i.into() + final_borrow.into() * (a_i.into() - t_i.into()));
         }
     }
 }
@@ -274,7 +277,7 @@ mod tests {
     fn cond_p_sub_rejects_tampered_c() {
         let w = compute_cond_p_sub(&small(42));
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&CondPSubTestAir, &trace, &[]);
     }
 

@@ -43,12 +43,12 @@ pub mod col {
     pub const F_CHUNKS: usize = E_CHUNKS + NUM_CHUNKS; // 4
     pub const G_CHUNKS: usize = F_CHUNKS + NUM_CHUNKS; // 8
     pub const C_CHUNKS: usize = G_CHUNKS + NUM_CHUNKS; // 12
-    pub const E_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 16
-    pub const F_BITS: usize = E_BITS + NUM_BITS;       // 80
-    pub const G_BITS: usize = F_BITS + NUM_BITS;       // 144
-    pub const C_BITS: usize = G_BITS + NUM_BITS;       // 208
-    pub const EF_BITS: usize = C_BITS + NUM_BITS;      // 272
-    pub const NEF_G_BITS: usize = EF_BITS + NUM_BITS;  // 336
+    pub const E_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 16
+    pub const F_BITS: usize = E_BITS + NUM_BITS; // 80
+    pub const G_BITS: usize = F_BITS + NUM_BITS; // 144
+    pub const C_BITS: usize = G_BITS + NUM_BITS; // 208
+    pub const EF_BITS: usize = C_BITS + NUM_BITS; // 272
+    pub const NEF_G_BITS: usize = EF_BITS + NUM_BITS; // 336
 }
 
 pub const NUM_COLS: usize = col::NEF_G_BITS + NUM_BITS; // 400
@@ -56,6 +56,12 @@ pub const NUM_COLS: usize = col::NEF_G_BITS + NUM_BITS; // 400
 #[derive(Debug, Clone, Copy)]
 pub struct ChChip {
     pub start_col: usize,
+}
+
+impl Default for ChChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ChChip {
@@ -90,10 +96,10 @@ impl ChChip {
             let mut weight: u64 = 1;
             for k in 0..CHUNK_BITS {
                 let w = AB::Expr::from_u64(weight);
-                e_acc = e_acc + w.clone() * row[self.start_col + col::E_BITS + bit_base + k].into();
-                f_acc = f_acc + w.clone() * row[self.start_col + col::F_BITS + bit_base + k].into();
-                g_acc = g_acc + w.clone() * row[self.start_col + col::G_BITS + bit_base + k].into();
-                c_acc = c_acc + w * row[self.start_col + col::C_BITS + bit_base + k].into();
+                e_acc += w.clone() * row[self.start_col + col::E_BITS + bit_base + k].into();
+                f_acc += w.clone() * row[self.start_col + col::F_BITS + bit_base + k].into();
+                g_acc += w.clone() * row[self.start_col + col::G_BITS + bit_base + k].into();
+                c_acc += w * row[self.start_col + col::C_BITS + bit_base + k].into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::E_CHUNKS + chunk_idx], e_acc);
@@ -210,8 +216,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &ChWitness) -> Ro
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -265,7 +271,7 @@ mod tests {
     fn ch_rejects_tampered_c_bit() {
         let w = compute_ch(0xFFFF, 0xCAFE, 0xBABE);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::C_BITS] = trace.values[col::C_BITS] + BabyBear::ONE;
+        trace.values[col::C_BITS] += BabyBear::ONE;
         check_constraints(&ChTestAir, &trace, &[]);
     }
 
@@ -274,7 +280,7 @@ mod tests {
     fn ch_rejects_tampered_ef_bit() {
         let w = compute_ch(0xFFFF, 0xFFFF, 0);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::EF_BITS] = trace.values[col::EF_BITS] - BabyBear::ONE;
+        trace.values[col::EF_BITS] -= BabyBear::ONE;
         check_constraints(&ChTestAir, &trace, &[]);
     }
 

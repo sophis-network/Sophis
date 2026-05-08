@@ -53,25 +53,15 @@ pub enum DonateError {
 ///
 /// The `expected_prefix` is the prefix of the miner's primary
 /// `--mining-address`. Donation addresses must use the same prefix.
-pub fn parse_donations(
-    addresses_str: &[String],
-    percents: &[u8],
-    expected_prefix: Prefix,
-) -> Result<Vec<Donation>, DonateError> {
+pub fn parse_donations(addresses_str: &[String], percents: &[u8], expected_prefix: Prefix) -> Result<Vec<Donation>, DonateError> {
     if addresses_str.is_empty() && percents.is_empty() {
         return Ok(Vec::new());
     }
     if addresses_str.len() != percents.len() {
-        return Err(DonateError::LengthMismatch {
-            percents: percents.len(),
-            addresses: addresses_str.len(),
-        });
+        return Err(DonateError::LengthMismatch { percents: percents.len(), addresses: addresses_str.len() });
     }
     if addresses_str.len() > MAX_DONATION_OUTPUTS {
-        return Err(DonateError::TooManyDonations {
-            count: addresses_str.len(),
-            max: MAX_DONATION_OUTPUTS,
-        });
+        return Err(DonateError::TooManyDonations { count: addresses_str.len(), max: MAX_DONATION_OUTPUTS });
     }
 
     // Sum check (using u32 to safely catch overflow above 255).
@@ -82,8 +72,8 @@ pub fn parse_donations(
 
     let mut donations = Vec::with_capacity(addresses_str.len());
     for (addr_str, &pct) in addresses_str.iter().zip(percents.iter()) {
-        let addr = Address::try_from(addr_str.clone())
-            .map_err(|e| DonateError::InvalidAddress { addr: addr_str.clone(), source: e })?;
+        let addr =
+            Address::try_from(addr_str.clone()).map_err(|e| DonateError::InvalidAddress { addr: addr_str.clone(), source: e })?;
         if addr.prefix != expected_prefix {
             return Err(DonateError::PrefixMismatch { actual: addr.prefix, expected: expected_prefix });
         }
@@ -102,10 +92,7 @@ pub fn compute_split(total_value: u64, donations: &[Donation]) -> (u64, Vec<u64>
     if donations.is_empty() {
         return (total_value, Vec::new());
     }
-    let amounts: Vec<u64> = donations
-        .iter()
-        .map(|d| (total_value as u128 * d.percent as u128 / 100u128) as u64)
-        .collect();
+    let amounts: Vec<u64> = donations.iter().map(|d| (total_value as u128 * d.percent as u128 / 100u128) as u64).collect();
     let donated_total: u64 = amounts.iter().sum();
     let miner_share = total_value.saturating_sub(donated_total);
     (miner_share, amounts)
@@ -134,11 +121,7 @@ pub fn rewrite_coinbase_outputs(coinbase: &mut RpcTransaction, donations: &[Dona
     // typically has exactly one output, but this handles edge cases).
     let miner_script = coinbase.outputs[0].script_public_key.clone();
     let mut new_outputs: Vec<RpcTransactionOutput> = Vec::with_capacity(1 + donations.len());
-    new_outputs.push(RpcTransactionOutput {
-        value: miner_share,
-        script_public_key: miner_script,
-        verbose_data: None,
-    });
+    new_outputs.push(RpcTransactionOutput { value: miner_share, script_public_key: miner_script, verbose_data: None });
     for (donation, amount) in donations.iter().zip(donation_amounts.iter()) {
         if *amount == 0 {
             // Skip dust-zero donation outputs; the rounding remainder
@@ -335,10 +318,7 @@ mod tests {
     #[test]
     fn rewrite_preserves_total_value() {
         let mut tx = make_coinbase_with_value(1_234_567);
-        let donations = vec![
-            Donation { address: dev_addr(1), percent: 7 },
-            Donation { address: dev_addr(2), percent: 3 },
-        ];
+        let donations = vec![Donation { address: dev_addr(1), percent: 7 }, Donation { address: dev_addr(2), percent: 3 }];
         rewrite_coinbase_outputs(&mut tx, &donations);
         let new_total: u64 = tx.outputs.iter().map(|o| o.value).sum();
         assert_eq!(new_total, 1_234_567, "total must be conserved exactly");

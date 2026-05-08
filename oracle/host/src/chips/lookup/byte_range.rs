@@ -37,6 +37,12 @@ pub struct Range8Chip {
     pub start_col: usize,
 }
 
+impl Default for Range8Chip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Range8Chip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -62,7 +68,7 @@ impl Range8Chip {
         let mut weight: u64 = 1;
         for i in 0..NUM_BITS {
             let b = row[self.start_col + 1 + i];
-            acc = acc + AB::Expr::from_u64(weight) * b.into();
+            acc += AB::Expr::from_u64(weight) * b.into();
             weight <<= 1;
         }
         builder.assert_eq(x, acc);

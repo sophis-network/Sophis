@@ -80,13 +80,10 @@ impl Backend for GrpcBackend {
     async fn read(&self, feed: FeedId) -> Result<Option<FeedSnapshot>, SdkError> {
         let rpc = self.connect().await?;
 
-        let addr = Address::try_from(self.contract_address.clone())
-            .map_err(|e| SdkError::BadAddress(format!("{e}")))?;
+        let addr = Address::try_from(self.contract_address.clone()).map_err(|e| SdkError::BadAddress(format!("{e}")))?;
 
-        let entries = rpc
-            .get_utxos_by_addresses(vec![addr])
-            .await
-            .map_err(|e| SdkError::Transport(format!("get_utxos_by_addresses: {e}")))?;
+        let entries =
+            rpc.get_utxos_by_addresses(vec![addr]).await.map_err(|e| SdkError::Transport(format!("get_utxos_by_addresses: {e}")))?;
 
         for entry in entries {
             if entry.utxo_entry.script_public_key.version != FEED_STATE_VERSION {
@@ -95,11 +92,7 @@ impl Backend for GrpcBackend {
             // Wire format: borsh((FeedId, FeedSnapshot)).
             let script = entry.utxo_entry.script_public_key.script();
             let Ok(decoded) = <(FeedId, FeedSnapshot)>::try_from_slice(script) else {
-                log::warn!(
-                    "feed-state UTXO at {} has unparseable script ({} bytes); skipping",
-                    self.contract_address,
-                    script.len(),
-                );
+                log::warn!("feed-state UTXO at {} has unparseable script ({} bytes); skipping", self.contract_address, script.len(),);
                 continue;
             };
             if decoded.0 == feed {

@@ -87,10 +87,10 @@ pub enum DatabaseStorePrefixes {
 
     // ---- Phase 6 Data Availability (sub-fase 6.2.b) ----
     // See `consensus/src/model/stores/da.rs` and `oracle/docs/PHASE6_DA_DESIGN.md` §6.
-    DaCarrierPayloads = 196,  // key = payload_id (48 B);  value = PayloadEntry
-    DaCarrierBundles = 197,   // key = bundle_id  (48 B);  value = Vec<payload_id> ordered by fragment_index
-    DaCarrierByBlock = 198,   // key = block_hash;         value = Vec<payload_id> accepted in that block
-    DaCarrierByDomain = 199,  // key = (domain, blue_score_bucket);  value = Vec<payload_id>
+    DaCarrierPayloads = 196, // key = payload_id (48 B);  value = PayloadEntry
+    DaCarrierBundles = 197,  // key = bundle_id  (48 B);  value = Vec<payload_id> ordered by fragment_index
+    DaCarrierByBlock = 198,  // key = block_hash;         value = Vec<payload_id> accepted in that block
+    DaCarrierByDomain = 199, // key = (domain, blue_score_bucket);  value = Vec<payload_id>
 
     // ---- Separator ----
     /// Reserved as a separator

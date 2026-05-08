@@ -107,9 +107,7 @@ impl Mempool {
             // V3 carrier header (rules 1-11 of §5 of PHASE6_DA_DESIGN.md).
             // Consensus rejects malformed carriers anyway; rejecting at the
             // standardness layer keeps the mempool from caching trash.
-            if is_carrier_version
-                && sophis_consensus_core::da::parse_carrier_header(output.script_public_key.script()).is_err()
-            {
+            if is_carrier_version && sophis_consensus_core::da::parse_carrier_header(output.script_public_key.script()).is_err() {
                 return Err(NonStandardError::RejectOutputScriptClass(transaction_id, i));
             }
 

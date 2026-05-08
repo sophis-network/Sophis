@@ -47,13 +47,13 @@ use super::{Field25519Element, NUM_LIMBS};
 pub mod col {
     use super::NUM_LIMBS;
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_LIMBS;             // 9
-    pub const DIFF: usize = B + NUM_LIMBS;          // 18
-    pub const INV: usize = DIFF + NUM_LIMBS;        // 27
-    pub const LE: usize = INV + NUM_LIMBS;          // 36 (limb_eq)
-    pub const M_BASE: usize = LE + NUM_LIMBS;       // 45 (intermediates m1..m8)
+    pub const B: usize = A + NUM_LIMBS; // 9
+    pub const DIFF: usize = B + NUM_LIMBS; // 18
+    pub const INV: usize = DIFF + NUM_LIMBS; // 27
+    pub const LE: usize = INV + NUM_LIMBS; // 36 (limb_eq)
+    pub const M_BASE: usize = LE + NUM_LIMBS; // 45 (intermediates m1..m8)
     pub const NUM_INTERMEDIATES: usize = NUM_LIMBS - 1; // 8
-    pub const EQ: usize = M_BASE + NUM_INTERMEDIATES;   // 53
+    pub const EQ: usize = M_BASE + NUM_INTERMEDIATES; // 53
 }
 
 pub const NUM_COLS: usize = col::EQ + 1; // 54
@@ -61,6 +61,12 @@ pub const NUM_COLS: usize = col::EQ + 1; // 54
 #[derive(Debug, Clone, Copy)]
 pub struct EqChip {
     pub start_col: usize,
+}
+
+impl Default for EqChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl EqChip {
@@ -98,9 +104,9 @@ impl EqChip {
         }
 
         // Chained ANDs.
-        let le0 = row[self.start_col + col::LE + 0];
+        let le0 = row[self.start_col + col::LE];
         let le1 = row[self.start_col + col::LE + 1];
-        let m1 = row[self.start_col + col::M_BASE + 0];
+        let m1 = row[self.start_col + col::M_BASE];
         builder.assert_eq(m1, le0.into() * le1.into());
 
         for k in 1..col::NUM_INTERMEDIATES {
@@ -185,9 +191,7 @@ where
     EqWitness { a_limbs: a.limbs, b_limbs: b.limbs, diff, inv, limb_eq, intermediates, eq }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(
-    w: &EqWitness,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing + p3_field::PrimeField64>(w: &EqWitness) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 

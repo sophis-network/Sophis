@@ -29,11 +29,11 @@ use super::{Field25519Element, NUM_LIMBS};
 pub mod col {
     use super::*;
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_LIMBS;        // 9
-    pub const C: usize = B + NUM_LIMBS;        // 18
+    pub const B: usize = A + NUM_LIMBS; // 9
+    pub const C: usize = B + NUM_LIMBS; // 18
     pub const AT_START: usize = C + NUM_LIMBS; // 27
     pub const CPS_START: usize = AT_START + AT_COLS; // 108
-    pub const TOTAL: usize = CPS_START + CPS_COLS;   // 144
+    pub const TOTAL: usize = CPS_START + CPS_COLS; // 144
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -41,6 +41,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct AddCanonicalChip {
     pub start_col: usize,
+}
+
+impl Default for AddCanonicalChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AddCanonicalChip {
@@ -70,7 +76,11 @@ impl AddCanonicalChip {
         assert_chunks_eq(builder, self.start_col + col::AT_START + add_trunc::col::B, self.start_col + col::B);
 
         // CondPSub's a ← AddTrunc's c output
-        assert_chunks_eq(builder, self.start_col + col::CPS_START + cond_p_sub::col::A, self.start_col + col::AT_START + add_trunc::col::C);
+        assert_chunks_eq(
+            builder,
+            self.start_col + col::CPS_START + cond_p_sub::col::A,
+            self.start_col + col::AT_START + add_trunc::col::C,
+        );
 
         // top-level c ← CondPSub's c
         assert_chunks_eq(builder, self.start_col + col::C, self.start_col + col::CPS_START + cond_p_sub::col::C);
@@ -125,11 +135,11 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::AT_START + add_trunc::col::B + i] = F::from_u64(b.limbs[i]);
         values[base + col::AT_START + add_trunc::col::C + i] = F::from_u64(canonical_loose.limbs[i]);
 
-        values[base + col::AT_START + add_trunc::col::ADD_START + 0 + i] = F::from_u64(a.limbs[i]);
+        values[(base + col::AT_START + add_trunc::col::ADD_START) + i] = F::from_u64(a.limbs[i]);
         values[base + col::AT_START + add_trunc::col::ADD_START + NUM_LIMBS + i] = F::from_u64(b.limbs[i]);
         values[base + col::AT_START + add_trunc::col::ADD_START + 2 * NUM_LIMBS + i] = F::from_u64(loose.limbs[i]);
 
-        values[base + col::AT_START + add_trunc::col::REDUCE_START + 0 + i] = F::from_u64(loose.limbs[i]);
+        values[(base + col::AT_START + add_trunc::col::REDUCE_START) + i] = F::from_u64(loose.limbs[i]);
         values[base + col::AT_START + add_trunc::col::REDUCE_START + NUM_LIMBS + i] = F::from_u64(canonical_loose.limbs[i]);
         values[base + col::AT_START + add_trunc::col::REDUCE_START + 2 * NUM_LIMBS + i] = F::from_u64(carries[i]);
 
@@ -140,10 +150,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -158,8 +165,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::arith::field_add;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -205,11 +212,8 @@ mod tests {
 
     #[test]
     fn add_canonical_cross_validates_with_arith() {
-        let cases: Vec<(Field25519Element, Field25519Element)> = vec![
-            (small(0xCAFE), small(0xBABE)),
-            (Field25519Element::ZERO, small(1)),
-            (small(0xDEADBEEF), small(0xFEDCBA98)),
-        ];
+        let cases: Vec<(Field25519Element, Field25519Element)> =
+            vec![(small(0xCAFE), small(0xBABE)), (Field25519Element::ZERO, small(1)), (small(0xDEADBEEF), small(0xFEDCBA98))];
         for (a, b) in cases {
             let expected = field_add(&a, &b);
             let trace = build_test_trace::<BabyBear>(&a, &b);
@@ -222,7 +226,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn add_canonical_rejects_tampered() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&AddCanonicalChip::new(), &trace, &[]);
     }
 

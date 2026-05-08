@@ -32,8 +32,8 @@ pub mod col {
     use super::{NUM_BITS, NUM_CHUNKS};
     pub const A_CHUNKS: usize = 0;
     pub const C_CHUNKS: usize = A_CHUNKS + NUM_CHUNKS; // 4
-    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 8
-    pub const C_BITS: usize = A_BITS + NUM_BITS;       // 72
+    pub const A_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 8
+    pub const C_BITS: usize = A_BITS + NUM_BITS; // 72
 }
 
 pub const NUM_COLS: usize = col::C_BITS + NUM_BITS; // 136
@@ -42,6 +42,12 @@ pub const NUM_CONSTRAINTS: usize = 2 * NUM_BITS + 2 * NUM_CHUNKS + NUM_BITS; // 
 #[derive(Debug, Clone, Copy)]
 pub struct Word64NotChip {
     pub start_col: usize,
+}
+
+impl Default for Word64NotChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Word64NotChip {
@@ -73,8 +79,8 @@ impl Word64NotChip {
                 let a_bit = row[self.start_col + col::A_BITS + bit_base + k];
                 let c_bit = row[self.start_col + col::C_BITS + bit_base + k];
                 let w = AB::Expr::from_u64(weight);
-                a_acc = a_acc + w.clone() * a_bit.into();
-                c_acc = c_acc + w * c_bit.into();
+                a_acc += w.clone() * a_bit.into();
+                c_acc += w * c_bit.into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::A_CHUNKS + chunk_idx], a_acc);
@@ -130,12 +136,7 @@ pub fn compute_not64(a: u64) -> Word64NotWitness {
         a_bits[i] = (a >> i) & 1;
         c_bits[i] = (c >> i) & 1;
     }
-    Word64NotWitness {
-        a_chunks: super::word64_add::decompose_u64(a),
-        c_chunks: super::word64_add::decompose_u64(c),
-        a_bits,
-        c_bits,
-    }
+    Word64NotWitness { a_chunks: super::word64_add::decompose_u64(a), c_chunks: super::word64_add::decompose_u64(c), a_bits, c_bits }
 }
 
 pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64NotWitness) -> RowMajorMatrix<F> {
@@ -168,8 +169,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &Word64NotWitness
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -214,7 +215,7 @@ mod tests {
     fn not64_rejects_tampered_c_bit() {
         let w = compute_not64(0xFFFF);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::C_BITS] = trace.values[col::C_BITS] + BabyBear::ONE;
+        trace.values[col::C_BITS] += BabyBear::ONE;
         check_constraints(&Word64NotTestAir, &trace, &[]);
     }
 

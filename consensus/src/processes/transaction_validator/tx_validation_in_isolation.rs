@@ -327,8 +327,7 @@ pub fn validate_carrier_outputs(tx: &Transaction) -> TxResult<()> {
         carrier_count += 1;
 
         // Rules 1-11
-        parse_carrier_header(output.script_public_key.script())
-            .map_err(|e| TxRuleError::CarrierMalformed(i, e.to_string()))?;
+        parse_carrier_header(output.script_public_key.script()).map_err(|e| TxRuleError::CarrierMalformed(i, e.to_string()))?;
 
         // Rule 12
         if output.value != 0 {
@@ -506,8 +505,7 @@ mod tests {
 
     use sophis_consensus_core::constants::SCRIPT_VERSION_CARRIER;
     use sophis_consensus_core::da::{
-        CARRIER_FLAG_FRAGMENTED, CARRIER_FLAG_LAST, CARRIER_HEADER_LEN, CARRIER_MAGIC,
-        MAX_CARRIER_OUTPUTS_PER_TX,
+        CARRIER_FLAG_FRAGMENTED, CARRIER_FLAG_LAST, CARRIER_HEADER_LEN, CARRIER_MAGIC, MAX_CARRIER_OUTPUTS_PER_TX,
     };
 
     fn carrier_script(flags: u8, count: u8, index: u8, data: &[u8]) -> Vec<u8> {
@@ -556,10 +554,7 @@ mod tests {
         Transaction::new(
             0,
             vec![TransactionInput {
-                previous_outpoint: TransactionOutpoint {
-                    transaction_id: TransactionId::from_slice(&[0u8; 32]),
-                    index: 0,
-                },
+                previous_outpoint: TransactionOutpoint { transaction_id: TransactionId::from_slice(&[0u8; 32]), index: 0 },
                 signature_script: vec![0u8; 16],
                 sequence: u64::MAX,
                 sig_op_count: 0,
@@ -576,10 +571,7 @@ mod tests {
     fn carrier_happy_path_single_fragment() {
         let tv = make_validator();
         let script = carrier_script(CARRIER_FLAG_LAST, 1, 0, b"hello world");
-        let payment = TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)),
-        };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
         let tx = tx_with_outputs(vec![payment, carrier_output(script, 0)]);
         tv.validate_tx_in_isolation(&tx).expect("happy path must validate");
     }
@@ -588,10 +580,8 @@ mod tests {
     fn carrier_happy_path_multiple_within_cap() {
         let tv = make_validator();
         // 3 fragments of a 5-fragment bundle, all in one tx
-        let mut outputs = vec![TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)),
-        }];
+        let mut outputs =
+            vec![TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) }];
         for i in 0..3u8 {
             let flags = CARRIER_FLAG_FRAGMENTED;
             let s = carrier_script(flags, 5, i, b"chunk");
@@ -606,10 +596,7 @@ mod tests {
     fn carrier_rule_12_nonzero_value_rejected() {
         let tv = make_validator();
         let script = carrier_script(CARRIER_FLAG_LAST, 1, 0, b"data");
-        let payment = TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)),
-        };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
         let tx = tx_with_outputs(vec![payment, carrier_output(script, 5_000)]);
         match tv.validate_tx_in_isolation(&tx) {
             Err(TxRuleError::CarrierNonZeroValue(idx, v)) => {
@@ -624,10 +611,8 @@ mod tests {
     #[test]
     fn carrier_rule_13_too_many_in_single_tx() {
         let tv = make_validator();
-        let mut outputs = vec![TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)),
-        }];
+        let mut outputs =
+            vec![TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) }];
         // build MAX + 1 carriers (each treated as count=1, last fragment)
         for _ in 0..(MAX_CARRIER_OUTPUTS_PER_TX + 1) {
             let s = carrier_script(CARRIER_FLAG_LAST, 1, 0, b"x");
@@ -671,10 +656,7 @@ mod tests {
         // bad magic
         let mut script = carrier_script(CARRIER_FLAG_LAST, 1, 0, b"x");
         script[0] = b'X';
-        let payment = TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)),
-        };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
         let tx = tx_with_outputs(vec![payment, carrier_output(script, 0)]);
         match tv.validate_tx_in_isolation(&tx) {
             Err(TxRuleError::CarrierMalformed(idx, msg)) => {
@@ -690,10 +672,7 @@ mod tests {
     fn carrier_validation_skips_non_v3_outputs() {
         let tv = make_validator();
         // a v=0 output with junk that would fail every carrier rule, but it is v=0 not v=3
-        let payment = TransactionOutput {
-            value: 1_000,
-            script_public_key: ScriptPublicKey::new(0, scriptvec!(0x00, 0x00, 0x00)),
-        };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x00, 0x00, 0x00)) };
         let tx = tx_with_outputs(vec![payment]);
         tv.validate_tx_in_isolation(&tx).expect("non-V3 outputs must not invoke carrier rules");
     }

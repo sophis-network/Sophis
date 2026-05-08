@@ -567,10 +567,7 @@ pub trait RpcApi: Sync + Send + AnySync {
     /// Lists payload_ids in a (domain_byte, blue_score_bucket) cell.
     /// `domain_byte` should be one of `CARRIER_FLAG_DOMAIN_*` constants.
     async fn get_da_carriers_by_domain(&self, domain_byte: u8, blue_score: u64) -> RpcResult<Vec<Vec<u8>>> {
-        Ok(self
-            .get_da_carriers_by_domain_call(None, GetDaCarriersByDomainRequest::new(domain_byte, blue_score))
-            .await?
-            .payload_ids)
+        Ok(self.get_da_carriers_by_domain_call(None, GetDaCarriersByDomainRequest::new(domain_byte, blue_score)).await?.payload_ids)
     }
     async fn get_da_carriers_by_domain_call(
         &self,

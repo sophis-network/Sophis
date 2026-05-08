@@ -51,6 +51,12 @@ pub struct MulCanonicalFullChunkedChip {
     pub start_col: usize,
 }
 
+impl Default for MulCanonicalFullChunkedChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MulCanonicalFullChunkedChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -75,33 +81,13 @@ impl MulCanonicalFullChunkedChip {
         };
 
         // MulPipelineChunked.A = top.A
-        assert_chunks_eq(
-            builder,
-            s + col::PIPE_START + mul_pipeline_chunked::col::A,
-            s + col::A,
-            NUM_LIMBS,
-        );
+        assert_chunks_eq(builder, s + col::PIPE_START + mul_pipeline_chunked::col::A, s + col::A, NUM_LIMBS);
         // MulPipelineChunked.B = top.B
-        assert_chunks_eq(
-            builder,
-            s + col::PIPE_START + mul_pipeline_chunked::col::B,
-            s + col::B,
-            NUM_LIMBS,
-        );
+        assert_chunks_eq(builder, s + col::PIPE_START + mul_pipeline_chunked::col::B, s + col::B, NUM_LIMBS);
         // ModPChunked.L = MulPipelineChunked.L (18 limbs)
-        assert_chunks_eq(
-            builder,
-            s + col::MOD_START + mod_p_chunked::col::L,
-            s + col::PIPE_START + mul_pipeline_chunked::col::L,
-            18,
-        );
+        assert_chunks_eq(builder, s + col::MOD_START + mod_p_chunked::col::L, s + col::PIPE_START + mul_pipeline_chunked::col::L, 18);
         // top.C = ModPChunked.C
-        assert_chunks_eq(
-            builder,
-            s + col::C,
-            s + col::MOD_START + mod_p_chunked::col::C,
-            NUM_LIMBS,
-        );
+        assert_chunks_eq(builder, s + col::C, s + col::MOD_START + mod_p_chunked::col::C, NUM_LIMBS);
     }
 }
 
@@ -134,12 +120,12 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
     a: &Field25519Element,
     b: &Field25519Element,
 ) {
-    use super::carry_fold::compute_carry_fold;
-    use super::carry_fold::col as cfc;
     use super::carry_fold::NUM_POSITIONS as CF_POS;
+    use super::carry_fold::col as cfc;
+    use super::carry_fold::compute_carry_fold;
+    use super::limb_assembly_chunked::NUM_OUTPUT_LIMBS as LA_L;
     use super::limb_assembly_chunked::compute_limb_assembly_chunked;
     use super::limb_assembly_chunked::populate_row_to as la_populate_to;
-    use super::limb_assembly_chunked::NUM_OUTPUT_LIMBS as LA_L;
     use super::mul::compute_mul;
 
     let base = row_off + start_col;
@@ -165,13 +151,7 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
         values[base + col::PIPE_START + mul_pipeline_chunked::col::L + i] = F::from_u64(assembly_w.l[i]);
     }
     // MulChip witness.
-    super::mul::populate_row::<F>(
-        values,
-        base + col::PIPE_START + mul_pipeline_chunked::col::MUL_START,
-        a,
-        b,
-        &mul_w,
-    );
+    super::mul::populate_row::<F>(values, base + col::PIPE_START + mul_pipeline_chunked::col::MUL_START, a, b, &mul_w);
     // CarryFoldChip witness.
     {
         use super::carry_fold::{CANONICAL_BITS as CF_CAN_BITS, CARRY_BITS as CF_CARRY_BITS};
@@ -184,43 +164,30 @@ pub fn populate_row<F: Field + PrimeCharacteristicRing>(
                 F::from_u64(fold_w.carries[i]);
             crate::chips::lookup::range_n::RangeNChip::<CF_CAN_BITS>::populate_bits::<F>(
                 values,
-                base + col::PIPE_START
-                    + mul_pipeline_chunked::col::CARRY_FOLD_START
-                    + cfc::CAN_BITS_BASE
-                    + i * CF_CAN_BITS,
+                base + col::PIPE_START + mul_pipeline_chunked::col::CARRY_FOLD_START + cfc::CAN_BITS_BASE + i * CF_CAN_BITS,
                 fold_w.canonical[i],
             );
             crate::chips::lookup::range_n::RangeNChip::<CF_CARRY_BITS>::populate_bits::<F>(
                 values,
-                base + col::PIPE_START
-                    + mul_pipeline_chunked::col::CARRY_FOLD_START
-                    + cfc::CARRY_BITS_BASE
-                    + i * CF_CARRY_BITS,
+                base + col::PIPE_START + mul_pipeline_chunked::col::CARRY_FOLD_START + cfc::CARRY_BITS_BASE + i * CF_CARRY_BITS,
                 fold_w.carries[i],
             );
         }
     }
     // LimbAssemblyChunked witness.
-    la_populate_to::<F>(
-        values,
-        base + col::PIPE_START + mul_pipeline_chunked::col::LIMB_ASSEMBLY_START,
-        &assembly_w,
-    );
+    la_populate_to::<F>(values, base + col::PIPE_START + mul_pipeline_chunked::col::LIMB_ASSEMBLY_START, &assembly_w);
 
     // ModPChunked witness population.
     mod_p_chunked::populate_row::<F>(values, row_off, start_col + col::MOD_START, &assembly_w.l);
 
     // Copy ModPChunked.C to top-level C.
     for i in 0..NUM_LIMBS {
-        let mp_c = values[base + col::MOD_START + mod_p_chunked::col::C + i].clone();
+        let mp_c = values[base + col::MOD_START + mod_p_chunked::col::C + i];
         values[base + col::C + i] = mp_c;
     }
 }
 
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    a: &Field25519Element,
-    b: &Field25519Element,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(a: &Field25519Element, b: &Field25519Element) -> RowMajorMatrix<F> {
     const HEIGHT: usize = 4;
     let mut values = vec![F::ZERO; NUM_COLS * HEIGHT];
 
@@ -235,8 +202,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::super::arith::field_mul;
     use super::super::P_LIMBS;
+    use super::super::arith::field_mul;
     use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
@@ -258,10 +225,7 @@ mod tests {
 
     #[test]
     fn mul_full_chunked_zero() {
-        let trace = build_test_trace::<BabyBear>(
-            &Field25519Element::ZERO,
-            &Field25519Element::ZERO,
-        );
+        let trace = build_test_trace::<BabyBear>(&Field25519Element::ZERO, &Field25519Element::ZERO);
         check_constraints(&MulCanonicalFullChunkedChip::new(), &trace, &[]);
         assert_eq!(read_c(&trace.values), [0u64; NUM_LIMBS]);
     }
@@ -322,7 +286,7 @@ mod tests {
     #[should_panic(expected = "constraints not satisfied")]
     fn mul_full_chunked_rejects_tampered() {
         let mut trace = build_test_trace::<BabyBear>(&small(7), &small(13));
-        trace.values[col::C] = trace.values[col::C] + BabyBear::from_u64(1);
+        trace.values[col::C] += BabyBear::from_u64(1);
         check_constraints(&MulCanonicalFullChunkedChip::new(), &trace, &[]);
     }
 

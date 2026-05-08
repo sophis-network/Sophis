@@ -34,6 +34,12 @@ pub struct SubChip {
     pub start_col: usize,
 }
 
+impl Default for SubChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SubChip {
     pub const fn new() -> Self {
         Self { start_col: 0 }
@@ -173,7 +179,7 @@ mod tests {
         let mut trace = build_test_trace::<BabyBear>(&a, &b, &c);
         // Flip output limb 0.
         let off = 2 * NUM_LIMBS;
-        trace.values[off] = trace.values[off] + BabyBear::ONE;
+        trace.values[off] += BabyBear::ONE;
         check_constraints(&SubTestAir, &trace, &[]);
     }
 

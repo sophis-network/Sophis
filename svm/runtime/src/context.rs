@@ -33,16 +33,7 @@ impl ExecutionContext {
         gas_config: GasConfig,
         crypto: Arc<dyn HostCrypto>,
     ) -> Self {
-        Self {
-            input_utxos,
-            output_utxos,
-            block_height,
-            gas_used: Gas::default(),
-            gas_config,
-            manifest,
-            crypto,
-            da: Arc::new(StubDa),
-        }
+        Self { input_utxos, output_utxos, block_height, gas_used: Gas::default(), gas_config, manifest, crypto, da: Arc::new(StubDa) }
     }
 
     /// Phase 6 builder — variant of `new` that injects a real DA backend.
@@ -57,16 +48,7 @@ impl ExecutionContext {
         crypto: Arc<dyn HostCrypto>,
         da: Arc<dyn HostDa>,
     ) -> Self {
-        Self {
-            input_utxos,
-            output_utxos,
-            block_height,
-            gas_used: Gas::default(),
-            gas_config,
-            manifest,
-            crypto,
-            da,
-        }
+        Self { input_utxos, output_utxos, block_height, gas_used: Gas::default(), gas_config, manifest, crypto, da }
     }
 
     pub fn check_capability(&self, cap: &Capability) -> Result<(), sophis_svm_core::SvmError> {

@@ -27,21 +27,17 @@ use sophis_oracle_relayer::error::RelayerError;
 use sophis_oracle_relayer::pipeline::PipelinePolicy;
 use sophis_oracle_relayer::sign::RelayerKey;
 use sophis_oracle_relayer::state::RelayerState;
+#[cfg(feature = "grpc-submit")]
+use sophis_oracle_relayer::submit::GrpcSubmit;
 use sophis_oracle_relayer::submit::L1Submit;
 #[cfg(not(feature = "grpc-submit"))]
 use sophis_oracle_relayer::submit::MockSubmit;
-#[cfg(feature = "grpc-submit")]
-use sophis_oracle_relayer::submit::GrpcSubmit;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
-#[command(
-    name = "sophis-oracle-relayer",
-    about = "Sophis Phase 5 ZK-Oracle relayer (Pyth → Plonky3 → Dilithium → L1)",
-    version
-)]
+#[command(name = "sophis-oracle-relayer", about = "Sophis Phase 5 ZK-Oracle relayer (Pyth → Plonky3 → Dilithium → L1)", version)]
 struct Cli {
     /// Path to the relayer TOML config.
     #[arg(short, long, value_name = "FILE")]
@@ -116,8 +112,8 @@ fn inspect(cfg: &RelayerConfig) {
 
 /// Build a `PipelinePolicy` from the loaded config.
 fn build_policy(cfg: &RelayerConfig) -> Result<PipelinePolicy, RelayerError> {
-    let publisher_bytes = decode_b58_pubkey(&cfg.pythnet.publisher)
-        .map_err(|e| RelayerError::Other(format!("invalid publisher base58: {e}")))?;
+    let publisher_bytes =
+        decode_b58_pubkey(&cfg.pythnet.publisher).map_err(|e| RelayerError::Other(format!("invalid publisher base58: {e}")))?;
     Ok(PipelinePolicy {
         feed: sophis_oracle_core::FeedId(cfg.feed_id_bytes()),
         publisher: PublisherKey(publisher_bytes),
@@ -166,8 +162,8 @@ async fn relay_once(cfg: &RelayerConfig) -> Result<(), RelayerError> {
     let pyth = build_pyth_client(cfg);
     let submit = build_submit(cfg)?;
 
-    let mut state = RelayerState::load_or_default(&cfg.submit.state_path)
-        .map_err(|e| RelayerError::Io(std::io::Error::other(e.to_string())))?;
+    let mut state =
+        RelayerState::load_or_default(&cfg.submit.state_path).map_err(|e| RelayerError::Io(std::io::Error::other(e.to_string())))?;
     let seq = one_iteration(pyth.as_ref(), submit.as_ref(), &policy, &mut state, cfg.submit.da_publish)
         .await
         .map_err(|e| RelayerError::Io(std::io::Error::other(e.to_string())))?;

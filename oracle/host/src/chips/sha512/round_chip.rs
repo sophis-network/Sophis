@@ -93,18 +93,18 @@ pub mod col {
 
     // State inputs (40 cols).
     pub const A: usize = 0;
-    pub const B: usize = A + NUM_CHUNKS;       // 4
-    pub const C: usize = B + NUM_CHUNKS;       // 8
-    pub const D: usize = C + NUM_CHUNKS;       // 12
-    pub const E: usize = D + NUM_CHUNKS;       // 16
-    pub const F: usize = E + NUM_CHUNKS;       // 20
-    pub const G: usize = F + NUM_CHUNKS;       // 24
-    pub const H: usize = G + NUM_CHUNKS;       // 28
-    pub const K: usize = H + NUM_CHUNKS;       // 32
-    pub const W: usize = K + NUM_CHUNKS;       // 36
+    pub const B: usize = A + NUM_CHUNKS; // 4
+    pub const C: usize = B + NUM_CHUNKS; // 8
+    pub const D: usize = C + NUM_CHUNKS; // 12
+    pub const E: usize = D + NUM_CHUNKS; // 16
+    pub const F: usize = E + NUM_CHUNKS; // 20
+    pub const G: usize = F + NUM_CHUNKS; // 24
+    pub const H: usize = G + NUM_CHUNKS; // 28
+    pub const K: usize = H + NUM_CHUNKS; // 32
+    pub const W: usize = K + NUM_CHUNKS; // 36
 
     // State outputs (32 cols).
-    pub const NEW_A: usize = W + NUM_CHUNKS;   // 40
+    pub const NEW_A: usize = W + NUM_CHUNKS; // 40
     pub const NEW_B: usize = NEW_A + NUM_CHUNKS; // 44
     pub const NEW_C: usize = NEW_B + NUM_CHUNKS; // 48
     pub const NEW_D: usize = NEW_C + NUM_CHUNKS; // 52
@@ -116,25 +116,31 @@ pub mod col {
     pub const STATE_END: usize = NEW_H + NUM_CHUNKS; // 72
 
     // Chip slots (allocated sequentially after state).
-    pub const BIG_SIGMA_E_START: usize = STATE_END;                              // 72
-    pub const CH_START: usize = BIG_SIGMA_E_START + BIG_SIGMA_COLS;              // 272
-    pub const BIG_SIGMA_A_START: usize = CH_START + CH_COLS;                     // 672
-    pub const MAJ_START: usize = BIG_SIGMA_A_START + BIG_SIGMA_COLS;             // 872
-    pub const ADD_T1_1_START: usize = MAJ_START + MAJ_COLS;                       // 1400
-    pub const ADD_T1_2_START: usize = ADD_T1_1_START + ADD_COLS;                  // 1416
-    pub const ADD_T1_3_START: usize = ADD_T1_2_START + ADD_COLS;                  // 1432
-    pub const ADD_T1_4_START: usize = ADD_T1_3_START + ADD_COLS;                  // 1448
-    pub const ADD_T2_START: usize = ADD_T1_4_START + ADD_COLS;                    // 1464
-    pub const ADD_NEW_E_START: usize = ADD_T2_START + ADD_COLS;                   // 1480
-    pub const ADD_NEW_A_START: usize = ADD_NEW_E_START + ADD_COLS;                // 1496
+    pub const BIG_SIGMA_E_START: usize = STATE_END; // 72
+    pub const CH_START: usize = BIG_SIGMA_E_START + BIG_SIGMA_COLS; // 272
+    pub const BIG_SIGMA_A_START: usize = CH_START + CH_COLS; // 672
+    pub const MAJ_START: usize = BIG_SIGMA_A_START + BIG_SIGMA_COLS; // 872
+    pub const ADD_T1_1_START: usize = MAJ_START + MAJ_COLS; // 1400
+    pub const ADD_T1_2_START: usize = ADD_T1_1_START + ADD_COLS; // 1416
+    pub const ADD_T1_3_START: usize = ADD_T1_2_START + ADD_COLS; // 1432
+    pub const ADD_T1_4_START: usize = ADD_T1_3_START + ADD_COLS; // 1448
+    pub const ADD_T2_START: usize = ADD_T1_4_START + ADD_COLS; // 1464
+    pub const ADD_NEW_E_START: usize = ADD_T2_START + ADD_COLS; // 1480
+    pub const ADD_NEW_A_START: usize = ADD_NEW_E_START + ADD_COLS; // 1496
 
-    pub const TOTAL: usize = ADD_NEW_A_START + ADD_COLS;                          // 1512
+    pub const TOTAL: usize = ADD_NEW_A_START + ADD_COLS; // 1512
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RoundChip;
+
+impl Default for RoundChip {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RoundChip {
     pub const fn new() -> Self {
@@ -246,11 +252,7 @@ where
 ///
 /// `state` = `[a, b, c, d, e, f, g, h]` input. `k` = round constant `K[i]`.
 /// `w` = message schedule word `W[i]`. Returns the populated trace.
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    state: &[u64; 8],
-    k: u64,
-    w: u64,
-) -> RowMajorMatrix<F> {
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(state: &[u64; 8], k: u64, w: u64) -> RowMajorMatrix<F> {
     use super::round::{Sha512State, big_sigma0, big_sigma1, ch, compute_round, maj};
 
     const HEIGHT: usize = 4;
@@ -406,8 +408,8 @@ fn populate_add<F: Field + PrimeCharacteristicRing>(values: &mut [F], start: usi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::constants::{H_INITIAL, K};
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -476,7 +478,7 @@ mod tests {
         let k = K[0];
         let w = 0x6162638000000000u64;
         let mut trace = build_test_trace::<BabyBear>(&state, k, w);
-        trace.values[col::NEW_A] = trace.values[col::NEW_A] + BabyBear::ONE;
+        trace.values[col::NEW_A] += BabyBear::ONE;
         check_constraints(&RoundChip, &trace, &[]);
     }
 

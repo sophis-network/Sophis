@@ -43,19 +43,19 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::{Field, PrimeCharacteristicRing};
 use p3_matrix::dense::RowMajorMatrix;
 
+use super::NUM_LIMBS;
 use super::cond_p_sub::{CondPSubChip, NUM_COLS as CPS_COLS, col as cpc};
 use super::first_fold::{self, FirstFoldChip, NUM_COLS as FF_COLS, col as ffc};
-use super::NUM_LIMBS;
 
 const NUM_INPUT_LIMBS: usize = 18;
 
 pub mod col {
     use super::*;
     pub const L: usize = 0;
-    pub const C: usize = L + NUM_INPUT_LIMBS;       // 18
-    pub const FF_START: usize = C + NUM_LIMBS;      // 27
+    pub const C: usize = L + NUM_INPUT_LIMBS; // 18
+    pub const FF_START: usize = C + NUM_LIMBS; // 27
     pub const CPS_START: usize = FF_START + FF_COLS; // 137
-    pub const TOTAL: usize = CPS_START + CPS_COLS;   // 173
+    pub const TOTAL: usize = CPS_START + CPS_COLS; // 173
 }
 
 pub const NUM_COLS: usize = col::TOTAL;
@@ -63,6 +63,12 @@ pub const NUM_COLS: usize = col::TOTAL;
 #[derive(Debug, Clone, Copy)]
 pub struct ModPChip {
     pub start_col: usize,
+}
+
+impl Default for ModPChip {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModPChip {
@@ -121,12 +127,10 @@ where
 /// This holds for inputs where `V_hi · M + V_lo < 2³⁰⁰`, i.e., inputs
 /// derived from sums/differences of canonical mod-p elements (not from
 /// arbitrary mul outputs).
-pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
-    input: &[u64; NUM_INPUT_LIMBS],
-) -> RowMajorMatrix<F> {
-    use super::first_fold::compute_first_fold_witness;
-    use super::cond_p_sub::compute_cond_p_sub;
+pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(input: &[u64; NUM_INPUT_LIMBS]) -> RowMajorMatrix<F> {
     use super::Field25519Element;
+    use super::cond_p_sub::compute_cond_p_sub;
+    use super::first_fold::compute_first_fold_witness;
     use super::mod_p::compute_mod_p_reduction;
 
     const HEIGHT: usize = 4;
@@ -137,10 +141,7 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
     // Take first 9 limbs of first_fold output as input to cond_p_sub.
     let ff_out_9 = Field25519Element {
-        limbs: [
-            ff_w.out[0], ff_w.out[1], ff_w.out[2], ff_w.out[3], ff_w.out[4],
-            ff_w.out[5], ff_w.out[6], ff_w.out[7], ff_w.out[8],
-        ],
+        limbs: [ff_w.out[0], ff_w.out[1], ff_w.out[2], ff_w.out[3], ff_w.out[4], ff_w.out[5], ff_w.out[6], ff_w.out[7], ff_w.out[8]],
     };
     let cps_w = compute_cond_p_sub(&ff_out_9);
 
@@ -192,7 +193,7 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
         values[col::FF_START + ffc::OUT + i] = F::from_u64(ff_w.out[i]);
         values[col::FF_START + ffc::CARRY + i] = F::from_u64(ff_w.carries[i]);
         // Etapa 3.8: 10-bit range bits for first_fold carry[i].
-        crate::chips::lookup::range_n::RangeNChip::<{first_fold::CARRY_BITS}>::populate_bits::<F>(
+        crate::chips::lookup::range_n::RangeNChip::<{ first_fold::CARRY_BITS }>::populate_bits::<F>(
             values.as_mut_slice(),
             col::FF_START + ffc::CARRY_BITS_BASE + i * first_fold::CARRY_BITS,
             ff_w.carries[i],
@@ -238,8 +239,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::mod_p::compute_mod_p_reduction;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -329,7 +330,7 @@ mod tests {
         let mut input = [0u64; NUM_INPUT_LIMBS];
         input[0] = 7;
         let mut trace = build_test_trace::<BabyBear>(&input);
-        trace.values[col::C] = trace.values[col::C] + BabyBear::ONE;
+        trace.values[col::C] += BabyBear::ONE;
         check_constraints(&ModPChip::new(), &trace, &[]);
     }
 

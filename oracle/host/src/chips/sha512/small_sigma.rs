@@ -35,9 +35,9 @@ pub mod col {
     use super::{NUM_BITS, NUM_CHUNKS};
     pub const X_CHUNKS: usize = 0;
     pub const C_CHUNKS: usize = X_CHUNKS + NUM_CHUNKS; // 4
-    pub const X_BITS: usize = C_CHUNKS + NUM_CHUNKS;   // 8
-    pub const MID_BITS: usize = X_BITS + NUM_BITS;     // 72
-    pub const C_BITS: usize = MID_BITS + NUM_BITS;     // 136
+    pub const X_BITS: usize = C_CHUNKS + NUM_CHUNKS; // 8
+    pub const MID_BITS: usize = X_BITS + NUM_BITS; // 72
+    pub const C_BITS: usize = MID_BITS + NUM_BITS; // 136
 }
 
 pub const NUM_COLS: usize = col::C_BITS + NUM_BITS; // 200
@@ -45,6 +45,12 @@ pub const NUM_COLS: usize = col::C_BITS + NUM_BITS; // 200
 #[derive(Debug, Clone, Copy)]
 pub struct SmallSigmaChip<const ROT_A: usize, const ROT_B: usize, const SHIFT: usize> {
     pub start_col: usize,
+}
+
+impl<const ROT_A: usize, const ROT_B: usize, const SHIFT: usize> Default for SmallSigmaChip<ROT_A, ROT_B, SHIFT> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<const ROT_A: usize, const ROT_B: usize, const SHIFT: usize> SmallSigmaChip<ROT_A, ROT_B, SHIFT> {
@@ -78,8 +84,8 @@ impl<const ROT_A: usize, const ROT_B: usize, const SHIFT: usize> SmallSigmaChip<
                 let x_bit = row[self.start_col + col::X_BITS + bit_base + k];
                 let c_bit = row[self.start_col + col::C_BITS + bit_base + k];
                 let w = AB::Expr::from_u64(weight);
-                x_acc = x_acc + w.clone() * x_bit.into();
-                c_acc = c_acc + w * c_bit.into();
+                x_acc += w.clone() * x_bit.into();
+                c_acc += w * c_bit.into();
                 weight <<= 1;
             }
             builder.assert_eq(row[self.start_col + col::X_CHUNKS + chunk_idx], x_acc);
@@ -183,8 +189,8 @@ pub fn build_test_trace<F: Field + PrimeCharacteristicRing>(w: &SmallSigmaWitnes
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::word64_add::recompose_u64;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
 
@@ -241,7 +247,7 @@ mod tests {
     fn small_sigma_rejects_tampered_c_bit() {
         let w = compute_small_sigma(0xCAFE, 1, 8, 7);
         let mut trace = build_test_trace::<BabyBear>(&w);
-        trace.values[col::C_BITS] = trace.values[col::C_BITS] + BabyBear::ONE;
+        trace.values[col::C_BITS] += BabyBear::ONE;
         check_constraints(&SmallSigmaTestAir::<1, 8, 7>, &trace, &[]);
     }
 

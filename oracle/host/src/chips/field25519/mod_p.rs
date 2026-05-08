@@ -222,10 +222,10 @@ pub fn to_u128_pair(elem: &Field25519Element) -> (u128, u128) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::carry_fold::compute_carry_fold;
     use super::super::limb_assembly::compute_limb_assembly_from_carry_fold;
     use super::super::mul::compute_mul;
+    use super::*;
 
     fn elem_from_u64(n: u64) -> Field25519Element {
         let mut limbs = [0u64; NUM_LIMBS];
