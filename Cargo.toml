@@ -280,7 +280,7 @@ prost = "0.13.2"
 rand = "0.9"
 randomx-rs = "1.4.1"
 libcrux-ml-dsa = "0.0.8"
-rand_chacha = "0.9"
+rand_chacha = "0.10"
 rand_core = { version = "0.9", features = ["std"] }
 rand_distr = "0.5"
 rayon = "1.8.0"
