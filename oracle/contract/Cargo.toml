@@ -16,3 +16,6 @@ sophis-sdk             = { workspace = true }
 sophis-oracle-core     = { workspace = true }
 sophis-oracle-verifier = { workspace = true }
 borsh                  = { workspace = true }
+
+[lints]
+workspace = true

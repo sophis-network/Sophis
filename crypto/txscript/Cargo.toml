@@ -11,10 +11,19 @@ repository.workspace = true
 
 [[example]]
 name = "kip-10"
+# Schnorr/secp256k1-based example, incompatible with Dilithium-only Sophis.
+# Gated behind a never-enabled feature so clippy --examples skips it. See
+# CLAUDE.md "Só Dilithium existe" invariant. TODO: rewrite for Dilithium
+# ML-DSA-44 timelock or move to an obsolete-examples archive.
+required-features = ["legacy-schnorr-example"]
 
 [features]
 wasm32-core = []
 wasm32-sdk = []
+# Off by default — only enable to compile the legacy Schnorr/secp256k1 kip-10
+# example, which is incompatible with the Dilithium-only chain. See [[example]]
+# entry above.
+legacy-schnorr-example = []
 
 [dependencies]
 blake2b_simd.workspace = true

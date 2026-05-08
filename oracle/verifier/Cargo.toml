@@ -11,3 +11,6 @@ repository.workspace = true
 sophis-oracle-core = { workspace = true }
 borsh              = { workspace = true }
 thiserror          = { workspace = true }
+
+[lints]
+workspace = true

@@ -6,7 +6,11 @@ set -e
 
 # Workaround for Rust 1.87.0
 # https://github.com/rust-lang/rust/issues/141048
-export RUSTFLAGS=-Ctarget-cpu=mvp
+# The `getrandom_backend="wasm_js"` cfg activates the JS Web Crypto backend in
+# getrandom 0.3 (transitive from libcrux-ml-dsa via rand 0.9). A direct env
+# RUSTFLAGS overrides any `.cargo/config.toml` rustflags, so we duplicate the
+# cfg here to keep the SDK build self-contained.
+export RUSTFLAGS='-Ctarget-cpu=mvp --cfg getrandom_backend="wasm_js"'
 
 rm -rf release/*
 rm -rf web/*

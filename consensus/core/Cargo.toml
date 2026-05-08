@@ -48,6 +48,13 @@ workflow-log.workspace = true
 workflow-serializer.workspace = true
 workflow-wasm.workspace = true
 
+# getrandom 0.3 wasm32 requires the `wasm_js` Cargo feature plus the
+# `getrandom_backend="wasm_js"` cfg (configured in root .cargo/config.toml).
+# Pinned here because consensus-core sits at the bottom of every wasm32 build
+# graph (transitive from libcrux-ml-dsa via rand 0.9 → rand_core 0.9).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_v3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+
 [dev-dependencies]
 criterion.workspace = true
 bincode.workspace = true

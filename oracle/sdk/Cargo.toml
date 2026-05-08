@@ -32,3 +32,6 @@ sophis-grpc-client      = { workspace = true, optional = true }
 sophis-rpc-core         = { workspace = true, optional = true }
 sophis-addresses        = { workspace = true, optional = true }
 sophis-notify           = { workspace = true, optional = true }
+
+[lints]
+workspace = true

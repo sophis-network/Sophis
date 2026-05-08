@@ -467,6 +467,23 @@ opt-level = 2
 [workspace.lints.clippy]
 empty_docs = "allow"
 uninlined_format_args = "allow"
+# AIR/STARK code in oracle/host uses parallel-array indexing patterns that
+# mirror the mathematical notation; rewriting them as iterators would obscure
+# the column/row layout that maps directly to the constraint matrices.
+needless_range_loop = "allow"
+manual_memcpy = "allow"
+# Phase 5 oracle code uses fixed-point pairs like `65_000_00` (= $650.00 in
+# 8-decimal Pyth pricing); the "00" suffix carries semantic meaning that the
+# canonical `6_500_000` regrouping erases.
+inconsistent_digit_grouping = "allow"
+# `assert!(SOME_CONST_TRUE)` is used as a compile-time invariant check in
+# the AIR chips; rewriting them as `const _: () = ...` blocks loses
+# panic-with-message ergonomics in test scaffolds.
+assertions_on_constants = "allow"
+# Phase 5 module/struct docstrings use indented bullet lists for readability;
+# clippy's preferred 2-space indentation breaks the visual alignment with the
+# surrounding paragraph text.
+doc_overindented_list_items = "allow"
 
 # ---------------------------------------------------------------------------
 # dylint integration — points cargo-dylint at the sophis_lint library.
