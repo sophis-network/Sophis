@@ -1,6 +1,6 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use itertools::Itertools;
-use rand::{Rng, thread_rng};
+use rand::{Rng, rng};
 use sophis_consensus_core::{
     subnets::SUBNETWORK_ID_NATIVE,
     tx::{Transaction, TransactionInput, TransactionOutpoint},
@@ -90,12 +90,12 @@ fn build_feerate_key(fee: u64, mass: u64, id: u64) -> FeerateTransactionKey {
 }
 
 pub fn bench_mempool_sampling(c: &mut Criterion) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut group = c.benchmark_group("mempool sampling");
     let cap = 1_000_000;
     let mut map = HashMap::with_capacity(cap);
     for i in 0..cap as u64 {
-        let fee: u64 = if i % (cap as u64 / 100000) == 0 { 1000000 } else { rng.gen_range(1..10000) };
+        let fee: u64 = if i % (cap as u64 / 100000) == 0 { 1000000 } else { rng.random_range(1..10000) };
         let mass: u64 = 1650;
         let key = build_feerate_key(fee, mass, i);
         map.insert(key.tx.id(), key);
@@ -171,12 +171,12 @@ pub fn bench_mempool_sampling(c: &mut Criterion) {
 }
 
 pub fn bench_mempool_selectors(c: &mut Criterion) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut group = c.benchmark_group("mempool selectors");
     let cap = 1_000_000;
     let mut map = HashMap::with_capacity(cap);
     for i in 0..cap as u64 {
-        let fee: u64 = rng.gen_range(1..1000000);
+        let fee: u64 = rng.random_range(1..1000000);
         let mass: u64 = 1650;
         let key = build_feerate_key(fee, mass, i);
         map.insert(key.tx.id(), key);

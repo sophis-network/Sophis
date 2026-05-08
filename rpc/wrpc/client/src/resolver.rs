@@ -8,8 +8,8 @@ use crate::error::Error;
 use crate::imports::*;
 use crate::node::NodeDescriptor;
 pub use futures::future::join_all;
+use rand::rng;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 use workflow_core::runtime;
 use workflow_http::get_json;
 
@@ -154,7 +154,7 @@ impl Resolver {
     // query multiple resolver services in random order
     async fn fetch(&self, encoding: Encoding, network_id: NetworkId) -> Result<NodeDescriptor> {
         let mut urls = self.inner.urls.clone();
-        urls.shuffle(&mut thread_rng());
+        urls.shuffle(&mut rng());
 
         let mut errors = Vec::default();
         for url in urls {

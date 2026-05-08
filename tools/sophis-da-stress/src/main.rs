@@ -38,7 +38,10 @@ use sophis_consensus_core::{
     hashing::sighash_type::SIG_HASH_ALL,
     sign::sign_input_dilithium,
     subnets::SUBNETWORK_ID_NATIVE,
-    tx::{MutableTransaction, ScriptPublicKey, ScriptVec, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry},
+    tx::{
+        MutableTransaction, ScriptPublicKey, ScriptVec, Transaction, TransactionInput, TransactionOutpoint, TransactionOutput,
+        UtxoEntry,
+    },
 };
 use sophis_grpc_client::GrpcClient;
 use sophis_notify::subscription::context::SubscriptionContext;
@@ -217,15 +220,11 @@ async fn run_stress_loop(
 ) -> Result<()> {
     let mut rng = StdRng::seed_from_u64({
         let mut seed_bytes = [0u8; 8];
-        rand::thread_rng().fill_bytes(&mut seed_bytes);
+        rand::rng().fill_bytes(&mut seed_bytes);
         u64::from_le_bytes(seed_bytes)
     });
 
-    let interval = if params.rate_per_sec > 0.0 {
-        Duration::from_secs_f64(1.0 / params.rate_per_sec)
-    } else {
-        Duration::from_secs(1)
-    };
+    let interval = if params.rate_per_sec > 0.0 { Duration::from_secs_f64(1.0 / params.rate_per_sec) } else { Duration::from_secs(1) };
 
     let mut csv_writer: Option<std::fs::File> = match &csv_path {
         Some(p) => {
@@ -248,11 +247,8 @@ async fn run_stress_loop(
         iter += 1;
 
         // Random payload size in [min_size, max_size].
-        let size = if params.min_size == params.max_size {
-            params.min_size
-        } else {
-            rng.gen_range(params.min_size..=params.max_size)
-        };
+        let size =
+            if params.min_size == params.max_size { params.min_size } else { rng.random_range(params.min_size..=params.max_size) };
         let mut payload = vec![0u8; size];
         rng.fill_bytes(&mut payload);
 
@@ -287,16 +283,12 @@ async fn run_stress_loop(
         };
 
         let submit_start = Instant::now();
-        let (status_label, error_msg, tx_id_str) = match tokio::time::timeout(
-            RPC_TIMEOUT,
-            rpc.submit_transaction((&tx).into(), false),
-        )
-        .await
-        {
-            Ok(Ok(tx_id)) => ("ok", String::new(), tx_id.to_string()),
-            Ok(Err(e)) => ("rejected", e.to_string(), String::new()),
-            Err(_) => ("timeout", String::new(), String::new()),
-        };
+        let (status_label, error_msg, tx_id_str) =
+            match tokio::time::timeout(RPC_TIMEOUT, rpc.submit_transaction((&tx).into(), false)).await {
+                Ok(Ok(tx_id)) => ("ok", String::new(), tx_id.to_string()),
+                Ok(Err(e)) => ("rejected", e.to_string(), String::new()),
+                Err(_) => ("timeout", String::new(), String::new()),
+            };
         let latency_ms = submit_start.elapsed().as_millis() as i64;
 
         if status_label == "ok" {
@@ -307,10 +299,15 @@ async fn run_stress_loop(
         }
 
         csv_log(&mut csv_writer, iter_start, size, n_fragments, &tx_id_str, latency_ms, status_label, &error_msg);
-        if iter % 10 == 0 {
+        if iter.is_multiple_of(10) {
             println!(
                 "[{:>5}] sent={} ok={} err={} bytes={} elapsed={:?}",
-                iter, iter, ok_count, err_count, total_payload_bytes, start.elapsed(),
+                iter,
+                iter,
+                ok_count,
+                err_count,
+                total_payload_bytes,
+                start.elapsed(),
             );
         }
 
@@ -346,18 +343,11 @@ fn csv_log(
 ) {
     use std::io::Write;
     let Some(file) = f else { return };
-    let unix_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
+    let unix_ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     let _ = when; // reserved for future intra-iteration timing logging.
     let iso = format_iso8601_ms(unix_ms as u64);
     let safe_err = error.replace(',', ";").replace('\n', " ");
-    let _ = writeln!(
-        file,
-        "{},{},{},{},{},{},{},{}",
-        iso, unix_ms, size, fragments, tx_id, latency_ms, status, safe_err
-    );
+    let _ = writeln!(file, "{},{},{},{},{},{},{},{}", iso, unix_ms, size, fragments, tx_id, latency_ms, status, safe_err);
 }
 
 fn format_iso8601_ms(unix_ms: u64) -> String {
@@ -402,7 +392,14 @@ async fn main() {
         .arg(Arg::new("wallet").long("wallet").short('w').default_value("dilithium_wallet.json"))
         .arg(Arg::new("rpcserver").long("rpcserver").short('s').default_value("localhost:46610"))
         .arg(Arg::new("duration").long("duration").short('d').default_value("60s").help("Tempo total: Ns / Nm / Nh / Nms"))
-        .arg(Arg::new("rate").long("rate").short('r').default_value("1").value_parser(value_parser!(f64)).help("Submissões por segundo (alvo)"))
+        .arg(
+            Arg::new("rate")
+                .long("rate")
+                .short('r')
+                .default_value("1")
+                .value_parser(value_parser!(f64))
+                .help("Submissões por segundo (alvo)"),
+        )
         .arg(Arg::new("min-size").long("min-size").default_value("32").value_parser(value_parser!(usize)))
         .arg(Arg::new("max-size").long("max-size").default_value("1024").value_parser(value_parser!(usize)))
         .arg(Arg::new("domain").long("domain").default_value("user").help("Rollup|Oracle|User|None"))
@@ -476,7 +473,7 @@ mod tests {
 
     #[test]
     fn parse_domain_variants() {
-        assert!(matches!(parse_domain("None").unwrap(), None));
+        assert!(parse_domain("None").unwrap().is_none());
         assert!(matches!(parse_domain("Oracle").unwrap(), Some(CarrierDomain::Oracle)));
         assert!(matches!(parse_domain("rollup").unwrap(), Some(CarrierDomain::Rollup)));
         assert!(matches!(parse_domain("USER").unwrap(), Some(CarrierDomain::User)));

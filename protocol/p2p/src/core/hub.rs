@@ -108,7 +108,7 @@ impl Hub {
 
         let inbound_count = (num_peers - outbound_count).min(total_inbound);
 
-        let thread_rng = &mut rand::thread_rng();
+        let thread_rng = &mut rand::rng();
 
         peers
             .values()

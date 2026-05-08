@@ -7,7 +7,7 @@ use super::{
 use crate::Result;
 use crate::{Error, KEY_SIZE};
 use borsh::{BorshDeserialize, BorshSerialize};
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sophis_utils::hex::*;
@@ -109,11 +109,11 @@ impl Mnemonic {
 
 impl Mnemonic {
     pub fn random(word_count: WordCount, language: Language) -> Result<Mnemonic> {
-        Mnemonic::random_impl(word_count, rand::thread_rng(), language)
+        Mnemonic::random_impl(word_count, rand::rng(), language)
     }
 
     /// Create a random BIP39 mnemonic phrase.
-    pub fn random_impl(word_count: WordCount, mut rng: impl RngCore + CryptoRng, language: Language) -> Result<Self> {
+    pub fn random_impl(word_count: WordCount, mut rng: impl CryptoRng, language: Language) -> Result<Self> {
         match word_count {
             WordCount::Words24 => {
                 let mut entropy = Entropy32::default();

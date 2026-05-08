@@ -239,8 +239,21 @@ async fn main() {
         .about("Public mainnet launch dashboard (LAUNCH_CHECKLIST.md ação #2)")
         .arg(Arg::new("rpcserver").long("rpcserver").short('s').default_value("localhost:46110"))
         .arg(Arg::new("listen-addr").long("listen-addr").short('l').default_value("0.0.0.0:8080"))
-        .arg(Arg::new("founder-address").long("founder-address").short('f').required(true).help("Endereço pessoal de mineração do fundador (declarado em T-72h)"))
-        .arg(Arg::new("genesis-unix-ms").long("genesis-unix-ms").short('g').default_value("0").value_parser(value_parser!(u64)).help("Timestamp do gênese em unix milliseconds (0 = desconhecido ainda)"))
+        .arg(
+            Arg::new("founder-address")
+                .long("founder-address")
+                .short('f')
+                .required(true)
+                .help("Endereço pessoal de mineração do fundador (declarado em T-72h)"),
+        )
+        .arg(
+            Arg::new("genesis-unix-ms")
+                .long("genesis-unix-ms")
+                .short('g')
+                .default_value("0")
+                .value_parser(value_parser!(u64))
+                .help("Timestamp do gênese em unix milliseconds (0 = desconhecido ainda)"),
+        )
         .get_matches();
 
     let rpc_server = m.get_one::<String>("rpcserver").unwrap().clone();
@@ -274,11 +287,7 @@ async fn main() {
     let poller_state = state.clone();
     tokio::spawn(poller_task(rpc_server, founder_address, genesis_unix_ms, poller_state));
 
-    let app = Router::new()
-        .route("/", get(root))
-        .route("/metrics", get(metrics))
-        .route("/healthz", get(healthz))
-        .with_state(state);
+    let app = Router::new().route("/", get(root)).route("/metrics", get(metrics)).route("/healthz", get(healthz)).with_state(state);
 
     let listener = match tokio::net::TcpListener::bind(&listen_addr).await {
         Ok(l) => l,
@@ -317,9 +326,7 @@ mod tests {
     /// ended (founder_in_wait_window = false, seconds remaining = 0).
     #[test]
     fn wait_window_boundary() {
-        let mut s = MetricsSnapshot::default();
-        s.snapshot_unix_ms = (FOUNDER_WAIT_SECS as u64) * 1000;
-        s.genesis_unix_ms = 0;
+        let mut s = MetricsSnapshot { snapshot_unix_ms: (FOUNDER_WAIT_SECS as u64) * 1000, genesis_unix_ms: 0, ..Default::default() };
         // Re-derive what poll_once would compute:
         let now_secs = (s.snapshot_unix_ms / 1000) as i64;
         let genesis_secs = (s.genesis_unix_ms / 1000) as i64;
@@ -343,7 +350,7 @@ mod tests {
         // Smoke-only: verify the structure of MetricsSnapshot::default()
         // is what we'd expect to be served before the first successful poll.
         let snap = MetricsSnapshot::default();
-        assert_eq!(snap.rpc_healthy, false);
+        assert!(!snap.rpc_healthy);
         assert_eq!(snap.founder_balance_sompi, 0);
         assert_eq!(snap.last_rpc_error, None);
     }

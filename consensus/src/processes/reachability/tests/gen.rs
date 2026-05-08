@@ -43,7 +43,7 @@ impl Miner {
         Self {
             id,
             dist: Exp::new(bps * hashrate).unwrap(),
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
             next_block: genesis + 1,
             num_blocks: 0,
             target_blocks,

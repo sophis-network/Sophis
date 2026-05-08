@@ -374,7 +374,7 @@ mod tests {
         let chain_closure_ref = build_chain_closure(reachability, &hashes);
         let dag_closure_ref = build_transitive_closure(relations, reachability, &hashes);
 
-        for block in test.ids().choose_multiple(&mut rand::thread_rng(), test.blocks.len()).into_iter().chain(once(test.genesis)) {
+        for block in test.ids().choose_multiple(&mut rand::rng(), test.blocks.len()).into_iter().chain(once(test.genesis)) {
             DagBuilder::new(reachability, relations).delete_block(block.into());
             hashes_ref.remove(&block.into());
             reachability.validate_intervals(ORIGIN).unwrap();
@@ -446,7 +446,7 @@ mod tests {
         let mut staging_relations = StagingRelationsStore::new(&mut relations);
 
         for (i, block) in
-            test.ids().choose_multiple(&mut rand::thread_rng(), test.blocks.len()).into_iter().chain(once(test.genesis)).enumerate()
+            test.ids().choose_multiple(&mut rand::rng(), test.blocks.len()).into_iter().chain(once(test.genesis)).enumerate()
         {
             DagBuilder::new(&mut staging_reachability, &mut staging_relations).delete_block(block.into());
             hashes_ref.remove(&block.into());

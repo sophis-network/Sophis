@@ -579,8 +579,8 @@ impl VirtualStateProcessor {
     ) -> Result<(), sophis_database::prelude::StoreError> {
         use sophis_consensus_core::constants::SCRIPT_VERSION_CARRIER;
         use sophis_consensus_core::da::{
-            CARRIER_FLAG_DOMAIN_ORACLE, CARRIER_FLAG_DOMAIN_ROLLUP, CARRIER_FLAG_DOMAIN_USER,
-            CarrierDomain, PayloadEntry, PayloadIdHash, parse_carrier_header, payload_id,
+            CARRIER_FLAG_DOMAIN_ORACLE, CARRIER_FLAG_DOMAIN_ROLLUP, CARRIER_FLAG_DOMAIN_USER, CarrierDomain, PayloadEntry,
+            PayloadIdHash, parse_carrier_header, payload_id,
         };
 
         // Look up the chain block's blue score once for every carrier.
@@ -864,7 +864,7 @@ impl VirtualStateProcessor {
             //
             // Inspired by rand::partial_shuffle (which lacks the guarantee on chosen elements location).
             for i in max_block_parents / 2..max_candidates {
-                let j = rand::thread_rng().gen_range(i..slice.len()); // i < max_candidates < slice.len()
+                let j = rand::rng().random_range(i..slice.len()); // i < max_candidates < slice.len()
                 slice.swap(i, j);
             }
 
@@ -872,7 +872,7 @@ impl VirtualStateProcessor {
             candidates.truncate(max_candidates);
         } else if candidates.len() > max_block_parents / 2 {
             // Fallback to a simpler algo in this case
-            candidates.make_contiguous()[max_block_parents / 2..].shuffle(&mut rand::thread_rng());
+            candidates.make_contiguous()[max_block_parents / 2..].shuffle(&mut rand::rng());
         }
 
         let mut virtual_parents = Vec::with_capacity(min(max_block_parents, candidates.len() + 1));

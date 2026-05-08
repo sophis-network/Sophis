@@ -3,7 +3,7 @@ use async_channel::Sender;
 use async_trait::async_trait;
 use itertools::Itertools;
 use parking_lot::Mutex;
-use rand::thread_rng;
+use rand::rng;
 use rand_distr::{Distribution, Exp};
 use sophis_addresses::Address;
 use sophis_core::warn;
@@ -139,7 +139,7 @@ impl Task for SubscriptionSubmitterTask {
                                     }
                                     Err(err) => {
                                         warn!("Failed to start a subscription with {} addresses: {}", addresses.len(), err);
-                                        let timeout = max((dist.sample(&mut thread_rng()) * 200.0) as u64, 1);
+                                        let timeout = max((dist.sample(&mut rng()) * 200.0) as u64, 1);
                                         sleep(Duration::from_millis(timeout)).await;
                                     }
                                 }
@@ -152,7 +152,7 @@ impl Task for SubscriptionSubmitterTask {
                                     }
                                     Err(err) => {
                                         warn!("Failed to stop a subscription: {}", err);
-                                        let timeout = max((dist.sample(&mut thread_rng()) * 250.0) as u64, 1);
+                                        let timeout = max((dist.sample(&mut rng()) * 250.0) as u64, 1);
                                         sleep(Duration::from_millis(timeout)).await;
                                     }
                                 }

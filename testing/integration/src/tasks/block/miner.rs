@@ -2,7 +2,7 @@ use crate::tasks::{Stopper, Task};
 use async_channel::Sender;
 use async_trait::async_trait;
 use parking_lot::Mutex;
-use rand::thread_rng;
+use rand::rng;
 use rand_distr::{Distribution, Exp};
 use sophis_addresses::Address;
 use sophis_core::warn;
@@ -97,7 +97,7 @@ impl Task for BlockMinerTask {
             warn!("Block miner task starting...");
             for i in 0..block_count {
                 // Simulate mining time
-                let timeout = max((dist.sample(&mut thread_rng()) * 1000.0) as u64, 1);
+                let timeout = max((dist.sample(&mut rng()) * 1000.0) as u64, 1);
                 tokio::select! {
                     biased;
                     _ = stop_signal.listener.clone() => {

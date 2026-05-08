@@ -40,6 +40,7 @@ use crate::config::{Val, oracle_stark_config};
 
 const PUBLIC_KEY_BYTES: usize = 32;
 const SIGNATURE_BYTES: usize = 64;
+#[allow(dead_code)] // Reserved for future companion-proof aggregation refactor.
 const POINT_LIMBS: usize = 4 * NUM_LIMBS; // 36
 
 /// Number of bytes in the wire-format encoding of the public values:
@@ -154,10 +155,18 @@ pub fn build_public_values(public_key: &[u8; 32], signature: &[u8; 64], boundary
 }
 
 fn push_point(out: &mut Vec<Val>, p: &ExtendedPoint) {
-    for &l in &p.x.limbs { out.push(Val::from_u64(l)); }
-    for &l in &p.y.limbs { out.push(Val::from_u64(l)); }
-    for &l in &p.z.limbs { out.push(Val::from_u64(l)); }
-    for &l in &p.t.limbs { out.push(Val::from_u64(l)); }
+    for &l in &p.x.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &p.y.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &p.z.limbs {
+        out.push(Val::from_u64(l));
+    }
+    for &l in &p.t.limbs {
+        out.push(Val::from_u64(l));
+    }
 }
 
 /// Encode `(pk, sig, boundary)` as the canonical wire-format byte slice
@@ -178,10 +187,18 @@ pub fn encode_public_values_bytes(public_key: &[u8; 32], signature: &[u8; 64], b
 }
 
 fn push_point_bytes(out: &mut Vec<u8>, p: &ExtendedPoint) {
-    for &l in &p.x.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.y.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.z.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
-    for &l in &p.t.limbs { out.extend_from_slice(&(l as u32).to_le_bytes()); }
+    for &l in &p.x.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.y.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.z.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
+    for &l in &p.t.limbs {
+        out.extend_from_slice(&(l as u32).to_le_bytes());
+    }
 }
 
 /// Decode the wire-format byte slice back into `(pk, sig, boundary)`.
@@ -203,10 +220,18 @@ pub fn decode_public_values_bytes(bytes: &[u8]) -> Option<([u8; 32], [u8; 64], B
         let mut y = [0u64; NUM_LIMBS];
         let mut z = [0u64; NUM_LIMBS];
         let mut t = [0u64; NUM_LIMBS];
-        for limb in &mut x { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut y { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut z { *limb = read_u32_le(bytes, &mut cur) as u64; }
-        for limb in &mut t { *limb = read_u32_le(bytes, &mut cur) as u64; }
+        for limb in &mut x {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut y {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut z {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
+        for limb in &mut t {
+            *limb = read_u32_le(bytes, &mut cur) as u64;
+        }
         ExtendedPoint {
             x: Field25519Element { limbs: x },
             y: Field25519Element { limbs: y },
@@ -234,18 +259,11 @@ fn read_u32_le(bytes: &[u8], cur: &mut usize) -> u32 {
 ///
 /// **Slow** — the AIR is ~51,828 columns wide; expect single-digit
 /// seconds in release mode.
-pub fn prove_verify_air(
-    public_key: &[u8; 32],
-    signature: &[u8; 64],
-    message: &[u8],
-) -> Result<VerifyAirProof, VerifyAirProverError> {
+pub fn prove_verify_air(public_key: &[u8; 32], signature: &[u8; 64], message: &[u8]) -> Result<VerifyAirProof, VerifyAirProverError> {
     let trace: RowMajorMatrix<Val> = build_verify_trace::<Val>(public_key, signature, message);
 
-    if trace.values.len() % NUM_COLS != 0 {
-        return Err(VerifyAirProverError::BadTraceShape {
-            got: trace.values.len(),
-            want: NUM_COLS,
-        });
+    if !trace.values.len().is_multiple_of(NUM_COLS) {
+        return Err(VerifyAirProverError::BadTraceShape { got: trace.values.len(), want: NUM_COLS });
     }
 
     let boundary = derive_boundary_points(public_key, signature, message);
@@ -272,10 +290,7 @@ pub fn verify_verify_air_proof(
 
     let public_values = build_public_values(public_key, signature, boundary);
     if public_values.len() != NUM_PUBLIC_VALUES {
-        return Err(VerifyAirVerifyError::BadPublicValuesLen {
-            got: public_values.len(),
-            want: NUM_PUBLIC_VALUES,
-        });
+        return Err(VerifyAirVerifyError::BadPublicValuesLen { got: public_values.len(), want: NUM_PUBLIC_VALUES });
     }
 
     let (_perm, config) = oracle_stark_config();
@@ -290,14 +305,14 @@ mod tests {
     fn rfc8032_test_1() -> ([u8; 32], [u8; 64]) {
         (
             [
-                0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a,
-                0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
+                0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07, 0x3a, 0x0e, 0xe1, 0x72,
+                0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07, 0x51, 0x1a,
             ],
             [
-                0xe5, 0x56, 0x43, 0x00, 0xc3, 0x60, 0xac, 0x72, 0x90, 0x86, 0xe2, 0xcc, 0x80, 0x6e, 0x82, 0x8a,
-                0x84, 0x87, 0x7f, 0x1e, 0xb8, 0xe5, 0xd9, 0x74, 0xd8, 0x73, 0xe0, 0x65, 0x22, 0x49, 0x01, 0x55,
-                0x5f, 0xb8, 0x82, 0x15, 0x90, 0xa3, 0x3b, 0xac, 0xc6, 0x1e, 0x39, 0x70, 0x1c, 0xf9, 0xb4, 0x6b,
-                0xd2, 0x5b, 0xf5, 0xf0, 0x59, 0x5b, 0xbe, 0x24, 0x65, 0x51, 0x41, 0x43, 0x8e, 0x7a, 0x10, 0x0b,
+                0xe5, 0x56, 0x43, 0x00, 0xc3, 0x60, 0xac, 0x72, 0x90, 0x86, 0xe2, 0xcc, 0x80, 0x6e, 0x82, 0x8a, 0x84, 0x87, 0x7f,
+                0x1e, 0xb8, 0xe5, 0xd9, 0x74, 0xd8, 0x73, 0xe0, 0x65, 0x22, 0x49, 0x01, 0x55, 0x5f, 0xb8, 0x82, 0x15, 0x90, 0xa3,
+                0x3b, 0xac, 0xc6, 0x1e, 0x39, 0x70, 0x1c, 0xf9, 0xb4, 0x6b, 0xd2, 0x5b, 0xf5, 0xf0, 0x59, 0x5b, 0xbe, 0x24, 0x65,
+                0x51, 0x41, 0x43, 0x8e, 0x7a, 0x10, 0x0b,
             ],
         )
     }
@@ -310,8 +325,7 @@ mod tests {
         let (pk, sig) = rfc8032_test_1();
         let proof = prove_verify_air(&pk, &sig, b"").expect("prove must succeed");
         assert!(!proof.bytes.is_empty(), "proof bytes must be non-empty");
-        verify_verify_air_proof(&proof.bytes, &pk, &sig, &proof.boundary)
-            .expect("verify must succeed on honest proof");
+        verify_verify_air_proof(&proof.bytes, &pk, &sig, &proof.boundary).expect("verify must succeed on honest proof");
     }
 
     /// Tampering pk during verify must reject.

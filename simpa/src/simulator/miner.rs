@@ -108,7 +108,7 @@ impl Miner {
             script_public_key: spk,
             possible_unspent_outpoints: IndexSet::new(),
             dist: Exp::new(bps * hashrate).unwrap(),
-            rng: rand::thread_rng(),
+            rng: rand::rng(),
             num_blocks: 0,
             sim_time: 0,
             target_txs_per_block,
@@ -230,7 +230,7 @@ impl Miner {
             for (i, output) in tx.outputs.iter().enumerate() {
                 if output.script_public_key.eq(&self.miner_data.script_public_key) {
                     if self.possible_unspent_outpoints.len() == self.max_cached_outpoints {
-                        self.possible_unspent_outpoints.swap_remove_index(self.rng.gen_range(0..self.max_cached_outpoints));
+                        self.possible_unspent_outpoints.swap_remove_index(self.rng.random_range(0..self.max_cached_outpoints));
                     }
                     self.possible_unspent_outpoints.insert(TransactionOutpoint::new(tx.id(), i as u32));
                 }

@@ -32,12 +32,11 @@ pub mod codec;
 pub mod store_types;
 
 pub use codec::{
-    ReassembleError, ReassembleInput, bundle_id_of, encode_bundle, encode_carrier_script,
-    encode_single_fragment, parse_and_reassemble, payload_id, reassemble,
+    ReassembleError, ReassembleInput, bundle_id_of, encode_bundle, encode_carrier_script, encode_single_fragment,
+    parse_and_reassemble, payload_id, reassemble,
 };
 pub use store_types::{
-    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadEntry, PayloadId,
-    PayloadIdHash, domain_bucket_key_bytes,
+    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadEntry, PayloadId, PayloadIdHash, domain_bucket_key_bytes,
 };
 
 /// First 8 bytes of every carrier `script`. Frozen ABI.
@@ -174,16 +173,10 @@ impl fmt::Display for CarrierError {
                 write!(f, "carrier fragment_index={index} is not in [0, {count})")
             }
             Self::FragmentedFlagMismatch { flag_set, count } => {
-                write!(
-                    f,
-                    "carrier FRAGMENTED flag is {flag_set} but fragment_count={count} (must be set iff count > 1)"
-                )
+                write!(f, "carrier FRAGMENTED flag is {flag_set} but fragment_count={count} (must be set iff count > 1)")
             }
             Self::LastFlagMismatch { flag_set, index, count } => {
-                write!(
-                    f,
-                    "carrier LAST flag is {flag_set} for fragment_index={index} of {count} (must be set iff index == count - 1)"
-                )
+                write!(f, "carrier LAST flag is {flag_set} for fragment_index={index} of {count} (must be set iff index == count - 1)")
             }
             Self::DataTooLarge { data_len } => {
                 write!(f, "carrier data_len={data_len} exceeds MAX_DATA_PER_CARRIER={MAX_DATA_PER_CARRIER}")
@@ -243,29 +236,19 @@ pub fn parse_carrier_header(script: &[u8]) -> Result<CarrierHeader, CarrierError
 
     // Rule 7
     if fragment_index >= fragment_count {
-        return Err(CarrierError::FragmentIndexOutOfRange {
-            index: fragment_index,
-            count: fragment_count,
-        });
+        return Err(CarrierError::FragmentIndexOutOfRange { index: fragment_index, count: fragment_count });
     }
 
     // Rule 8
     let frag_flag_set = flags & CARRIER_FLAG_FRAGMENTED != 0;
     if frag_flag_set != (fragment_count > 1) {
-        return Err(CarrierError::FragmentedFlagMismatch {
-            flag_set: frag_flag_set,
-            count: fragment_count,
-        });
+        return Err(CarrierError::FragmentedFlagMismatch { flag_set: frag_flag_set, count: fragment_count });
     }
 
     // Rule 9
     let last_flag_set = flags & CARRIER_FLAG_LAST != 0;
     if last_flag_set != (fragment_index == fragment_count - 1) {
-        return Err(CarrierError::LastFlagMismatch {
-            flag_set: last_flag_set,
-            index: fragment_index,
-            count: fragment_count,
-        });
+        return Err(CarrierError::LastFlagMismatch { flag_set: last_flag_set, index: fragment_index, count: fragment_count });
     }
 
     let data_len = u32::from_le_bytes([script[12], script[13], script[14], script[15]]);
@@ -564,9 +547,9 @@ mod tests {
     #[test]
     fn fuzz_parse_never_panics_on_random_input() {
         use rand::Rng as _;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..5_000 {
-            let len = rng.gen_range(0..200);
+            let len = rng.random_range(0..200);
             let mut bytes = vec![0u8; len];
             rng.fill(&mut bytes[..]);
             // Whatever happens, parse_carrier_header MUST return Result.
@@ -581,13 +564,13 @@ mod tests {
         // structural decisions happen, biased toward the magic prefix
         // so we exercise the deeper code paths.
         use rand::Rng as _;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..2_000 {
-            let len = rng.gen_range(64..256);
+            let len = rng.random_range(64..256);
             let mut bytes = vec![0u8; len];
             rng.fill(&mut bytes[..]);
             // 50% of the time, plant the magic prefix to drive past rule 2.
-            if rng.r#gen::<bool>() {
+            if rng.random::<bool>() {
                 bytes[0..8].copy_from_slice(&CARRIER_MAGIC);
             }
             let _ = parse_carrier_header(&bytes);
@@ -600,11 +583,11 @@ mod tests {
         // through parse_carrier_header. Catches regressions where a new
         // rule rejects a well-formed input.
         use rand::Rng as _;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..1_000 {
-            let count = rng.gen_range(1..=MAX_FRAGMENTS);
-            let index = rng.gen_range(0..count);
-            let data_len = rng.gen_range(0..=512usize); // keep small for speed
+            let count = rng.random_range(1..=MAX_FRAGMENTS);
+            let index = rng.random_range(0..count);
+            let data_len = rng.random_range(0..=512usize); // keep small for speed
             let mut data = vec![0u8; data_len];
             rng.fill(&mut data[..]);
             let mut bundle_id = [0u8; 48];
@@ -618,7 +601,7 @@ mod tests {
                 flags |= CARRIER_FLAG_LAST;
             }
             // Random domain bit (or none).
-            match rng.gen_range(0..4) {
+            match rng.random_range(0..4) {
                 0 => {}
                 1 => flags |= CARRIER_FLAG_DOMAIN_ROLLUP,
                 2 => flags |= CARRIER_FLAG_DOMAIN_ORACLE,

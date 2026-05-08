@@ -347,11 +347,9 @@ mod address_store_with_cache {
     };
 
     use itertools::Itertools;
-    use rand::{
-        distr::{
-            weighted::{Error as WeightedError, WeightedIndex},
-            Distribution,
-        },
+    use rand::distr::{
+        Distribution,
+        weighted::{Error as WeightedError, WeightedIndex},
     };
     use sophis_database::prelude::{CachePolicy, DB};
     use sophis_utils::networking::PrefixBucket;
@@ -497,7 +495,7 @@ mod address_store_with_cache {
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(weighted_index) = self.weighted_index.as_mut() {
-                let i = weighted_index.sample(&mut rand::thread_rng());
+                let i = weighted_index.sample(&mut rand::rng());
                 // Zero the selected address entry
                 match weighted_index.update_weights(&[(i, &0f64)]) {
                     Ok(_) => {}

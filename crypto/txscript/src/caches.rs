@@ -47,7 +47,7 @@ impl<TKey: Clone + std::hash::Hash + Eq + Send + Sync, TData: Clone + Send + Syn
         }
         let mut write_guard = self.map.write();
         if write_guard.len() == self.size {
-            write_guard.swap_remove_index(rand::thread_rng().gen_range(0..self.size));
+            write_guard.swap_remove_index(rand::rng().random_range(0..self.size));
         }
         write_guard.insert(key, data);
         self.counters.insert_counts.fetch_add(1, Ordering::Relaxed);

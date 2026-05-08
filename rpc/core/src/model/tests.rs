@@ -101,7 +101,7 @@ mod mockery {
         ($($type:ty),*) => {
             $(impl Mock for $type {
                 fn mock() -> Self {
-                    rand::thread_rng().r#gen()
+                    rand::rng().random()
                 }
             })*
         };
@@ -118,7 +118,7 @@ mod mockery {
     impl Mock for SubnetworkId {
         fn mock() -> Self {
             let mut bytes: [u8; 20] = [0; 20];
-            rand::thread_rng().fill(&mut bytes);
+            rand::rng().fill(&mut bytes);
             SubnetworkId::from_bytes(bytes)
         }
     }
@@ -126,7 +126,7 @@ mod mockery {
     impl Mock for Hash {
         fn mock() -> Self {
             let mut bytes: [u8; 32] = [0; 32];
-            rand::thread_rng().fill(&mut bytes);
+            rand::rng().fill(&mut bytes);
             Hash::from_bytes(bytes)
         }
     }
@@ -134,8 +134,8 @@ mod mockery {
     impl Mock for MerkleHash {
         fn mock() -> Self {
             let mut bytes = [0u8; 48];
-            rand::thread_rng().fill(&mut bytes[..32]);
-            rand::thread_rng().fill(&mut bytes[32..48]);
+            rand::rng().fill(&mut bytes[..32]);
+            rand::rng().fill(&mut bytes[32..48]);
             MerkleHash::from_bytes(bytes)
         }
     }
@@ -503,7 +503,7 @@ mod mockery {
     impl Mock for ScriptPublicKey {
         fn mock() -> Self {
             let mut bytes: [u8; 35] = [0; 35];
-            rand::thread_rng().fill(&mut bytes[..]);
+            rand::rng().fill(&mut bytes[..]);
             ScriptPublicKey::from_vec(0, bytes.to_vec())
         }
     }
@@ -534,7 +534,7 @@ mod mockery {
 
     impl Mock for ScriptClass {
         fn mock() -> Self {
-            match rand::thread_rng().r#gen::<u8>() % 2 {
+            match rand::rng().random::<u8>() % 2 {
                 0 => ScriptClass::NonStandard,
                 _ => ScriptClass::ScriptHash,
             }

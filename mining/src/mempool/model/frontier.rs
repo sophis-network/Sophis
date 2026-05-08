@@ -5,7 +5,10 @@ use crate::{
 };
 
 use feerate_key::FeerateTransactionKey;
-use rand::{Rng, distr::{Uniform, Distribution}};
+use rand::{
+    Rng,
+    distr::{Distribution, Uniform},
+};
 use search_tree::SearchTree;
 use selectors::{SequenceSelector, SequenceSelectorInput, TakeAllSelector};
 use sophis_consensus_core::{block::TemplateTransactionSelector, tx::Transaction};
@@ -200,7 +203,7 @@ impl Frontier {
         if self.total_mass <= policy.max_block_mass {
             Box::new(TakeAllSelector::new(self.search_tree.ascending_iter().map(|k| k.tx.clone()).collect()))
         } else if self.total_mass > policy.max_block_mass * COLLISION_FACTOR {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             Box::new(SequenceSelector::new(self.sample_inplace(&mut rng, policy, &mut 0), policy.clone()))
         } else {
             Box::new(RebalancingWeightedTransactionSelector::new(
@@ -212,7 +215,7 @@ impl Frontier {
 
     /// Exposed for benchmarking purposes
     pub fn build_selector_sample_inplace(&self, _collisions: &mut u64) -> Box<dyn TemplateTransactionSelector> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let policy = Policy::new(500_000);
         Box::new(SequenceSelector::new(self.sample_inplace(&mut rng, &policy, _collisions), policy))
     }
@@ -282,16 +285,16 @@ mod tests {
     use super::*;
     use feerate_key::tests::build_feerate_key;
     use itertools::Itertools;
-    use rand::thread_rng;
+    use rand::rng;
     use std::collections::HashMap;
 
     #[test]
     pub fn test_highly_irregular_sampling() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let cap = 1000;
         let mut map = HashMap::with_capacity(cap);
         for i in 0..cap as u64 {
-            let mut fee: u64 = if i % (cap as u64 / 100) == 0 { 1000000 } else { rng.gen_range(1..10000) };
+            let mut fee: u64 = if i % (cap as u64 / 100) == 0 { 1000000 } else { rng.random_range(1..10000) };
             if i == 0 {
                 // Add an extremely large fee in order to create extremely high variance
                 fee = 100_000_000 * 1_000_000; // 1M SPHS
@@ -311,11 +314,11 @@ mod tests {
 
     #[test]
     pub fn test_mempool_sampling_small() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let cap = 2000;
         let mut map = HashMap::with_capacity(cap);
         for i in 0..cap as u64 {
-            let fee: u64 = rng.gen_range(1..1000000);
+            let fee: u64 = rng.random_range(1..1000000);
             let mass: u64 = 1650;
             let key = build_feerate_key(fee, mass, i);
             map.insert(key.tx.id(), key);
@@ -344,12 +347,12 @@ mod tests {
 
     #[test]
     pub fn test_total_mass_tracking() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let cap = 10000;
         let mut map = HashMap::with_capacity(cap);
         for i in 0..cap as u64 {
-            let fee: u64 = if i % (cap as u64 / 100) == 0 { 1000000 } else { rng.gen_range(1..10000) };
-            let mass: u64 = rng.gen_range(1..100000); // Use distinct mass values to challenge the test
+            let fee: u64 = if i % (cap as u64 / 100) == 0 { 1000000 } else { rng.random_range(1..10000) };
+            let mass: u64 = rng.random_range(1..100000); // Use distinct mass values to challenge the test
             let key = build_feerate_key(fee, mass, i);
             map.insert(key.tx.id(), key);
         }
@@ -393,11 +396,11 @@ mod tests {
     #[test]
     fn test_feerate_estimator() {
         const MIN_FEERATE: f64 = 1.0;
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let cap = 2000;
         let mut map = HashMap::with_capacity(cap);
         for i in 0..cap as u64 {
-            let mut fee: u64 = rng.gen_range(1..1000000);
+            let mut fee: u64 = rng.random_range(1..1000000);
             let mass: u64 = 1650;
             // 304 (~500,000/1650) extreme outliers is an edge case where the build estimator logic should be tested at
             if i <= 303 {

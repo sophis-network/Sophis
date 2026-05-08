@@ -7,7 +7,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use itertools::chain;
-use rand::thread_rng;
 use sophis_addresses::Address;
 use sophis_consensus_core::network::NetworkId;
 use sophis_core::debug;

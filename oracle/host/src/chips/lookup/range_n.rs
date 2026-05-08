@@ -71,13 +71,13 @@ impl<const NUM_BITS: usize> RangeNChip<NUM_BITS> {
     pub const NUM_CONSTRAINTS: usize = 1 + NUM_BITS;
 
     pub const fn new() -> Self {
-        let _ = Self::ASSERT_VALID;
+        let _: () = Self::ASSERT_VALID;
         Self { value_col: 0, bits_col: 1 }
     }
 
     /// Adjacent layout: value at `start_col`, bits at `start_col+1..`.
     pub const fn at(start_col: usize) -> Self {
-        let _ = Self::ASSERT_VALID;
+        let _: () = Self::ASSERT_VALID;
         Self { value_col: start_col, bits_col: start_col + 1 }
     }
 
@@ -85,7 +85,7 @@ impl<const NUM_BITS: usize> RangeNChip<NUM_BITS> {
     /// offsets. Use when the value already lives somewhere else in the
     /// trace and you only want to allocate `NUM_BITS` extra columns.
     pub const fn split(value_col: usize, bits_col: usize) -> Self {
-        let _ = Self::ASSERT_VALID;
+        let _: () = Self::ASSERT_VALID;
         Self { value_col, bits_col }
     }
 
@@ -114,7 +114,7 @@ impl<const NUM_BITS: usize> RangeNChip<NUM_BITS> {
         let mut weight: u64 = 1;
         for i in 0..NUM_BITS {
             let b = row[self.bits_col + i];
-            acc = acc + AB::Expr::from_u64(weight) * b.into();
+            acc += AB::Expr::from_u64(weight) * b.into();
             weight <<= 1;
         }
         builder.assert_eq(x, acc);
@@ -174,7 +174,8 @@ impl<const NUM_BITS: usize, F: Field> BaseAir<F> for RangeNTestAir<NUM_BITS> {
 }
 
 impl<const NUM_BITS: usize, AB: AirBuilder> Air<AB> for RangeNTestAir<NUM_BITS>
-where AB::F: Field
+where
+    AB::F: Field,
 {
     fn eval(&self, builder: &mut AB) {
         RangeNChip::<NUM_BITS>::new().emit(builder);
@@ -307,12 +308,19 @@ mod tests {
     #[derive(Debug, Clone, Copy)]
     struct SplitLayoutAir;
     impl<F: Field> BaseAir<F> for SplitLayoutAir {
-        fn width(&self) -> usize { 15 } // value at 0, padding 1..5, bits at 5..15
-        fn main_next_row_columns(&self) -> Vec<usize> { Vec::new() }
-        fn max_constraint_degree(&self) -> Option<usize> { Some(2) }
+        fn width(&self) -> usize {
+            15
+        } // value at 0, padding 1..5, bits at 5..15
+        fn main_next_row_columns(&self) -> Vec<usize> {
+            Vec::new()
+        }
+        fn max_constraint_degree(&self) -> Option<usize> {
+            Some(2)
+        }
     }
     impl<AB: AirBuilder> Air<AB> for SplitLayoutAir
-    where AB::F: Field
+    where
+        AB::F: Field,
     {
         fn eval(&self, builder: &mut AB) {
             RangeNChip::<10>::split(0, 5).emit(builder);

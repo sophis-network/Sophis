@@ -10,7 +10,7 @@ use duration_string::DurationString;
 use futures_util::future::{join_all, try_join_all};
 use itertools::Itertools;
 use parking_lot::Mutex as ParkingLotMutex;
-use rand::{seq::IndexedRandom, thread_rng};
+use rand::{rng, seq::IndexedRandom};
 use sophis_addressmanager::{AddressManager, NetAddress};
 use sophis_core::{debug, info, warn};
 use sophis_p2p_lib::{ConnectionError, Peer, common::ProtocolError};
@@ -244,7 +244,7 @@ impl ConnectionManager {
         }
 
         let mut futures = Vec::with_capacity(active_inbound_len - self.inbound_limit);
-        for peer in active_inbound.choose_multiple(&mut thread_rng(), active_inbound_len - self.inbound_limit) {
+        for peer in active_inbound.choose_multiple(&mut rng(), active_inbound_len - self.inbound_limit) {
             debug!("Disconnecting from {} because we're above the inbound limit", peer.net_address());
             futures.push(self.p2p_adaptor.terminate(peer.key()));
         }
@@ -258,7 +258,7 @@ impl ConnectionManager {
     }
 
     fn dns_seed_with_address_target_blocking(self: &Arc<Self>, mut min_addresses_to_fetch: usize) {
-        let shuffled_dns_seeders = self.dns_seeders.choose_multiple(&mut thread_rng(), self.dns_seeders.len());
+        let shuffled_dns_seeders = self.dns_seeders.choose_multiple(&mut rng(), self.dns_seeders.len());
         for &seeder in shuffled_dns_seeders {
             // Query seeders sequentially until reaching the desired number of addresses
             let addrs_len = self.dns_seed_single(seeder);
@@ -273,7 +273,7 @@ impl ConnectionManager {
     /// Queries `num_seeders_to_query` random DNS seeders in parallel
     async fn dns_seed_many(self: &Arc<Self>, num_seeders_to_query: usize) -> usize {
         info!("Querying {} DNS seeders", num_seeders_to_query);
-        let shuffled_dns_seeders = self.dns_seeders.choose_multiple(&mut thread_rng(), num_seeders_to_query);
+        let shuffled_dns_seeders = self.dns_seeders.choose_multiple(&mut rng(), num_seeders_to_query);
         let jobs = shuffled_dns_seeders.map(|seeder| {
             let cmgr = self.clone();
             tokio::task::spawn_blocking(move || cmgr.dns_seed_single(seeder))

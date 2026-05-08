@@ -1,13 +1,13 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use rand::{Rng, RngCore, thread_rng};
+use rand::{Rng, RngCore, rng};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 use sha3::{CShake256, CShake256Core};
 use sophis_hashes::*;
 use std::any::type_name;
 
 fn test_bytes_hasher<H: Hasher>(c: &mut Criterion) {
-    let mut rng = thread_rng();
-    let buf: [u8; 32] = rng.r#gen();
+    let mut rng = rng();
+    let buf: [u8; 32] = rng.random();
     c.bench_function(&format!("32 bytes: {}", type_name::<H>()), |b| {
         b.iter(|| {
             let buf = black_box(buf);
@@ -38,10 +38,10 @@ fn bench_hashers(c: &mut Criterion) {
 }
 
 fn bench_pow_hash(c: &mut Criterion) {
-    let mut rng = thread_rng();
-    let timestamp: u64 = rng.r#gen();
-    let pre_pow_hash = Hash::from_bytes(rng.r#gen());
-    let nonce: u64 = rng.r#gen();
+    let mut rng = rng();
+    let timestamp: u64 = rng.random();
+    let pre_pow_hash = Hash::from_bytes(rng.random());
+    let nonce: u64 = rng.random();
     c.bench_function("PoWHash including timestamp", |b| {
         b.iter(|| {
             let hasher = PowHash::new(black_box(pre_pow_hash), black_box(timestamp));
@@ -83,8 +83,8 @@ fn bench_pow_hash(c: &mut Criterion) {
 }
 
 fn bench_heavy_hash(c: &mut Criterion) {
-    let mut rng = thread_rng();
-    let in_hash = Hash::from_bytes(rng.r#gen());
+    let mut rng = rng();
+    let in_hash = Hash::from_bytes(rng.random());
 
     c.bench_function("KHeavyHash", |b| {
         b.iter(|| {

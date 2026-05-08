@@ -61,7 +61,7 @@ where
     fn tracked_evict(&mut self, policy: &CachePolicyInner) {
         // We allow passing tracked size limit as long as there are no more than min_items items
         while self.tracked_size > policy.max_size && self.map.len() > policy.min_items {
-            if let Some((_, v)) = self.map.swap_remove_index(rand::thread_rng().gen_range(0..self.map.len())) {
+            if let Some((_, v)) = self.map.swap_remove_index(rand::rng().random_range(0..self.map.len())) {
                 self.tracked_size -= v.estimate_size(policy.mem_mode)
             }
         }
@@ -77,7 +77,7 @@ where
             self.tracked_evict(policy);
         } else {
             if self.map.len() == policy.max_size {
-                self.map.swap_remove_index(rand::thread_rng().gen_range(0..policy.max_size));
+                self.map.swap_remove_index(rand::rng().random_range(0..policy.max_size));
             }
             self.map.insert(key, data);
         }

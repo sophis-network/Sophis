@@ -105,7 +105,7 @@ impl RebalancingWeightedTransactionSelector {
     /// selected_txs.
     pub fn select_transactions(&mut self) -> Vec<Transaction> {
         let _sw = Stopwatch::<15>::with_threshold("select_transaction op");
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
 
         self.reset_selection();
 
@@ -123,7 +123,7 @@ impl RebalancingWeightedTransactionSelector {
             }
 
             // Select a candidate tx at random
-            let r = rng.r#gen::<f64>() * self.candidate_list.total_p;
+            let r = rng.random::<f64>() * self.candidate_list.total_p;
             let selected_candidate_idx = self.candidate_list.find(r);
             let selected_candidate = self.candidate_list.candidates.get_mut(selected_candidate_idx).unwrap();
 

@@ -8,7 +8,7 @@ fn noise(size: usize, magnitude: usize) -> usize {
         // no noise if original size is zero
         size
     } else {
-        size + rand::thread_rng().gen_range(0..16) * magnitude
+        size + rand::rng().random_range(0..16) * magnitude
     }
 }
 

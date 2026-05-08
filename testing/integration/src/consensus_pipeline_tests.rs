@@ -85,7 +85,7 @@ async fn test_concurrent_pipeline_random() {
     let delay = 2;
 
     let poi = Poisson::new((bps * delay) as f64).unwrap();
-    let mut thread_rng = rand::thread_rng();
+    let mut thread_rng = rand::rng();
 
     let config = ConfigBuilder::new(MAINNET_PARAMS).skip_proof_of_work().edit_consensus_params(|p| p.genesis.hash = genesis).build();
     let consensus = TestConsensus::new(&config);

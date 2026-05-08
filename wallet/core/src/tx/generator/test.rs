@@ -562,7 +562,7 @@ fn test_generator_fee_rate_compound_200k_10sphs_transactions() -> Result<()> {
 #[test]
 fn test_generator_compound_100k_random_transactions() -> Result<()> {
     let mut rng = StdRng::seed_from_u64(0);
-    let inputs: Vec<f64> = (0..100_000).map(|_| rng.gen_range(0.001..10.0)).collect();
+    let inputs: Vec<f64> = (0..100_000).map(|_| rng.random_range(0.001..10.0)).collect();
     let total = inputs.iter().sum::<f64>();
     let outputs = [(output_address, Sophis(total - 10.0))];
     generator(test_network_id(), &inputs, &[], None, Fees::sender(Sophis(5.0)), outputs.as_slice())
@@ -577,7 +577,7 @@ fn test_generator_compound_100k_random_transactions() -> Result<()> {
 #[test]
 fn test_generator_random_outputs() -> Result<()> {
     let mut rng = StdRng::seed_from_u64(0);
-    let outputs: Vec<f64> = (0..30).map(|_| rng.gen_range(1.0..10.0)).collect();
+    let outputs: Vec<f64> = (0..30).map(|_| rng.random_range(1.0..10.0)).collect();
     let total = outputs.iter().sum::<f64>();
     let outputs: Vec<_> = outputs.into_iter().map(|v| (output_address, Sophis(v))).collect();
 

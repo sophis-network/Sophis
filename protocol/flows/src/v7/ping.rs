@@ -83,7 +83,7 @@ impl SendPingsFlow {
             }
 
             // Create a fresh random nonce for each ping
-            let nonce = rand::thread_rng().r#gen::<u64>();
+            let nonce = rand::rng().random::<u64>();
             let ping = make_message!(Payload::Ping, PingMessage { nonce });
             let ping_time = Instant::now();
             let Some(router) = self.router.upgrade() else {

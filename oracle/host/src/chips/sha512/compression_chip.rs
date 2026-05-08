@@ -85,12 +85,8 @@ use super::constants::{H_INITIAL, K};
 use super::round::{Sha512State, big_sigma0, big_sigma1, ch, compute_round, maj};
 use super::round_chip::{NUM_COLS as ROUND_COLS, RoundChip, col as rc};
 use super::schedule::compute_schedule;
-use super::schedule_step::{
-    NUM_COLS as SS_TOTAL_COLS, ScheduleStepChip, col as ssc, populate_schedule_step_at,
-};
-use super::word64_add::{
-    NUM_COLS as ADD_COLS, Word64AddChip, col as adc, compute_add64, decompose_u64,
-};
+use super::schedule_step::{NUM_COLS as SS_TOTAL_COLS, ScheduleStepChip, col as ssc, populate_schedule_step_at};
+use super::word64_add::{NUM_COLS as ADD_COLS, Word64AddChip, col as adc, compute_add64, decompose_u64};
 
 /// Number of rounds per SHA-512 compression.
 pub const NUM_ROUNDS: usize = 80;
@@ -321,7 +317,7 @@ where
             core::array::from_fn(|i| prep_cur[i])
         };
         for j in 0..4 {
-            builder.assert_eq(cur[rc::K + j].clone(), prep_copies[j]);
+            builder.assert_eq(cur[rc::K + j], prep_copies[j]);
         }
 
         // Sub-fase 5.6.c.1.b.2 — W shift register infrastructure.
@@ -345,7 +341,7 @@ where
 
         // Boundary at row 0: every HIST slot is zero.
         for c in 0..W_HIST_COLS {
-            builder.when_first_row().assert_eq(cur[W_HIST_START + c].clone(), AB::Expr::ZERO);
+            builder.when_first_row().assert_eq(cur[W_HIST_START + c], AB::Expr::ZERO);
         }
 
         // Transitions: shift left by 1 word (4 chunks), append cur.W at slot 15.
@@ -353,16 +349,12 @@ where
             let cur_off = W_HIST_START + (slot + 1) * HIST_CHUNKS;
             let nxt_off = W_HIST_START + slot * HIST_CHUNKS;
             for j in 0..HIST_CHUNKS {
-                builder
-                    .when_transition()
-                    .assert_eq(next[nxt_off + j].clone(), cur[cur_off + j].clone());
+                builder.when_transition().assert_eq(next[nxt_off + j], cur[cur_off + j]);
             }
         }
         // Append: next.HIST[15] = cur.W
         for j in 0..HIST_CHUNKS {
-            builder
-                .when_transition()
-                .assert_eq(next[W_HIST_START + (W_HIST_LEN - 1) * HIST_CHUNKS + j].clone(), cur[rc::W + j].clone());
+            builder.when_transition().assert_eq(next[W_HIST_START + (W_HIST_LEN - 1) * HIST_CHUNKS + j], cur[rc::W + j]);
         }
 
         // Sub-fase 5.6.c.1.b.3.embed — embed ScheduleStepChip and gate it
@@ -385,7 +377,7 @@ where
             let ss_base = SCHEDULE_STEP_START + ss_off;
             let hist_base = W_HIST_START + hist_slot * HIST_CHUNKS;
             for j in 0..HIST_CHUNKS {
-                b.assert_eq(cur[ss_base + j].clone(), cur[hist_base + j].clone());
+                b.assert_eq(cur[ss_base + j], cur[hist_base + j]);
             }
         };
         connect_input(builder, ssc::W_T_2, 14);
@@ -398,11 +390,11 @@ where
         // range the gate is 0 and the constraint is trivially satisfied
         // — W[0..16] still come from the message block (bound to PV in
         // 5.6.c.1.e), and padding rows have w_pad = 0.
-        let is_schedule = prep_copies[IS_SCHEDULE_ROW_COL].clone();
+        let is_schedule = prep_copies[IS_SCHEDULE_ROW_COL];
         for j in 0..HIST_CHUNKS {
-            let lhs = cur[rc::W + j].clone();
-            let rhs = cur[SCHEDULE_STEP_START + ssc::W_T + j].clone();
-            builder.assert_eq(is_schedule.clone() * (lhs - rhs), AB::Expr::ZERO);
+            let lhs = cur[rc::W + j];
+            let rhs = cur[SCHEDULE_STEP_START + ssc::W_T + j];
+            builder.assert_eq(is_schedule * (lhs - rhs), AB::Expr::ZERO);
         }
 
         // Sub-fase 5.6.c.1.c (updated by 5.6.c.1.d.multi) — add-back chips.
@@ -428,10 +420,7 @@ where
         // straight from PV[0..32] via boundary at every row (since PV
         // is the same at every row). The PV bind for IV below also
         // satisfies this.
-        let new_state_offsets = [
-            rc::NEW_A, rc::NEW_B, rc::NEW_C, rc::NEW_D,
-            rc::NEW_E, rc::NEW_F, rc::NEW_G, rc::NEW_H,
-        ];
+        let new_state_offsets = [rc::NEW_A, rc::NEW_B, rc::NEW_C, rc::NEW_D, rc::NEW_E, rc::NEW_F, rc::NEW_G, rc::NEW_H];
         // Copy IV PV cells (8 words × 4 chunks = 32 cells).
         let iv_pv_copies: [AB::PublicVar; 32] = {
             let public = builder.public_values();
@@ -446,16 +435,13 @@ where
             for j in 0..HIST_CHUNKS {
                 let pv_idx = i * HIST_CHUNKS + j;
                 let pv_expr: AB::Expr = iv_pv_copies[pv_idx].into();
-                builder.assert_eq(cur[chip_base + adc::A + j].clone(), pv_expr);
+                builder.assert_eq(cur[chip_base + adc::A + j], pv_expr);
             }
 
             // B = NEW_state[i] (chunked).
             let state_off = new_state_offsets[i];
             for j in 0..HIST_CHUNKS {
-                builder.assert_eq(
-                    cur[chip_base + adc::B + j].clone(),
-                    cur[state_off + j].clone(),
-                );
+                builder.assert_eq(cur[chip_base + adc::B + j], cur[state_off + j]);
             }
             // The chip's internal constraints already validate
             // `C = A + B (mod 2^64)` and the carry chain. C cells hold
@@ -489,7 +475,7 @@ where
         let iv_state_offsets = [rc::A, rc::B, rc::C, rc::D, rc::E, rc::F, rc::G, rc::H];
         for (word_idx, off) in iv_state_offsets.iter().enumerate() {
             for j in 0..HIST_CHUNKS {
-                let cell = cur[off + j].clone();
+                let cell = cur[off + j];
                 let pv = pub_copies[word_idx * HIST_CHUNKS + j];
                 let pv_expr: AB::Expr = pv.into();
                 builder.when_first_row().assert_eq(cell, pv_expr);
@@ -501,25 +487,25 @@ where
         // At row 16, HIST[i] holds W[i] = M[i] for i in 0..16. We
         // assert chunk-by-chunk that the shift register matches the
         // public-input message block.
-        let is_first_schedule = prep_copies[IS_FIRST_SCHEDULE_ROW_COL].clone();
+        let is_first_schedule = prep_copies[IS_FIRST_SCHEDULE_ROW_COL];
         for slot in 0..W_HIST_LEN {
             for j in 0..HIST_CHUNKS {
-                let cell = cur[W_HIST_START + slot * HIST_CHUNKS + j].clone();
+                let cell = cur[W_HIST_START + slot * HIST_CHUNKS + j];
                 let pv = pub_copies[32 + slot * HIST_CHUNKS + j];
                 let pv_expr: AB::Expr = pv.into();
-                builder.assert_eq(is_first_schedule.clone() * (cell - pv_expr), AB::Expr::ZERO);
+                builder.assert_eq(is_first_schedule * (cell - pv_expr), AB::Expr::ZERO);
             }
         }
 
         // PV[96..128] — digest via add_back[i].C cells at row 79.
-        let is_last_active = prep_copies[IS_LAST_ACTIVE_ROUND_COL].clone();
+        let is_last_active = prep_copies[IS_LAST_ACTIVE_ROUND_COL];
         for i in 0..ADD_BACK_COUNT {
             let chip_base = ADD_BACK_START + i * ADD_COLS;
             for j in 0..HIST_CHUNKS {
-                let cell = cur[chip_base + adc::C + j].clone();
+                let cell = cur[chip_base + adc::C + j];
                 let pv = pub_copies[96 + i * HIST_CHUNKS + j];
                 let pv_expr: AB::Expr = pv.into();
-                builder.assert_eq(is_last_active.clone() * (cell - pv_expr), AB::Expr::ZERO);
+                builder.assert_eq(is_last_active * (cell - pv_expr), AB::Expr::ZERO);
             }
         }
     }
@@ -652,9 +638,7 @@ pub fn fips_pad_multi_block(message_bytes: &[u8]) -> Vec<[u64; 16]> {
 /// `IS_LAST_ACTIVE_ROUND` selector.
 ///
 /// Returns `None` for messages that don't fit in a single block.
-pub fn build_sha512_trace_short<F: Field + PrimeCharacteristicRing>(
-    message_bytes: &[u8],
-) -> Option<RowMajorMatrix<F>> {
+pub fn build_sha512_trace_short<F: Field + PrimeCharacteristicRing>(message_bytes: &[u8]) -> Option<RowMajorMatrix<F>> {
     let block = fips_pad_single_block(message_bytes)?;
     Some(build_compression_trace::<F>(&H_INITIAL, &block))
 }
@@ -856,10 +840,8 @@ pub fn build_compression_trace<F: Field + PrimeCharacteristicRing>(
         // Sub-fase 5.6.c.1.c — populate add-back chips in padding too.
         // The chips' internal arithmetic must hold even for rows whose
         // output is irrelevant to the digest.
-        let next_words = [
-            next_pad.a(), next_pad.b(), next_pad.c(), next_pad.d(),
-            next_pad.e(), next_pad.f(), next_pad.g(), next_pad.h(),
-        ];
+        let next_words =
+            [next_pad.a(), next_pad.b(), next_pad.c(), next_pad.d(), next_pad.e(), next_pad.f(), next_pad.g(), next_pad.h()];
         populate_add_back_chips::<F>(&mut values, row_off, initial_state, &next_words);
 
         padding_state = next_pad;
@@ -928,19 +910,10 @@ fn w_hist_lookup(w_full: &[u64; 80], t: usize) -> (u64, u64, u64, u64) {
 /// pre-history). For `t > NUM_ROUNDS`, slots referencing `W[idx]` with
 /// `idx >= NUM_ROUNDS` are also zero (matching `w_pad = 0` in the
 /// padding loop).
-fn populate_w_hist<F: Field + PrimeCharacteristicRing>(
-    values: &mut [F],
-    row_off: usize,
-    t: usize,
-    w_full: &[u64; 80],
-) {
+fn populate_w_hist<F: Field + PrimeCharacteristicRing>(values: &mut [F], row_off: usize, t: usize, w_full: &[u64; 80]) {
     for slot in 0..W_HIST_LEN {
         let signed_idx = t as isize - W_HIST_LEN as isize + slot as isize;
-        let w_value: u64 = if (0..NUM_ROUNDS as isize).contains(&signed_idx) {
-            w_full[signed_idx as usize]
-        } else {
-            0
-        };
+        let w_value: u64 = if (0..NUM_ROUNDS as isize).contains(&signed_idx) { w_full[signed_idx as usize] } else { 0 };
         let chunks = super::word64_add::decompose_u64(w_value);
         let off = row_off + W_HIST_START + slot * HIST_CHUNKS;
         for j in 0..HIST_CHUNKS {
@@ -1017,8 +990,8 @@ fn populate_add<F: Field + PrimeCharacteristicRing>(values: &mut [F], start: usi
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::constants::H_INITIAL;
+    use super::*;
     use p3_air::check_constraints;
     use p3_baby_bear::BabyBear;
     use p3_field::PrimeField32;
@@ -1038,10 +1011,7 @@ mod tests {
 
     /// Helper: derive digest_words from arbitrary IV (used by multi-block tests).
     fn digest_words_for_iv(iv: &[u64; 8], block: &[u64; 16]) -> [u64; 8] {
-        let final_state = super::super::compression::compute_compression(
-            super::super::round::Sha512State::new(*iv),
-            block,
-        );
+        let final_state = super::super::compression::compute_compression(super::super::round::Sha512State::new(*iv), block);
         final_state.0
     }
 
@@ -1064,10 +1034,7 @@ mod tests {
         check_constraints(&CompressionChip, &trace, &pv);
 
         // Verify last round's NEW_A matches what compute_compression produces.
-        let _final_state = super::super::compression::compute_compression(
-            super::super::round::Sha512State::new(initial),
-            &block,
-        );
+        let _final_state = super::super::compression::compute_compression(super::super::round::Sha512State::new(initial), &block);
         // NOTE: compute_compression also adds the working state back into the
         // initial state. The CompressionChip currently does NOT do that step
         // (transition constraints chain rounds, but the final add-back is
@@ -1232,10 +1199,7 @@ mod tests {
             assert!(msg.len() <= MAX_SINGLE_BLOCK_MESSAGE_BYTES, "test setup error");
             let block = fips_pad_single_block(msg).expect("padding fits");
             // Independently compute via compute_compression starting from H_INITIAL.
-            let final_state = super::super::compression::compute_compression(
-                super::super::round::Sha512State::new(H_INITIAL),
-                &block,
-            );
+            let final_state = super::super::compression::compute_compression(super::super::round::Sha512State::new(H_INITIAL), &block);
             // sha512(msg) for ≤ 111-byte input is exactly one compression block.
             let expected = sha512(msg);
             let mut actual = [0u8; 64];
@@ -1347,13 +1311,16 @@ mod tests {
         check_constraints(&CompressionChip, &trace, &pv);
 
         // Independent reference: compute the full digest in Rust.
-        let final_state = super::super::compression::compute_compression(
-            super::super::round::Sha512State::new(H_INITIAL),
-            &block,
-        );
+        let final_state = super::super::compression::compute_compression(super::super::round::Sha512State::new(H_INITIAL), &block);
         let expected = [
-            final_state.a(), final_state.b(), final_state.c(), final_state.d(),
-            final_state.e(), final_state.f(), final_state.g(), final_state.h(),
+            final_state.a(),
+            final_state.b(),
+            final_state.c(),
+            final_state.d(),
+            final_state.e(),
+            final_state.f(),
+            final_state.g(),
+            final_state.h(),
         ];
 
         let row_off = (NUM_ROUNDS - 1) * NUM_COLS; // row 79
@@ -1375,7 +1342,7 @@ mod tests {
         let mut trace = build_compression_trace::<BabyBear>(&H_INITIAL, &block);
 
         // Flip the lowest chunk of add_back[0].B at row 0.
-        let off = ADD_BACK_START + 0 * ADD_COLS + adc::B;
+        let off = ADD_BACK_START + adc::B;
         let cur = trace.values[off];
         trace.values[off] = BabyBear::from_u64(cur.as_canonical_u32() as u64 ^ 1);
 

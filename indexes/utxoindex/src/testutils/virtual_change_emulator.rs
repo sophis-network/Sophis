@@ -78,8 +78,8 @@ impl VirtualChangeEmulator {
             self.circulating_supply += new_circulating_supply_diff as CirculatingSupply;
         }
 
-        self.selected_parent_blue_score = rng.r#gen();
-        self.daa_score = rng.r#gen();
+        self.selected_parent_blue_score = rng.random();
+        self.daa_score = rng.random();
     }
 
     pub fn clear_virtual_state(&mut self) {

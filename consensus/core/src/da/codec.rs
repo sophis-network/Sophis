@@ -15,8 +15,8 @@
 use sha3::{Digest, Sha3_384};
 
 use super::{
-    CARRIER_FLAG_FRAGMENTED, CARRIER_FLAG_LAST, CARRIER_HEADER_LEN, CARRIER_MAGIC, CARRIER_PAYLOAD_HASH_LEN,
-    CarrierDomain, CarrierError, CarrierHeader, MAX_DATA_PER_CARRIER, MAX_FRAGMENTS, parse_carrier_header,
+    CARRIER_FLAG_FRAGMENTED, CARRIER_FLAG_LAST, CARRIER_HEADER_LEN, CARRIER_MAGIC, CARRIER_PAYLOAD_HASH_LEN, CarrierDomain,
+    CarrierError, CarrierHeader, MAX_DATA_PER_CARRIER, MAX_FRAGMENTS, parse_carrier_header,
 };
 
 /// Computes `payload_id = SHA3-384(script[0..(64 + data_len)])`.
@@ -254,8 +254,7 @@ pub fn parse_and_reassemble(scripts: &[&[u8]]) -> Result<Vec<u8>, ReassembleErro
         let h = parse_carrier_header(s).map_err(|_| ReassembleError::BundleHashMismatch)?;
         owned.push((h, *s));
     }
-    let inputs: Vec<ReassembleInput<'_>> =
-        owned.into_iter().map(|(header, script)| ReassembleInput { header, script }).collect();
+    let inputs: Vec<ReassembleInput<'_>> = owned.into_iter().map(|(header, script)| ReassembleInput { header, script }).collect();
     reassemble(&inputs)
 }
 
@@ -266,18 +265,16 @@ mod tests {
     #[test]
     fn sha3_384_known_vector_empty() {
         // FIPS 202 test vector for SHA3-384("")
-        let expected: [u8; 48] = hex_decode_48(
-            "0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004",
-        );
+        let expected: [u8; 48] =
+            hex_decode_48("0c63a75b845e4f7d01107d852e4c2485c51a50aaaa94fc61995e71bbee983a2ac3713831264adb47fb6bd1e058d5f004");
         assert_eq!(bundle_id_of(b""), expected);
     }
 
     #[test]
     fn sha3_384_known_vector_abc() {
         // FIPS 202 test vector for SHA3-384("abc")
-        let expected: [u8; 48] = hex_decode_48(
-            "ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25",
-        );
+        let expected: [u8; 48] =
+            hex_decode_48("ec01498288516fc926459f58e2c6ad8df9b473cb0fc08c2596da7cf0e49be4b298d88cea927ac7f539f1edf228376d25");
         assert_eq!(bundle_id_of(b"abc"), expected);
     }
 
@@ -415,10 +412,7 @@ mod tests {
         // Fake count=2 to expose the bundle_id mismatch path. Use raw struct construction.
         h_b.fragment_count = 2;
         let inputs = [
-            ReassembleInput {
-                header: CarrierHeader { fragment_count: 2, ..h_a.clone() },
-                script: &script_a,
-            },
+            ReassembleInput { header: CarrierHeader { fragment_count: 2, ..h_a.clone() }, script: &script_a },
             ReassembleInput { header: h_b, script: &script_b },
         ];
         match reassemble(&inputs) {
@@ -435,10 +429,8 @@ mod tests {
         // Same script but with header claiming count=3
         let mut h_fake = h_real.clone();
         h_fake.fragment_count = 3;
-        let inputs = [
-            ReassembleInput { header: h_real, script: &script_real },
-            ReassembleInput { header: h_fake, script: &script_real },
-        ];
+        let inputs =
+            [ReassembleInput { header: h_real, script: &script_real }, ReassembleInput { header: h_fake, script: &script_real }];
         match reassemble(&inputs) {
             Err(ReassembleError::FragmentCountMismatch { first: 1, found: 3 }) => {}
             other => panic!("expected FragmentCountMismatch, got {other:?}"),
@@ -517,12 +509,12 @@ mod tests {
         // return a Result (never panic), regardless of how malformed the
         // input is.
         use rand::Rng as _;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..1_000 {
-            let n_fragments = rng.gen_range(1..=4);
+            let n_fragments = rng.random_range(1..=4);
             let mut scripts: Vec<Vec<u8>> = Vec::new();
             for _ in 0..n_fragments {
-                let len = rng.gen_range(0..200);
+                let len = rng.random_range(0..200);
                 let mut bytes = vec![0u8; len];
                 rng.fill(&mut bytes[..]);
                 scripts.push(bytes);
@@ -538,15 +530,15 @@ mod tests {
         // For every random blob within MAX_BUNDLE_BYTES, encoding + parsing
         // + reassembling must recover the original bytes.
         use rand::Rng as _;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..200 {
             // Keep blob sizes modest so the test stays fast (2000 bytes).
-            let len = rng.gen_range(0..=2_000usize);
+            let len = rng.random_range(0..=2_000usize);
             let mut blob = vec![0u8; len];
             rng.fill(&mut blob[..]);
 
             // Random domain choice.
-            let domain = match rng.gen_range(0..4) {
+            let domain = match rng.random_range(0..4) {
                 0 => None,
                 1 => Some(CarrierDomain::Rollup),
                 2 => Some(CarrierDomain::Oracle),
@@ -566,10 +558,10 @@ mod tests {
         // a hit would indicate a hashing bug.
         use rand::Rng as _;
         use std::collections::HashSet;
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut seen: HashSet<[u8; 48]> = HashSet::new();
         for _ in 0..1_000 {
-            let len = rng.gen_range(64..200);
+            let len = rng.random_range(64..200);
             let mut bytes = vec![0u8; len];
             rng.fill(&mut bytes[..]);
             let pid = payload_id(&bytes);

@@ -3,7 +3,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 use clap::{Arg, ArgAction, Command};
 use itertools::Itertools;
 use parking_lot::Mutex;
-use rand::{Rng, RngCore, thread_rng};
+use rand::{Rng, RngCore, rng};
 use rayon::prelude::*;
 use sophis_addresses::{Address, Prefix, Version};
 use sophis_consensus_core::{
@@ -191,7 +191,7 @@ impl DilithiumKey {
     /// Generate a new random key
     fn generate(prefix: Prefix) -> Self {
         let mut seed = [0u8; 32];
-        thread_rng().fill_bytes(&mut seed);
+        rng().fill_bytes(&mut seed);
         let address = Address::new(prefix, ADDRESS_VERSION, &seed);
         Self { seed, address }
     }
@@ -591,7 +591,7 @@ fn generate_tx(
         .map(|_| TransactionOutput { value: send_amount / num_outs, script_public_key: script_public_key.clone() })
         .collect_vec();
     let mut data = vec![0u8; payload_size];
-    rand::thread_rng().fill_bytes(&mut data);
+    rand::rng().fill_bytes(&mut data);
     // NOTE: signature_script is empty — full Dilithium signing integration pending.
     Transaction::new_non_finalized(TX_VERSION, inputs, outputs, 0, SUBNETWORK_ID_NATIVE, 0, data)
 }
@@ -607,7 +607,7 @@ fn select_utxos(
     const MAX_UTXOS: usize = 8;
     let mut selected_amount: u64 = 0;
     let mut selected = Vec::new();
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     while next_available_utxo_index < &mut utxos.len() {
         let (outpoint, entry) = utxos[*next_available_utxo_index].clone();
@@ -616,7 +616,7 @@ fn select_utxos(
 
         let fee = required_fee(selected.len(), num_outs);
         let priority_fee = if tx_config.randomize_fee && tx_config.priority_fee > 0 {
-            rng.gen_range(0..tx_config.priority_fee)
+            rng.random_range(0..tx_config.priority_fee)
         } else {
             tx_config.priority_fee
         };

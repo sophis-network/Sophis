@@ -16,6 +16,6 @@ impl _CoinFlip {
     }
 
     pub fn _flip(self) -> bool {
-        rand::thread_rng().gen_bool(self.p)
+        rand::rng().random_bool(self.p)
     }
 }
