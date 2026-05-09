@@ -32,7 +32,6 @@ derive_builder.workspace = true
 js-sys.workspace = true
 futures.workspace = true
 hex.workspace = true
-secp256k1.workspace = true
 serde_repr.workspace = true
 serde-value.workspace = true
 serde.workspace = true

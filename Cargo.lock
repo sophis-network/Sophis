@@ -1963,6 +1963,7 @@ dependencies = [
  "sophis-notify",
  "sophis-rpc-core",
  "sophis-txscript",
+ "sophis-wallet-pskt",
  "tokio",
 ]
 
@@ -8340,7 +8341,7 @@ dependencies = [
  "futures",
  "hex",
  "js-sys",
- "secp256k1",
+ "libcrux-ml-dsa",
  "separator",
  "serde",
  "serde-value",
