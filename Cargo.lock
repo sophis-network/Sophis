@@ -8287,6 +8287,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sophis-wallet-descriptors"
+version = "1.1.0"
+dependencies = [
+ "hex",
+ "libcrux-ml-dsa",
+ "sha3",
+ "sophis-consensus-core",
+ "sophis-txscript",
+ "sophis-wallet-pskt",
+ "thiserror 1.0.64",
+]
+
+[[package]]
 name = "sophis-wallet-keys"
 version = "1.1.0"
 dependencies = [
