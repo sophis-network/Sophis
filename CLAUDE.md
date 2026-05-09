@@ -19,8 +19,13 @@ cargo test --workspace --lib            # all lib tests (fast, use this most)
 cargo test -p sophis-consensus --lib    # single crate
 cargo test -p sophis-consensus test_name  # single test by name
 
-# Clippy (included in ./check)
+# Clippy — local convenience (./check uses this)
 cargo clippy --workspace --tests --benches
+
+# Clippy — CI-strict (matches Lints job; will fail on any warning)
+cargo clippy --workspace --tests --benches --examples \
+    --exclude sophis-rollup-host --exclude rollup-node \
+    -- -D warnings
 
 # Custom lint (dylint — requires cargo-dylint + dylint-link)
 cargo sophis-lint
@@ -28,7 +33,7 @@ cargo sophis-lint
 
 **Build environment (Windows):** Code must be at `C:\Projetos\sophis`. Do NOT use paths under Google Drive — Rust hard links are unsupported there and break builds. Use Unix shell syntax (bash) for commands even on Windows.
 
-**Build dependencies:** Rust 1.88+, MSVC toolchain, LLVM/Clang, `protoc`, `cmake` (required by RandomX).
+**Build dependencies:** Rust 1.88+ (workspace MSRV; Lints CI job pins 1.93.0), MSVC toolchain, LLVM/Clang, `protoc`, `cmake` (required by RandomX).
 
 ## Architecture
 
@@ -134,8 +139,21 @@ Active development uses `phase3-stable-v0.X.Y`. Create feature branches from the
 - `SCRIPT_VERSION_CONTRACT = 1` and `SCRIPT_VERSION_TOKEN = 2` are consensus constants — changing them requires a hard fork.
 - `max_block_mass` for simnet/devnet is intentionally 20× mainnet to support oversized Dilithium test transactions.
 - `cargo test --workspace --lib` should always pass with zero failures before any commit. The `daemon_integration_tests` binary test has a known pre-existing race condition and is excluded from the required pass.
-- **sVM `Capability` enum:** only `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`. Never re-add `VerifySchnorr`.
+- **sVM `Capability` enum:** `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`, `VerifyRisc0Proof` (Phase 3 ZK-Rollup), `VerifyPlonky3Proof` (Phase 5 Oracle), `VerifyDataAvailability` (Phase 6 self-DA). Never re-add `VerifySchnorr`. The `VerifyRisc0Proof` path is feature-gated by `svm-zk` — production nodes MUST build with `--features svm-zk` or they will panic on rollup state-update contracts.
 - **WASM memory:** contracts must declare `maximum`; validator rejects unbounded or > 256 pages (16 MiB).
 - **`UpgradePolicy::is_valid()`** is called in `validate_contract_deploy()`. For `MultisigTimelock`: `threshold > 0`, `threshold <= keys.len()`, `keys.len() <= 16`.
 - When adding a new host function: (1) add to `HostCrypto` trait, (2) register in linker in `host.rs`, (3) create matching `Capability`, (4) expose in `Env` in the SDK, (5) add Kani harness.
 - `BRIDGE_VAULT_VERSION=3` and `BRIDGE_CLAIM_VERSION=4` are protocol constants — changing them requires a hard fork.
+
+## CI invariants (2026-05-08)
+
+The `Tests` workflow has 10 jobs. Local validation must match CI strictness, not just `./check`.
+
+- **Lints job uses `-D warnings`.** `./check` does not. To match CI locally: see "CI-strict" clippy command above. Without `-D warnings`, deprecation warnings (e.g. `rand 0.9` rename) silently pass locally and break CI.
+- **Workspace clippy allowlist** in `[workspace.lints.clippy]` permits 7 categories tailored for STARK/AIR code (`needless_range_loop`, `manual_memcpy`, `inconsistent_digit_grouping`, `assertions_on_constants`, `doc_overindented_list_items`, `empty_docs`, `uninlined_format_args`). Each is justified inline. Do not remove without checking what breaks in `oracle/host`.
+- **New crates in `oracle/*` MUST add `[lints] workspace = true`** to their `Cargo.toml`. Without this, the workspace allowlist does not apply to them and CI strict clippy will reject the new crate's STARK/AIR patterns.
+- **wasm32 builds require `getrandom_backend="wasm_js"` cfg.** Already set in `.cargo/config.toml`. `consensus/core/Cargo.toml` carries a target-specific `getrandom v0.3 features=["wasm_js"]` dep that propagates feature unification to every wasm32 build graph that depends on consensus-core (= all of them).
+- **`wasm/build-release` script** sets `RUSTFLAGS=` directly, which overrides `.cargo/config.toml` rustflags. The cfg is duplicated there; remember if adding more wasm-pack invocations.
+- **`Test Suite (svm-zk)` is a separate job** that runs `cargo nextest run -p sophis-svm-host --features risc0` in isolation. Stacking it onto the workspace test run exceeds the GitHub runner's ~14GB free disk (`librocksdb.a` static archive step fails with "No space left on device").
+- **kip-10 example** in `crypto/txscript/examples/kip-10.rs` is gated behind `legacy-schnorr-example` feature (never enabled by default). The example uses `OpCheckSig`/`secp256k1::Keypair` and is incompatible with Dilithium-only Sophis. Do not enable the feature unless rewriting the example for Dilithium.
+- **`Build Linux Release` job** depends on the `musl-toolchain-v1` GitHub release (asset `x-tools.tar.zst`). Re-run `gh workflow run musl-toolchain.yaml` only if `musl-toolchain/preset.sh` changes.
