@@ -38,6 +38,7 @@ Future additions (next session, maintainer work):
 
 - `templates/SessionKey.template.rs` — session keys pattern, 24h default expiry
 - `templates/Batching.template.rs` — batched operations pattern
+- `templates/Vault.template.rs` — time-locked vault pattern (Roadmap K5; AA template with timelock + cancel-key recovery; pairs with Recovery template for full PQC recovery story)
 - `templates/Paymaster.template.rs.deferred` — paymaster pattern, marked v2 (NOT v1)
 - `INTEGRATION.md` — how AA composes with PSBS (K1), wallet descriptors (K3), Phase 6 DA
 - `TEST_PLAN.md` — what to test during the 6+ month pre-freeze testnet
