@@ -1,6 +1,5 @@
 //! PSKT output structure.
 
-use crate::pskt::KeySource;
 use crate::utils::combine_if_no_conflicts;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
@@ -19,9 +18,6 @@ pub struct Output {
     #[serde(with = "sophis_utils::serde_bytes_optional")]
     /// The redeem script for this output.
     pub redeem_script: Option<Vec<u8>>,
-    /// A map from public keys needed to spend this output to their
-    /// corresponding master key fingerprints and derivation paths.
-    pub bip32_derivations: BTreeMap<secp256k1::PublicKey, Option<KeySource>>,
     /// Proprietary key-value pairs for this output.
     pub proprietaries: BTreeMap<String, serde_value::Value>,
     #[serde(flatten)]
@@ -47,7 +43,6 @@ impl Add for Output {
                 return Err(CombineError::NotCompatibleRedeemScripts { this: script_left, that: script_right });
             }
         };
-        self.bip32_derivations = combine_if_no_conflicts(self.bip32_derivations, rhs.bip32_derivations)?;
         self.proprietaries =
             combine_if_no_conflicts(self.proprietaries, rhs.proprietaries).map_err(CombineError::NotCompatibleProprietary)?;
         self.unknowns = combine_if_no_conflicts(self.unknowns, rhs.unknowns).map_err(CombineError::NotCompatibleUnknownField)?;
@@ -76,8 +71,6 @@ pub enum CombineError {
     #[error("Two different redeem scripts detected")]
     NotCompatibleRedeemScripts { this: Vec<u8>, that: Vec<u8> },
 
-    #[error("Two different derivations for the same key")]
-    NotCompatibleBip32Derivations(#[from] crate::utils::Error<secp256k1::PublicKey, Option<KeySource>>),
     #[error("Two different unknown field values")]
     NotCompatibleUnknownField(crate::utils::Error<String, serde_value::Value>),
     #[error("Two different proprietary values")]

@@ -23,7 +23,7 @@ pub use sophis_wallet_pskt::bundle::Bundle;
 use sophis_wallet_pskt::bundle::{script_sig_to_address, unlock_utxo_outputs_as_batch_transaction_pskb};
 use sophis_wallet_pskt::prelude::KeySource;
 use sophis_wallet_pskt::prelude::lock_script_sig_templating_bytes;
-use sophis_wallet_pskt::prelude::{Finalizer, Inner, SignInputOk, Signature, Signer};
+use sophis_wallet_pskt::prelude::{Finalizer, Inner, SignInputOk, Signer};
 pub use sophis_wallet_pskt::pskt::{Creator, PSKT};
 use std::iter;
 
@@ -38,6 +38,11 @@ pub struct PSKBSigner {
     inner: Arc<PSKBSignerInner>,
 }
 
+// Schnorr-era signing path (`public_key` / `sign_schnorr`) is being replaced by
+// PSBS Dilithium-aware flow (see `wallet/pskt/DESIGN.md`, SIP-1, K1.4).
+// Methods below are intentionally retained but stubbed at call sites until the
+// new flow lands; suppress dead-code warnings until then.
+#[allow(dead_code)]
 impl PSKBSigner {
     pub fn new(account: Arc<dyn Account>, keydata: PrvKeyData, payment_secret: Option<Secret>) -> Self {
         Self { inner: Arc::new(PSKBSignerInner { keydata, account, payment_secret, keys: Mutex::new(AHashMap::new()) }) }
@@ -229,11 +234,14 @@ pub async fn pskb_signer_for_address(
                                 current_addresses.get(input_idx).ok_or_else(|| format!("No address found for input {}", input_idx))?
                             };
 
-                            let pub_key = signer.public_key(address).map_err(|e| format!("Failed to get public key: {}", e))?;
-
-                            let signature = signer.sign_schnorr(address, msg).map_err(|e| format!("Failed to sign: {}", e))?;
-
-                            Ok(SignInputOk { signature: Signature::Schnorr(signature), pub_key, key_source: key_source.clone() })
+                            // PSBS Dilithium-aware signing replaces this Schnorr path.
+                            // See `wallet/pskt/DESIGN.md` and SIP-1. Until the new
+                            // signing flow lands (K1.4: dilithium-wallet pskt sign),
+                            // this leg of `wallet/core` PSKB is stubbed. References
+                            // are silenced via `&` to avoid moving captured Arc/Address.
+                            let _ = (&signer, address, &msg, &key_source);
+                            Err::<SignInputOk, String>("PSKB Schnorr signing has been removed — use PSBS Dilithium via dilithium-wallet (SIP-1)".to_string())?;
+                            unreachable!()
                         })
                         .collect()
                 })
@@ -257,7 +265,11 @@ pub fn finalize_pskt_one_or_more_sig_and_redeem_script(pskt: PSKT<Finalizer>) ->
                     .partial_sigs
                     .clone()
                     .into_iter()
-                    .flat_map(|(_, signature)| iter::once(OpData65).chain(signature.into_bytes()).chain([input.sighash_type.to_u8()]))
+                    // PSBS Dilithium-aware finalization will replace this.
+                    // `signature.into_bytes()` was Schnorr-era (64 B); Dilithium
+                    // signatures are 2420 B and use OpCheckSigDilithium opcode 0xc4.
+                    // See `wallet/pskt/DESIGN.md` §5.5 (Finalizer role) and SIP-1.
+                    .flat_map(|(_, signature)| iter::once(OpData65).chain(signature.raw_bytes().to_vec()).chain([input.sighash_type.to_u8()]))
                     .collect();
 
                 signatures

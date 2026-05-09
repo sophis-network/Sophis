@@ -1,6 +1,6 @@
 //! PSKT input structure.
 
-use crate::pskt::{KeySource, PartialSigs};
+use crate::pskt::PartialSigs;
 use crate::utils::{Error as CombineMapErr, combine_if_no_conflicts};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
@@ -40,9 +40,6 @@ pub struct Input {
     pub redeem_script: Option<Vec<u8>>,
     #[builder(setter(strip_option))]
     pub sig_op_count: Option<u8>,
-    /// A map from public keys needed to sign this input to their corresponding
-    /// master key fingerprints and derivation paths.
-    pub bip32_derivations: BTreeMap<secp256k1::PublicKey, Option<KeySource>>,
     #[serde(with = "sophis_utils::serde_bytes_optional")]
     /// The finalized, fully-constructed scriptSig with signatures and any other
     /// scripts necessary for this input to pass validation.
@@ -69,7 +66,6 @@ impl Default for Input {
             sighash_type: SIG_HASH_ALL,
             redeem_script: Default::default(),
             sig_op_count: Default::default(),
-            bip32_derivations: Default::default(),
             final_script_sig: Default::default(),
             hidden: Default::default(),
             proprietaries: Default::default(),
@@ -105,7 +101,13 @@ impl Add for Input {
         // todo discuss merging. if sequence is equal - combine, otherwise use input which has bigger sequence number as is
         self.sequence = self.sequence.max(rhs.sequence);
         self.min_time = self.min_time.max(rhs.min_time);
-        self.partial_sigs.extend(rhs.partial_sigs);
+        // Merge partial_sigs deduplicating by pubkey: BTreeMap semantics on a Vec.
+        // First sig wins on conflict (lhs is authoritative); see PSBS DESIGN §5.4.
+        for (pubkey, signature) in rhs.partial_sigs {
+            if !self.partial_sigs.iter().any(|(existing_pk, _)| existing_pk == &pubkey) {
+                self.partial_sigs.push((pubkey, signature));
+            }
+        }
         // todo combine sighash? or always use sighash all since all signatures must be passed after completion of construction step
         // self.sighash_type
 
@@ -128,7 +130,6 @@ impl Add for Input {
             }
         };
 
-        self.bip32_derivations = combine_if_no_conflicts(self.bip32_derivations, rhs.bip32_derivations)?;
         self.proprietaries =
             combine_if_no_conflicts(self.proprietaries, rhs.proprietaries).map_err(CombineError::NotCompatibleProprietary)?;
         self.unknowns = combine_if_no_conflicts(self.unknowns, rhs.unknowns).map_err(CombineError::NotCompatibleUnknownField)?;
@@ -159,8 +160,6 @@ pub enum CombineError {
     #[error("Two different utxos detected")]
     NotCompatibleUtxos { this: UtxoEntry, that: UtxoEntry },
 
-    #[error("Two different derivations for the same key")]
-    NotCompatibleBip32Derivations(#[from] CombineMapErr<secp256k1::PublicKey, Option<KeySource>>),
     #[error("Two different unknown field values")]
     NotCompatibleUnknownField(CombineMapErr<String, serde_value::Value>),
     #[error("Two different proprietary values")]

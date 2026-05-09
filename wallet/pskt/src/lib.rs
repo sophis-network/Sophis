@@ -6,6 +6,7 @@
 //!
 
 pub mod bundle;
+pub mod crypto;
 pub mod error;
 pub mod global;
 pub mod input;

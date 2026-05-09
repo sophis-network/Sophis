@@ -1,16 +1,11 @@
 //! Global PSKT data.
 
-use crate::pskt::{KeySource, Version};
+use crate::pskt::Version;
 use crate::utils::combine_if_no_conflicts;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use sophis_consensus_core::tx::TransactionId;
-use std::{
-    collections::{BTreeMap, btree_map},
-    ops::Add,
-};
-
-type Xpub = sophis_bip32::ExtendedPublicKey<secp256k1::PublicKey>;
+use std::{collections::BTreeMap, ops::Add};
 
 #[derive(Debug, Clone, Builder, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,8 +26,6 @@ pub struct Global {
     pub input_count: usize,
     /// The number of outputs in this PSKT.
     pub output_count: usize,
-    /// A map from xpub to the used key fingerprint and derivation path as defined by BIP 32.
-    pub xpubs: BTreeMap<Xpub, KeySource>,
     pub id: Option<TransactionId>,
     /// Proprietary key-value pairs for this output.
     pub proprietaries: BTreeMap<String, serde_value::Value>,
@@ -63,40 +56,6 @@ impl Add for Global {
         self.outputs_modifiable &= rhs.outputs_modifiable;
         self.input_count = self.input_count.max(rhs.input_count);
         self.output_count = self.output_count.max(rhs.output_count);
-        // BIP 174: The Combiner must remove any duplicate key-value pairs, in accordance with
-        //          the specification. It can pick arbitrarily when conflicts occur.
-
-        // Merging xpubs
-        for (xpub, KeySource { key_fingerprint: fingerprint1, derivation_path: derivation1 }) in rhs.xpubs {
-            match self.xpubs.entry(xpub) {
-                btree_map::Entry::Vacant(entry) => {
-                    entry.insert(KeySource::new(fingerprint1, derivation1));
-                }
-                btree_map::Entry::Occupied(mut entry) => {
-                    // Here in case of the conflict we select the version with algorithm:
-                    // 1) if everything is equal we do nothing
-                    // 2) report an error if
-                    //    - derivation paths are equal and fingerprints are not
-                    //    - derivation paths are of the same length, but not equal
-                    //    - derivation paths has different length, but the shorter one
-                    //      is not the strict suffix of the longer one
-                    // 3) choose longest derivation otherwise
-
-                    let KeySource { key_fingerprint: fingerprint2, derivation_path: derivation2 } = entry.get().clone();
-
-                    if (derivation1 == derivation2 && fingerprint1 == fingerprint2)
-                        || (derivation1.len() < derivation2.len()
-                            && derivation1.as_ref() == &derivation2.as_ref()[derivation2.len() - derivation1.len()..])
-                    {
-                        continue;
-                    } else if derivation2.as_ref() == &derivation1.as_ref()[derivation1.len() - derivation2.len()..] {
-                        entry.insert(KeySource::new(fingerprint1, derivation1));
-                        continue;
-                    }
-                    return Err(CombineError::InconsistentKeySources(entry.key().clone()));
-                }
-            }
-        }
         self.id = match (self.id, rhs.id) {
             (Some(lhs), Some(rhs)) if lhs != rhs => return Err(CombineError::TransactionIdMismatch { this: lhs, that: rhs }),
             (Some(v), _) | (_, Some(v)) => Some(v),
@@ -137,7 +96,6 @@ impl Default for Global {
             outputs_modifiable: false,
             input_count: 0,
             output_count: 0,
-            xpubs: Default::default(),
             id: None,
             proprietaries: Default::default(),
             unknowns: Default::default(),
@@ -178,10 +136,6 @@ pub enum CombineError {
         /// Into a PSKT with `that` tx id.
         that: TransactionId,
     },
-
-    #[error("combining PSKT, key-source conflict for xpub {0}")]
-    /// Xpubs have inconsistent key sources.
-    InconsistentKeySources(Xpub),
 
     #[error("Two different unknown field values")]
     NotCompatibleUnknownField(crate::utils::Error<String, serde_value::Value>),

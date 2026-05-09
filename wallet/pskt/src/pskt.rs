@@ -4,10 +4,11 @@
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sophis_bip32::{DerivationPath, KeyFingerprint, secp256k1};
+use sophis_bip32::{DerivationPath, KeyFingerprint};
 use sophis_consensus_core::{Hash, hashing::sighash::SigHashReusedValuesUnsync};
-use std::{collections::BTreeMap, fmt::Display, fmt::Formatter, future::Future, marker::PhantomData, ops::Deref};
+use std::{fmt::Display, fmt::Formatter, future::Future, marker::PhantomData, ops::Deref};
 
+pub use crate::crypto::{DilithiumPubKey, PartialSig, PartialSigs, Signature};
 pub use crate::error::Error;
 pub use crate::global::{Global, GlobalBuilder};
 pub use crate::input::{Input, InputBuilder};
@@ -66,23 +67,9 @@ impl KeySource {
     }
 }
 
-pub type PartialSigs = BTreeMap<secp256k1::PublicKey, Signature>;
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Copy, Clone)]
-#[serde(rename_all = "camelCase")]
-pub enum Signature {
-    ECDSA(secp256k1::ecdsa::Signature),
-    Schnorr(secp256k1::schnorr::Signature),
-}
-
-impl Signature {
-    pub fn into_bytes(self) -> [u8; 64] {
-        match self {
-            Signature::ECDSA(s) => s.serialize_compact(),
-            Signature::Schnorr(s) => s.serialize(),
-        }
-    }
-}
+// `PartialSigs`, `PartialSig`, `Signature`, and `DilithiumPubKey` live in the
+// `crypto` module — Dilithium ML-DSA-44 only (PSBS spec D3/D4). They are
+// re-exported above for backward source-level compatibility.
 
 ///
 /// A Partially Signed Sophis Transaction (PSKT) is a standardized format
@@ -295,9 +282,8 @@ impl PSKT<Signer> {
         let unsigned_tx = self.unsigned_tx();
         let sighashes = self.inputs.iter().map(|input| input.sighash_type).collect();
         self.inner_pskt.inputs.iter_mut().zip(sign_fn(unsigned_tx, sighashes)?).for_each(
-            |(input, SignInputOk { signature, pub_key, key_source })| {
-                input.bip32_derivations.insert(pub_key, key_source);
-                input.partial_sigs.insert(pub_key, signature);
+            |(input, SignInputOk { signature, pub_key, key_source: _ })| {
+                input.partial_sigs.push((pub_key, signature));
             },
         );
 
@@ -313,9 +299,8 @@ impl PSKT<Signer> {
         let unsigned_tx = self.unsigned_tx();
         let sighashes = self.inputs.iter().map(|input| input.sighash_type).collect();
         self.inner_pskt.inputs.iter_mut().zip(sign_fn(unsigned_tx, sighashes).await?).for_each(
-            |(input, SignInputOk { signature, pub_key, key_source })| {
-                input.bip32_derivations.insert(pub_key, key_source);
-                input.partial_sigs.insert(pub_key, signature);
+            |(input, SignInputOk { signature, pub_key, key_source: _ })| {
+                input.partial_sigs.push((pub_key, signature));
             },
         );
         Ok(self)
@@ -352,7 +337,7 @@ impl PSKT<Signer> {
 #[serde(rename_all = "camelCase")]
 pub struct SignInputOk {
     pub signature: Signature,
-    pub pub_key: secp256k1::PublicKey,
+    pub pub_key: DilithiumPubKey,
     pub key_source: Option<KeySource>,
 }
 
