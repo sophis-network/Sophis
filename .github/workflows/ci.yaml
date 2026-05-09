@@ -167,14 +167,11 @@ jobs:
         env:
           RISC0_DEV_MODE: "1"
 
-      # Exercise the sophis-svm-host risc0 verifier path, which is feature-
-      # gated since the "Caminho 2" decision (Windows MSVC cannot compile
-      # risc0-circuit-*-sys). The lite build is validated separately by the
-      # check-sophisd-lite job.
-      - name: Run cargo test of sophis-svm-host with svm-zk feature
-        run: cargo nextest run -p sophis-svm-host --features risc0
-        env:
-          RISC0_DEV_MODE: "1"
+      # The sophis-svm-host risc0 verifier path is exercised in the
+      # dedicated test-svm-zk job below. Keeping it inside this `test`
+      # job in addition to `cargo nextest run --workspace` exceeded the
+      # GitHub runner's 14GB free-disk budget once `target/` had been
+      # populated by the previous step.
 
       # Doc tests + workspace cargo doc removed: exceed the GitHub runner
       # disk/time budget after the Phase 3 ZK-Rollup + Phase 4 Bridge crates
@@ -187,6 +184,64 @@ jobs:
 
       - name: Run cargo doc tests with features=no-asm on sophis-hashes
         run: cargo test --doc -p sophis-hashes --features=no-asm
+
+  # ── sVM host risc0 verifier path ──────────────────────────────────────
+  # Validates `cargo test -p sophis-svm-host --features risc0`, which
+  # exercises the consensus-critical risc0 STARK verifier used by Phase 3
+  # ZK-Rollup state-update contracts (see sophis-svm-host/src/lib.rs
+  # "Caminho 2" rationale). Split into its own job: compiling risc0-
+  # circuit-*-sys + librocksdb-sys on top of an already-bloated `target/`
+  # (after `cargo nextest run --workspace`) exceeds GitHub's ~14GB free
+  # disk budget. Isolated runner = fresh disk + parallel wallclock.
+  test-svm-zk:
+    name: Test Suite (svm-zk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache risc0 toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.risc0
+          key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-risc0-
+
+      - name: Install risc0 toolchain via rzup
+        run: |
+          curl -fsSL https://risczero.com/install | bash
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          $HOME/.risc0/bin/rzup install rust
+          $HOME/.risc0/bin/rzup install cpp
+          $HOME/.risc0/bin/rzup install risc0-groth16
+
+      - name: Set up cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Distinct cache key from the main `test` job — build graph is
+          # different (single package + risc0 feature gate, not full
+          # workspace), so a shared cache would cause unnecessary
+          # invalidations.
+          key: svm-zk
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run cargo test of sophis-svm-host with svm-zk feature
+        run: cargo nextest run -p sophis-svm-host --features risc0
+        env:
+          RISC0_DEV_MODE: "1"
 
       # kip-10 example removed: it uses OpCheckSig (Schnorr), which is
       # disabled in Sophis (Dilithium-only chain per CLAUDE.md). TODO:
