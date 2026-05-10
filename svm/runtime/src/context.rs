@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use sophis_svm_core::{Capability, ContractManifest, Gas, GasConfig};
 
-use crate::host::{HostCrypto, HostDa, StubDa};
+use crate::host::{HostAlt, HostCrypto, HostDa, StubAlt, StubDa};
 
 /// Data threaded through the Wasmtime Store during a single contract execution.
 /// Host functions receive a `Caller<ExecutionContext>` and read/write this.
@@ -22,6 +22,10 @@ pub struct ExecutionContext {
     /// `SophisDaBackend` (bound to `DbDaStore` + sink blue score) at the
     /// transaction-validator layer.
     pub da: Arc<dyn HostDa>,
+    /// L1 — Address Lookup Table backend. Stub by default; consensus
+    /// injects `SophisAltBackend` (bound to `DbAltStore`) at the
+    /// transaction-validator layer. Sub-fase L1.4.
+    pub alt: Arc<dyn HostAlt>,
 }
 
 impl ExecutionContext {
@@ -33,7 +37,17 @@ impl ExecutionContext {
         gas_config: GasConfig,
         crypto: Arc<dyn HostCrypto>,
     ) -> Self {
-        Self { input_utxos, output_utxos, block_height, gas_used: Gas::default(), gas_config, manifest, crypto, da: Arc::new(StubDa) }
+        Self {
+            input_utxos,
+            output_utxos,
+            block_height,
+            gas_used: Gas::default(),
+            gas_config,
+            manifest,
+            crypto,
+            da: Arc::new(StubDa),
+            alt: Arc::new(StubAlt),
+        }
     }
 
     /// Phase 6 builder — variant of `new` that injects a real DA backend.
@@ -48,7 +62,32 @@ impl ExecutionContext {
         crypto: Arc<dyn HostCrypto>,
         da: Arc<dyn HostDa>,
     ) -> Self {
-        Self { input_utxos, output_utxos, block_height, gas_used: Gas::default(), gas_config, manifest, crypto, da }
+        Self {
+            input_utxos,
+            output_utxos,
+            block_height,
+            gas_used: Gas::default(),
+            gas_config,
+            manifest,
+            crypto,
+            da,
+            alt: Arc::new(StubAlt),
+        }
+    }
+
+    /// L1 builder — `new_with_da` plus an ALT backend. Production path; tests
+    /// stick with the default `StubAlt` via `new` / `new_with_da`.
+    pub fn new_with_da_and_alt(
+        input_utxos: Vec<Vec<u8>>,
+        output_utxos: Vec<Vec<u8>>,
+        block_height: u64,
+        manifest: ContractManifest,
+        gas_config: GasConfig,
+        crypto: Arc<dyn HostCrypto>,
+        da: Arc<dyn HostDa>,
+        alt: Arc<dyn HostAlt>,
+    ) -> Self {
+        Self { input_utxos, output_utxos, block_height, gas_used: Gas::default(), gas_config, manifest, crypto, da, alt }
     }
 
     pub fn check_capability(&self, cap: &Capability) -> Result<(), sophis_svm_core::SvmError> {

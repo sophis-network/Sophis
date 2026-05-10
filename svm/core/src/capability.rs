@@ -27,6 +27,13 @@ pub enum Capability {
     /// to a journal. `(payload_or_bundle_id[48], min_confirmations, query_kind)`.
     /// See `oracle/docs/PHASE6_DA_DESIGN.md` §7.
     VerifyDataAvailability,
+    /// L1 — resolve an Address Lookup Table reference to its underlying
+    /// `ScriptPublicKey`. `(handle[6], index)`; the host returns the
+    /// resolved bytes via the standard sVM linear-memory ABI. Required by
+    /// any sVM contract that wants to interpret v=1 transaction outputs
+    /// that use ALT references rather than inline scripts.
+    /// See `docs/L1_ALT_DESIGN.md` §8 (sVM integration).
+    ResolveAlt,
 }
 
 impl std::fmt::Display for Capability {
@@ -40,6 +47,7 @@ impl std::fmt::Display for Capability {
             Self::VerifyRisc0Proof => write!(f, "VerifyRisc0Proof"),
             Self::VerifyPlonky3Proof => write!(f, "VerifyPlonky3Proof"),
             Self::VerifyDataAvailability => write!(f, "VerifyDataAvailability"),
+            Self::ResolveAlt => write!(f, "ResolveAlt"),
         }
     }
 }

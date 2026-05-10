@@ -14,6 +14,11 @@ pub const GAS_PLONKY3_VERIFY: u64 = 1_000_000;
 /// Phase 6 — DA presence check. RocksDB lookup is O(1); cost is dominated by
 /// the gas-meter overhead, not the I/O. Calibrate post-devnet.
 pub const GAS_DA_VERIFY: u64 = 2_000;
+/// L1 — ALT reference resolution. Same shape as the DA path: O(1) RocksDB
+/// lookup plus a small write back into linear memory. Slightly cheaper than
+/// the DA case because no confirmation bookkeeping happens. Calibrate
+/// post-devnet.
+pub const GAS_ALT_RESOLVE: u64 = 1_500;
 
 /// Minimum SOF deposit to create a Contract UTXO (storage rent, refunded on spend).
 pub const STORAGE_BASE_DEPOSIT: u64 = 100_000_000; // sompi
@@ -49,6 +54,7 @@ pub struct GasConfig {
     pub risc0_verify_cost: u64,
     pub plonky3_verify_cost: u64,
     pub da_verify_cost: u64,
+    pub alt_resolve_cost: u64,
 }
 
 impl Default for GasConfig {
@@ -63,6 +69,7 @@ impl Default for GasConfig {
             risc0_verify_cost: GAS_RISC0_VERIFY,
             plonky3_verify_cost: GAS_PLONKY3_VERIFY,
             da_verify_cost: GAS_DA_VERIFY,
+            alt_resolve_cost: GAS_ALT_RESOLVE,
         }
     }
 }

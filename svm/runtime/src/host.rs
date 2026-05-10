@@ -42,6 +42,36 @@ impl HostDa for StubDa {
     }
 }
 
+/// L1 — Address Lookup Table backend.
+///
+/// Stateless from the runtime's point of view: every call from a contract
+/// is answered by looking up the L1's ALT store. The runtime holds an
+/// `Arc<dyn HostAlt>` so the consensus layer can inject a real backend
+/// (`SophisAltBackend`) bound to `DbAltStore`.
+///
+/// Lookups are **deterministic** at consensus time: every full node
+/// answers the same query the same way because the ALT store is populated
+/// during virtual_processor commit (sub-fase L1.3.d) before any contract
+/// runs against the same chain block.
+pub trait HostAlt: Send + Sync + 'static {
+    /// Resolves an ALT reference to its underlying `ScriptPublicKey` bytes
+    /// and writes them into `out`. Returns `Some(spk_version)` on hit,
+    /// `None` if the handle is unknown OR the index is out of range.
+    ///
+    /// `out` is not pre-sized; the backend is responsible for clearing and
+    /// extending it. Caller MUST NOT assume the buffer is intact on miss.
+    fn resolve_reference(&self, handle: &[u8; 6], index: u8, out: &mut Vec<u8>) -> Option<u16>;
+}
+
+/// Stub — every ALT query returns `None`. Used in svm/runtime unit tests
+/// and as a default when no ALT store is wired.
+pub struct StubAlt;
+impl HostAlt for StubAlt {
+    fn resolve_reference(&self, _: &[u8; 6], _: u8, _: &mut Vec<u8>) -> Option<u16> {
+        None
+    }
+}
+
 /// Crypto backend injected into the runtime at execution time.
 /// svm/runtime defines the interface; svm/host provides the real implementation
 /// backed by libcrux-ml-dsa (ML-DSA-44) + SHA3-384 + Risc0 STARK verifier.
@@ -239,6 +269,58 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, crypto: Ar
         )
         .map_err(|e| RuntimeError::InstantiationFailed(e.to_string()))?;
 
+    // sophis_alt_lookup(ptr_handle, index, out_ptr, out_len_ptr) -> i32
+    //
+    // Args:
+    //   ptr_handle    : *const u8 — 6 bytes in guest memory (ALT handle)
+    //   index         : i32       — entry index in [0, entry_count)
+    //   out_ptr       : *mut u8   — guest buffer to receive resolved spk_script
+    //   out_len_ptr   : *mut u32  — i/o; in: capacity of out_ptr, out: actual bytes written
+    //
+    // Returns: i32
+    //   spk_version (0..=u16::MAX) on hit (caller should also check out_len_ptr)
+    //   -1   capability not granted
+    //   -2   gas exhaustion
+    //   -3   memory read out of bounds (handle)
+    //   -4   handle not found in ALT registry
+    //   -5   index out of range OR resolved spk_script too large for the
+    //        caller's buffer (caller should retry with a larger buffer; the
+    //        out_len_ptr is updated to reflect the required size)
+    //   -6   memory write out of bounds (out buffer)
+    linker
+        .func_wrap(
+            "env",
+            "sophis_alt_lookup",
+            |mut caller: Caller<ExecutionContext>, ptr_handle: i32, index: i32, out_ptr: i32, out_len_ptr: i32| -> i32 {
+                if caller.data().check_capability(&Capability::ResolveAlt).is_err() {
+                    return -1;
+                }
+                let cost = caller.data().gas_config.alt_resolve_cost;
+                if caller.data_mut().charge(Gas(cost)).is_err() {
+                    return -2;
+                }
+                let Some(handle) = read_fixed_6(&mut caller, ptr_handle) else {
+                    return -3;
+                };
+                if !(0..=u8::MAX as i32).contains(&index) {
+                    return -5;
+                }
+                let mut buf = Vec::new();
+                let alt = Arc::clone(&caller.data().alt);
+                let Some(spk_version) = alt.resolve_reference(&handle, index as u8, &mut buf) else {
+                    return -4;
+                };
+                // Surface the resolved bytes via the standard out_ptr/out_len_ptr
+                // ABI used by every other reader-style host fn (mirrors
+                // get_input_utxo). Uses 0/-6 internally; we translate -6 here.
+                if write_to_memory(&mut caller, &buf, out_ptr, out_len_ptr) == 0 {
+                    return -6;
+                }
+                spk_version as i32
+            },
+        )
+        .map_err(|e| RuntimeError::InstantiationFailed(e.to_string()))?;
+
     // sophis_verify_da(ptr_payload_id, _padding, min_confirmations, query_kind) -> i32
     //
     // Args:
@@ -365,6 +447,19 @@ fn read_fixed_48(caller: &mut Caller<ExecutionContext>, ptr: i32) -> Option<[u8;
         return None;
     }
     let mut out = [0u8; 48];
+    out.copy_from_slice(&data[s..e]);
+    Some(out)
+}
+
+fn read_fixed_6(caller: &mut Caller<ExecutionContext>, ptr: i32) -> Option<[u8; 6]> {
+    let mem = wasm_memory(caller)?;
+    let data = mem.data(caller.as_context());
+    let s = ptr as usize;
+    let e = s.checked_add(6)?;
+    if e > data.len() {
+        return None;
+    }
+    let mut out = [0u8; 6];
     out.copy_from_slice(&data[s..e]);
     Some(out)
 }

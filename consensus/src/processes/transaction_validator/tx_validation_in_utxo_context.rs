@@ -40,6 +40,17 @@ fn build_da_backend(svm: &SvmContext) -> Arc<dyn HostDa> {
     }
 }
 
+/// L1 helper — picks the right `HostAlt` backend for this validator.
+/// Production wires `SophisAltBackend` bound to `DbAltStore`; tests / lite
+/// builds without an alt_store fall back to `StubAlt` (every lookup
+/// returns `None`).
+fn build_alt_backend(svm: &SvmContext) -> Arc<dyn sophis_svm_runtime::HostAlt> {
+    match &svm.alt_store {
+        Some(store) => Arc::new(crate::svm_alt::SophisAltBackend::new(Arc::clone(store))),
+        None => Arc::new(sophis_svm_runtime::StubAlt),
+    }
+}
+
 use super::{
     SvmContext, TransactionValidator,
     errors::{TxResult, TxRuleError},
@@ -339,7 +350,7 @@ fn check_contract_input(
     let input_utxos: Vec<Vec<u8>> = tx.populated_inputs().map(|(_, e)| borsh::to_vec(e).unwrap_or_default()).collect();
     let output_utxos: Vec<Vec<u8>> = tx.outputs().iter().map(|o| borsh::to_vec(o).unwrap_or_default()).collect();
 
-    let ctx = ExecutionContext::new_with_da(
+    let ctx = ExecutionContext::new_with_da_and_alt(
         input_utxos,
         output_utxos,
         pov_daa_score,
@@ -347,6 +358,7 @@ fn check_contract_input(
         GasConfig::default(),
         Arc::new(SophisHostCrypto),
         build_da_backend(svm),
+        build_alt_backend(svm),
     );
 
     let result = svm
@@ -401,7 +413,7 @@ fn check_token_utxo_spend(
             UpgradePolicy::Immutable,
             vec![Capability::ReadUtxo, Capability::ReadBlockHeight, Capability::VerifyDilithium, Capability::HashSha3],
         );
-        let ctx = ExecutionContext::new_with_da(
+        let ctx = ExecutionContext::new_with_da_and_alt(
             input_utxos,
             output_utxos,
             pov_daa_score,
@@ -409,6 +421,7 @@ fn check_token_utxo_spend(
             GasConfig::default(),
             Arc::new(SophisHostCrypto),
             build_da_backend(svm),
+            build_alt_backend(svm),
         );
 
         let result = svm
@@ -491,7 +504,7 @@ pub fn check_token_conservation(
             UpgradePolicy::Immutable,
             vec![Capability::ReadUtxo, Capability::ReadBlockHeight, Capability::VerifyDilithium, Capability::HashSha3],
         );
-        let ctx = ExecutionContext::new_with_da(
+        let ctx = ExecutionContext::new_with_da_and_alt(
             input_utxos,
             output_utxos,
             pov_daa_score,
@@ -499,6 +512,7 @@ pub fn check_token_conservation(
             GasConfig::default(),
             Arc::new(SophisHostCrypto),
             build_da_backend(svm),
+            build_alt_backend(svm),
         );
 
         let result = svm

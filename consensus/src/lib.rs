@@ -57,5 +57,6 @@ pub mod model;
 pub mod params;
 pub mod pipeline;
 pub mod processes;
+pub mod svm_alt;
 pub mod svm_da;
 pub mod test_helpers;
