@@ -95,6 +95,14 @@ Four crates:
 
 `Resource<T>` is a linear type: panics if dropped without calling `.consume()`. This enforces explicit accounting of token amounts in contract logic.
 
+### L1 Address Lookup Tables (`consensus/core/src/alt/`, `consensus/src/model/stores/alt.rs`)
+
+v=1 transactions can substitute inline `ScriptPublicKey` outputs with 8-byte ALT references (1B discriminator `0xFD` + 6B handle + 1B index). ALT-creation outputs use discriminator `0xFE` + magic `b"SPHS-AL1"`. Handle is content-derived: `SHA3-384(entries_canonical)[..6]`. RocksDB prefixes 200-202 (`AltEntries`, `AltCreatedInBlock`, `AltHandleResolutions`); permanent (no rent). sVM `Capability::ResolveAlt` + `sophis_alt_lookup` host fn for contract-side resolution. Spec: `docs/L1_ALT_DESIGN.md`. SIP-3 stub: `SIPS/SIP-3-ALT.md`. Operator: `docs/L1_RUNBOOK.md`.
+
+### sVM Event Logs (`consensus/core/src/events/`, `consensus/src/model/stores/events.rs`)
+
+sVM contracts emit structured events via `sophis_emit_event` host fn (`Capability::EmitEvent`, J4.3 in progress). Wire format: `topic_count u8 (0..=4) + topics [u8;32]*N + data_len u32 LE + data (≤4096B)`. Persisted in 4 RocksDB indexes (prefixes 203-206): `EventsByBlock`, `EventsByTx` (pruned with block); `EventsByContract`, `EventsByTopic` (archival, bucketed by DAA score / 65_536). Filterable via `getLogs(filter)` RPC (J4.5 in progress, mirrors `eth_getLogs`). Spec: `docs/J4_EVENTS_DESIGN.md`.
+
 ### Coinbase (`consensus/src/processes/coinbase.rs`)
 
 100% of block subsidy + fees goes to the miner. **No on-chain devfund** — eliminated 2026-05-04 by regulatory pivot (see `G:\Meu Drive\Claude\Sophis\DECISOES_2026-05-04.md`). `params.rs` no longer carries `dev_fund_address`. Do not reintroduce coinbase split, devfund schedule, or compulsory multisig recipient — committed compromise: no hard fork will reintroduce devfund.

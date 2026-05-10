@@ -7136,10 +7136,13 @@ dependencies = [
  "serde",
  "serde_json",
  "sophis-addresses",
+ "sophis-consensus-core",
  "sophis-core",
  "sophis-grpc-client",
+ "sophis-hashes",
  "sophis-notify",
  "sophis-rpc-core",
+ "sophis-txscript",
  "tokio",
 ]
 
