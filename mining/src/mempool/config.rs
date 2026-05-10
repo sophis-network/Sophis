@@ -1,4 +1,4 @@
-use sophis_consensus_core::constants::TX_VERSION;
+use sophis_consensus_core::constants::{MAX_TX_VERSION, TX_VERSION};
 
 pub(crate) const DEFAULT_MAXIMUM_TRANSACTION_COUNT: usize = 1_000_000;
 pub(crate) const DEFAULT_MEMPOOL_SIZE_LIMIT: usize = 1_000_000_000;
@@ -19,11 +19,12 @@ pub(crate) const DEFAULT_MAXIMUM_ORPHAN_TRANSACTION_COUNT: u64 = 500;
 pub(crate) const DEFAULT_MINIMUM_RELAY_TRANSACTION_FEE: u64 = 1000;
 
 /// Standard transaction version range might be different from what consensus accepts, therefore
-/// we define separate values in mempool.
-/// However, currently there's exactly one transaction version, so mempool accepts the same version
-/// as consensus.
+/// we define separate values in mempool. After L1 (sub-fase L1.3), the
+/// mempool standard window matches the full consensus range
+/// `[TX_VERSION, MAX_TX_VERSION]` so v=1 ALT-aware transactions can be
+/// relayed without manual configuration overrides.
 pub(crate) const DEFAULT_MINIMUM_STANDARD_TRANSACTION_VERSION: u16 = TX_VERSION;
-pub(crate) const DEFAULT_MAXIMUM_STANDARD_TRANSACTION_VERSION: u16 = TX_VERSION;
+pub(crate) const DEFAULT_MAXIMUM_STANDARD_TRANSACTION_VERSION: u16 = MAX_TX_VERSION;
 
 #[derive(Clone, Debug)]
 pub struct Config {

@@ -1,5 +1,8 @@
-use crate::constants::{MAX_SOMPI, TX_VERSION};
-use sophis_consensus_core::constants::{SCRIPT_VERSION_CARRIER, SCRIPT_VERSION_CONTRACT, SCRIPT_VERSION_TOKEN};
+use crate::constants::MAX_SOMPI;
+use sophis_consensus_core::alt::{
+    AltScriptKind, MAX_ALT_CREATIONS_PER_TX, classify_alt_script, parse_alt_creation_header, parse_alt_reference,
+};
+use sophis_consensus_core::constants::{MAX_TX_VERSION, SCRIPT_VERSION_CARRIER, SCRIPT_VERSION_CONTRACT, SCRIPT_VERSION_TOKEN};
 use sophis_consensus_core::da::{MAX_CARRIER_OUTPUTS_PER_TX, parse_carrier_header};
 use sophis_consensus_core::tx::Transaction;
 use std::collections::HashSet;
@@ -34,6 +37,7 @@ impl TransactionValidator {
         check_transaction_subnetwork(tx)?;
         check_transaction_version(tx)?;
         validate_carrier_outputs(tx)?;
+        validate_alt_outputs_and_refs(tx)?;
         if is_contract_deploy(tx) {
             validate_contract_deploy(tx)?;
         }
@@ -76,6 +80,11 @@ impl TransactionValidator {
             // Rule 14 of §5: V3 carriers are forbidden in coinbase outputs.
             if output.script_public_key.version() == SCRIPT_VERSION_CARRIER {
                 return Err(TxRuleError::CarrierInCoinbase(i));
+            }
+            // L1 rule 19: ALT discriminators (creation or reference) are
+            // forbidden in coinbase outputs. See `docs/L1_ALT_DESIGN.md` §5.
+            if classify_alt_script(output.script_public_key.script()).is_some() {
+                return Err(TxRuleError::AltInCoinbase(i));
             }
             if output.script_public_key.script().len() > self.coinbase_payload_script_public_key_max_len as usize {
                 return Err(TxRuleError::CoinbaseScriptPublicKeyTooLong(i));
@@ -125,10 +134,14 @@ impl TransactionValidator {
             // Contract UTXOs (v=1), Token UTXOs (v=2), and DA carrier UTXOs (v=3) carry
             // structured data with their own length policies — exempt from the
             // max_script_public_key_len check. Carriers cap at 64 + MAX_DATA_PER_CARRIER
-            // bytes via `validate_carrier_outputs`.
+            // bytes via `validate_carrier_outputs`. ALT outputs (discriminators
+            // 0xFD / 0xFE) are also exempt: ALT-creation can grow up to ~1 MB
+            // of entries (capped by `validate_alt_outputs_and_refs`), and ALT
+            // references are exactly 8 bytes (well below any sane max).
             v != SCRIPT_VERSION_CONTRACT
                 && v != SCRIPT_VERSION_TOKEN
                 && v != SCRIPT_VERSION_CARRIER
+                && classify_alt_script(out.script_public_key.script()).is_none()
                 && out.script_public_key.script().len() > self.max_script_public_key_len
         }) {
             return Err(TxRuleError::TooBigScriptPublicKey(i, self.max_script_public_key_len));
@@ -263,7 +276,13 @@ fn check_gas(tx: &Transaction) -> TxResult<()> {
 }
 
 fn check_transaction_version(tx: &Transaction) -> TxResult<()> {
-    if tx.version != TX_VERSION {
+    // Versions in `[TX_VERSION, MAX_TX_VERSION]` are accepted; each version
+    // may enable additional features (currently v=1 is the L1 ALT gate —
+    // see `consensus/core/src/alt/` and `docs/L1_ALT_DESIGN.md` §3.1).
+    // Anything above MAX_TX_VERSION is rejected as "unknown". A check for
+    // `version < TX_VERSION` is omitted because TX_VERSION = 0 and tx.version
+    // is unsigned, making such a comparison structurally impossible.
+    if tx.version > MAX_TX_VERSION {
         return Err(TxRuleError::UnknownTxVersion(tx.version));
     }
     Ok(())
@@ -278,6 +297,14 @@ fn check_transaction_output_value_ranges(tx: &Transaction) -> TxResult<()> {
         // Skipping here also keeps zero-value carriers from tripping the
         // generic TxOutZero check.
         if output.script_public_key.version() == SCRIPT_VERSION_CARRIER {
+            continue;
+        }
+        // L1 ALT-creation outputs MUST have value == 0 (rule 2). Their
+        // value invariant is enforced by `validate_alt_outputs_and_refs`,
+        // which produces `AltCreationNonZeroValue`. Skip here so the
+        // generic TxOutZero check does not preempt the more specific
+        // diagnostic.
+        if classify_alt_script(output.script_public_key.script()) == Some(AltScriptKind::Creation) {
             continue;
         }
 
@@ -343,6 +370,58 @@ pub fn validate_carrier_outputs(tx: &Transaction) -> TxResult<()> {
     Ok(())
 }
 
+/// L1 — validate every ALT-creation and ALT-reference output in `tx`.
+/// Implements rules 1-14 and 18 of §5 in `docs/L1_ALT_DESIGN.md`. Rule 19
+/// (no ALT outputs in coinbase) is enforced inside
+/// `check_coinbase_in_isolation`. Rules 15-16 (dangling reference, index in
+/// range) are enforced at `tx_validation_in_utxo_context` time, where the
+/// consensus ALT registry is in scope. Rule 17 (per-block creation cap) is
+/// enforced at body-level validation.
+///
+/// Dispatch is by the leading byte of `output.script_public_key.script()`
+/// (see `classify_alt_script`). Outputs that do not match an ALT
+/// discriminator are passed through silently.
+pub fn validate_alt_outputs_and_refs(tx: &Transaction) -> TxResult<()> {
+    let mut creation_count = 0usize;
+    for (i, output) in tx.outputs.iter().enumerate() {
+        let kind = match classify_alt_script(output.script_public_key.script()) {
+            Some(k) => k,
+            None => continue,
+        };
+
+        // Rules 1 / 13 — ALT discriminators only legal in v >= 1 transactions.
+        if tx.version < 1 {
+            return Err(TxRuleError::AltOutputInLegacyTx(i));
+        }
+
+        match kind {
+            AltScriptKind::Creation => {
+                creation_count += 1;
+                // Rule 2 — value MUST be zero.
+                if output.value != 0 {
+                    return Err(TxRuleError::AltCreationNonZeroValue(i, output.value));
+                }
+                // Rules 3-12 — header + entries + handle integrity.
+                parse_alt_creation_header(output.script_public_key.script())
+                    .map_err(|e| TxRuleError::AltCreationMalformed(i, e.to_string()))?;
+            }
+            AltScriptKind::Reference => {
+                // Rule 14 — reference script length must be exactly 8.
+                parse_alt_reference(output.script_public_key.script())
+                    .map_err(|e| TxRuleError::AltReferenceMalformed(i, e.to_string()))?;
+                // Rules 15-16 deferred to utxo-context validation.
+            }
+        }
+    }
+
+    // Rule 18 — per-tx cap on ALT-creation outputs.
+    if creation_count > MAX_ALT_CREATIONS_PER_TX {
+        return Err(TxRuleError::TooManyAltCreations(creation_count, MAX_ALT_CREATIONS_PER_TX));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use sophis_consensus_core::{
@@ -352,7 +431,7 @@ mod tests {
     use sophis_core::assert_match;
 
     use crate::{
-        constants::TX_VERSION,
+        constants::MAX_TX_VERSION,
         params::MAINNET_PARAMS,
         processes::transaction_validator::{TransactionValidator, errors::TxRuleError},
     };
@@ -494,9 +573,18 @@ mod tests {
         tx.payload = vec![0];
         assert_match!(tv.validate_tx_in_isolation(&tx), Ok(()));
 
-        let mut tx = valid_tx;
-        tx.version = TX_VERSION + 1;
+        let mut tx = valid_tx.clone();
+        tx.version = MAX_TX_VERSION + 1;
         assert_match!(tv.validate_tx_in_isolation(&tx), Err(TxRuleError::UnknownTxVersion(_)));
+
+        // L1: v=1 is now a valid version (ALT-aware tx). The legacy test
+        // above used `TX_VERSION + 1 == 1` to probe the rejection path;
+        // post-MAX_TX_VERSION introduction the rejection threshold moved
+        // to `MAX_TX_VERSION + 1`. v=1 alone (with no ALT outputs) must
+        // pass validation.
+        let mut tx = valid_tx;
+        tx.version = MAX_TX_VERSION;
+        assert_match!(tv.validate_tx_in_isolation(&tx), Ok(()));
     }
 
     // ----------------------------------------------------------------
@@ -676,4 +764,249 @@ mod tests {
         let tx = tx_with_outputs(vec![payment]);
         tv.validate_tx_in_isolation(&tx).expect("non-V3 outputs must not invoke carrier rules");
     }
+
+    // ----------------------------------------------------------------
+    // L1 — ALT output validation (sub-fase L1.3.a)
+    // See `docs/L1_ALT_DESIGN.md` §5 for the rule numbering. Rules 1, 2,
+    // 3-12, 13, 14, 18, 19 are enforced in isolation; 15-16 (utxo context)
+    // and 17 (per-block) live elsewhere and have their own test suites.
+    // ----------------------------------------------------------------
+
+    use sophis_consensus_core::alt::{
+        ALT_DISCRIMINATOR_REFERENCE, ALT_HANDLE_LEN, MAX_ALT_CREATIONS_PER_TX, encode_alt_creation_script, encode_alt_reference_script,
+    };
+
+    fn alt_creation_output_from_entries(entries: &[(u16, &[u8])]) -> TransactionOutput {
+        let script = encode_alt_creation_script(entries).expect("encode_alt_creation_script must succeed in tests");
+        TransactionOutput { value: 0, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&script)) }
+    }
+
+    fn alt_creation_output_with_value(entries: &[(u16, &[u8])], value: u64) -> TransactionOutput {
+        let script = encode_alt_creation_script(entries).expect("encode_alt_creation_script must succeed in tests");
+        TransactionOutput { value, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&script)) }
+    }
+
+    fn alt_reference_output(handle: [u8; ALT_HANDLE_LEN], index: u8, value: u64) -> TransactionOutput {
+        let script = encode_alt_reference_script(handle, index);
+        TransactionOutput { value, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&script)) }
+    }
+
+    fn tx_v1_with_outputs(outputs: Vec<TransactionOutput>) -> Transaction {
+        let mut tx = tx_with_outputs(outputs);
+        tx.version = MAX_TX_VERSION; // = 1
+        tx
+    }
+
+    fn coinbase_v1_with_outputs(outputs: Vec<TransactionOutput>) -> Transaction {
+        Transaction::new(MAX_TX_VERSION, vec![], outputs, 0, SUBNETWORK_ID_COINBASE, 0, vec![9u8; 19])
+    }
+
+    // -- Happy paths -------------------------------------------------------
+
+    #[test]
+    fn alt_happy_v1_with_creation_passes() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment, alt_creation_output_from_entries(&[(0u16, b"abcd")])]);
+        tv.validate_tx_in_isolation(&tx).expect("v=1 tx with valid ALT-creation must validate");
+    }
+
+    #[test]
+    fn alt_happy_v1_with_reference_passes() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let r = alt_reference_output([0xDEu8, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE], 0, 5_000);
+        let tx = tx_v1_with_outputs(vec![payment, r]);
+        // Note: rules 15/16 (handle existence, index range) defer to utxo context;
+        // isolation accepts any well-formed reference.
+        tv.validate_tx_in_isolation(&tx).expect("v=1 tx with well-formed ALT reference must pass isolation");
+    }
+
+    #[test]
+    fn alt_happy_v1_no_alt_outputs_passes() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment]);
+        tv.validate_tx_in_isolation(&tx).expect("v=1 tx with no ALT outputs must validate");
+    }
+
+    #[test]
+    fn alt_v1_max_creations_within_cap_passes() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        // Exactly the cap; each ALT must have distinct handle (use distinct payloads).
+        let mut outputs = vec![payment];
+        for n in 0..MAX_ALT_CREATIONS_PER_TX {
+            let body = vec![n as u8; 4];
+            outputs.push(alt_creation_output_from_entries(&[(0u16, &body)]));
+        }
+        let tx = tx_v1_with_outputs(outputs);
+        tv.validate_tx_in_isolation(&tx).expect("MAX_ALT_CREATIONS_PER_TX creations must pass");
+    }
+
+    // -- Rule 1 / 13 — ALT discriminator requires v >= 1 ------------------
+
+    #[test]
+    fn alt_v0_with_creation_rejected() {
+        let tv = make_validator();
+        // tx version = 0 (default in tx_with_outputs)
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_with_outputs(vec![payment, alt_creation_output_from_entries(&[(0u16, b"x")])]);
+        match tv.validate_tx_in_isolation(&tx) {
+            Err(TxRuleError::AltOutputInLegacyTx(idx)) => assert_eq!(idx, 1),
+            other => panic!("expected AltOutputInLegacyTx, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn alt_v0_with_reference_rejected() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let r = alt_reference_output([0u8; ALT_HANDLE_LEN], 0, 100);
+        let tx = tx_with_outputs(vec![payment, r]);
+        match tv.validate_tx_in_isolation(&tx) {
+            Err(TxRuleError::AltOutputInLegacyTx(idx)) => assert_eq!(idx, 1),
+            other => panic!("expected AltOutputInLegacyTx, got {other:?}"),
+        }
+    }
+
+    // -- Rule 2 — ALT-creation must have value 0 --------------------------
+
+    #[test]
+    fn alt_v1_creation_nonzero_value_rejected() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let bad = alt_creation_output_with_value(&[(0u16, b"abcd")], 42);
+        let tx = tx_v1_with_outputs(vec![payment, bad]);
+        match tv.validate_tx_in_isolation(&tx) {
+            Err(TxRuleError::AltCreationNonZeroValue(idx, v)) => {
+                assert_eq!(idx, 1);
+                assert_eq!(v, 42);
+            }
+            other => panic!("expected AltCreationNonZeroValue, got {other:?}"),
+        }
+    }
+
+    // -- Rules 3-12 — header / entries / handle integrity (parser delegated)
+
+    #[test]
+    fn alt_v1_creation_malformed_magic_rejected() {
+        let tv = make_validator();
+        // Build a valid script then corrupt the magic.
+        let mut script = encode_alt_creation_script(&[(0u16, b"abcd")]).unwrap();
+        script[1] = b'X'; // perturb the M of "SPHS-AL1"
+        let bad = TransactionOutput { value: 0, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&script)) };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment, bad]);
+        match tv.validate_tx_in_isolation(&tx) {
+            Err(TxRuleError::AltCreationMalformed(idx, msg)) => {
+                assert_eq!(idx, 1);
+                assert!(msg.to_lowercase().contains("magic"), "expected message to mention magic, got: {msg}");
+            }
+            other => panic!("expected AltCreationMalformed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn alt_v1_creation_handle_mismatch_rejected() {
+        let tv = make_validator();
+        let mut script = encode_alt_creation_script(&[(0u16, b"abcd")]).unwrap();
+        // Flip one bit of the handle (offset 16..22).
+        script[16] ^= 0x01;
+        let bad = TransactionOutput { value: 0, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&script)) };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment, bad]);
+        assert_match!(tv.validate_tx_in_isolation(&tx), Err(TxRuleError::AltCreationMalformed(_, _)));
+    }
+
+    // -- Rule 14 — reference script length must be exactly 8 -------------
+
+    #[test]
+    fn alt_v1_reference_bad_length_rejected() {
+        let tv = make_validator();
+        // Discriminator + only 5 handle bytes + index = 7 bytes total (one short).
+        let mut bytes = vec![ALT_DISCRIMINATOR_REFERENCE];
+        bytes.extend_from_slice(&[0u8; 5]);
+        bytes.push(0); // index
+        let bad = TransactionOutput { value: 100, script_public_key: ScriptPublicKey::new(0, scriptvec_from_slice(&bytes)) };
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment, bad]);
+        assert_match!(tv.validate_tx_in_isolation(&tx), Err(TxRuleError::AltReferenceMalformed(_, _)));
+    }
+
+    // -- Rule 18 — per-tx ALT-creation cap --------------------------------
+
+    #[test]
+    fn alt_v1_too_many_creations_rejected() {
+        let tv = make_validator();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let mut outputs = vec![payment];
+        // One more than the cap; each must have a distinct payload (handle).
+        for n in 0..=MAX_ALT_CREATIONS_PER_TX {
+            let body = vec![n as u8; 4];
+            outputs.push(alt_creation_output_from_entries(&[(0u16, &body)]));
+        }
+        let tx = tx_v1_with_outputs(outputs);
+        match tv.validate_tx_in_isolation(&tx) {
+            Err(TxRuleError::TooManyAltCreations(actual, cap)) => {
+                assert_eq!(actual, MAX_ALT_CREATIONS_PER_TX + 1);
+                assert_eq!(cap, MAX_ALT_CREATIONS_PER_TX);
+            }
+            other => panic!("expected TooManyAltCreations, got {other:?}"),
+        }
+    }
+
+    // -- Rule 19 — coinbase outputs must not contain ALT discriminators --
+
+    #[test]
+    fn alt_coinbase_rejects_creation_output() {
+        let tv = make_validator();
+        let cb = coinbase_v1_with_outputs(vec![alt_creation_output_from_entries(&[(0u16, b"abcd")])]);
+        match tv.validate_tx_in_isolation(&cb) {
+            Err(TxRuleError::AltInCoinbase(idx)) => assert_eq!(idx, 0),
+            other => panic!("expected AltInCoinbase, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn alt_coinbase_rejects_reference_output() {
+        let tv = make_validator();
+        let r = alt_reference_output([1u8; ALT_HANDLE_LEN], 0, 100);
+        let cb = coinbase_v1_with_outputs(vec![r]);
+        match tv.validate_tx_in_isolation(&cb) {
+            Err(TxRuleError::AltInCoinbase(idx)) => assert_eq!(idx, 0),
+            other => panic!("expected AltInCoinbase, got {other:?}"),
+        }
+    }
+
+    // -- ScriptPublicKey length exemption — ALT outputs bypass max_spk_len -
+
+    #[test]
+    fn alt_v1_creation_large_payload_passes_spk_length_check() {
+        let tv = make_validator();
+        // 16 entries × 1 KB = 16 KB total. max_script_public_key_len for the
+        // test validator is below that for legacy outputs but ALT must be
+        // exempt (rule lives in `check_transaction_script_public_keys`).
+        let body = vec![0xAAu8; 1024];
+        let entries: Vec<(u16, &[u8])> = (0..16usize).map(|_| (0u16, body.as_slice())).collect();
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_v1_with_outputs(vec![payment, alt_creation_output_from_entries(&entries)]);
+        tv.validate_tx_in_isolation(&tx).expect("ALT-creation outputs must be exempt from max_script_public_key_len");
+    }
+
+    // -- Sanity — discriminator bytes inside v=0 outputs are passed through --
+
+    #[test]
+    fn alt_v0_passthrough_for_non_alt_scripts() {
+        let tv = make_validator();
+        // v=0 tx whose output script just happens to start with neither 0xFD nor 0xFE.
+        let payment = TransactionOutput { value: 1_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xa9, 0x14)) };
+        let tx = tx_with_outputs(vec![payment]);
+        tv.validate_tx_in_isolation(&tx).expect("v=0 tx without ALT discriminators must remain unaffected by L1.3.a");
+        // Also confirm we do not parse 0xFD or 0xFE bytes that appear later in the script.
+        let mid = TransactionOutput { value: 2_000, script_public_key: ScriptPublicKey::new(0, scriptvec!(0x76, 0xFD, 0xFE)) };
+        let tx2 = tx_with_outputs(vec![mid]);
+        tv.validate_tx_in_isolation(&tx2).expect("only the FIRST byte of the script triggers ALT classification");
+    }
+
 }

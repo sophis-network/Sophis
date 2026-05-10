@@ -136,6 +136,24 @@ pub enum TxRuleError {
 
     #[error("coinbase output #{0} uses V3 carrier version which is forbidden in coinbase")]
     CarrierInCoinbase(usize),
+
+    #[error("ALT-creation output #{0} is malformed: {1}")]
+    AltCreationMalformed(usize, String),
+
+    #[error("ALT-creation output #{0} must have value 0, got {1}")]
+    AltCreationNonZeroValue(usize, u64),
+
+    #[error("ALT-reference output #{0} is malformed: {1}")]
+    AltReferenceMalformed(usize, String),
+
+    #[error("transaction has {0} ALT-creation outputs where the max allowed per tx is {1}")]
+    TooManyAltCreations(usize, usize),
+
+    #[error("ALT discriminator at output #{0} requires transaction version >= 1, got version 0")]
+    AltOutputInLegacyTx(usize),
+
+    #[error("coinbase output #{0} uses an ALT discriminator (creation or reference) which is forbidden in coinbase")]
+    AltInCoinbase(usize),
 }
 
 pub type TxResult<T> = std::result::Result<T, TxRuleError>;

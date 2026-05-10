@@ -264,7 +264,7 @@ mod tests {
     use sophis_addresses::{Address, Prefix, Version};
     use sophis_consensus_core::{
         config::params::Params,
-        constants::{MAX_TX_IN_SEQUENCE_NUM, SOMPI_PER_SOPHIS, TX_VERSION},
+        constants::{MAX_TX_IN_SEQUENCE_NUM, MAX_TX_VERSION, SOMPI_PER_SOPHIS, TX_VERSION},
         mass::NonContextualMasses,
         network::NetworkType,
         subnets::SUBNETWORK_ID_NATIVE,
@@ -461,7 +461,9 @@ mod tests {
                 name: "Transaction version too high",
                 mtx: new_mtx(
                     Transaction::new(
-                        TX_VERSION + 1,
+                        // L1: v=1 is now standard (ALT-aware tx). The
+                        // rejection threshold is MAX_TX_VERSION + 1.
+                        MAX_TX_VERSION + 1,
                         vec![dummy_tx_input.clone()],
                         vec![dummy_tx_out.clone()],
                         0,
