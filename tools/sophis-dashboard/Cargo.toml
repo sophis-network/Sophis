@@ -15,11 +15,13 @@ path = "src/main.rs"
 
 [dependencies]
 sophis-addresses.workspace = true
+sophis-consensus-core.workspace = true
 sophis-core.workspace = true
 sophis-grpc-client.workspace = true
 sophis-hashes.workspace = true
 sophis-notify.workspace = true
 sophis-rpc-core.workspace = true
+sophis-txscript.workspace = true
 
 axum = { workspace = true }
 clap = { workspace = true }
