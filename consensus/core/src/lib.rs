@@ -14,6 +14,7 @@ use std::hash::{BuildHasher, Hasher};
 pub use sophis_hashes::Hash;
 
 pub mod acceptance_data;
+pub mod alt;
 pub mod api;
 pub mod block;
 pub mod blockhash;

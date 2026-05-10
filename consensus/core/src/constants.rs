@@ -1,8 +1,20 @@
 /// BLOCK_VERSION represents the current block version
 pub const BLOCK_VERSION: u16 = 1;
 
-/// TX_VERSION is the current latest supported transaction version.
+/// TX_VERSION is the default version used when constructing new transactions.
+/// Existing v=0 transactions remain valid forever; producers that do not need
+/// L1 ALT references should keep using this constant.
 pub const TX_VERSION: u16 = 0;
+
+/// MAX_TX_VERSION is the highest transaction version the consensus layer
+/// accepts. Versions in `[TX_VERSION, MAX_TX_VERSION]` are all valid; each
+/// version may enable additional features (currently only v=1 enables L1 ALT
+/// creation outputs and ALT references — see `consensus/core/src/alt/`).
+///
+/// Activated at genesis on every network: there is no soft-fork window
+/// because Sophis has not launched, so `min_alt_activation_daa_score = 0`.
+/// See `docs/L1_ALT_DESIGN.md` §3.1 for the version semantics matrix.
+pub const MAX_TX_VERSION: u16 = 1;
 
 pub const LOCK_TIME_THRESHOLD: u64 = 500_000_000_000;
 

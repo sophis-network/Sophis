@@ -63,8 +63,18 @@ acceptable.
 
 ### 3.1 New transaction version
 
-`TX_VERSION` (currently `0` per `consensus/core/src/constants.rs:5`) is bumped
-to `1`. Both versions remain valid forever. The semantic differences:
+A new constant `MAX_TX_VERSION = 1` is introduced alongside the existing
+`TX_VERSION = 0`. Producers default to `TX_VERSION` (v=0) for transactions
+that do not need ALT functionality; ALT-using transactions set their version
+to `MAX_TX_VERSION` (v=1). The validator accepts any version in
+`[TX_VERSION, MAX_TX_VERSION]`. Both versions remain valid forever.
+
+This two-constant approach avoids invalidating every existing v=0 test fixture
+and producer call-site that the codebase already has, while still gating
+v=1-only features (ALT references, ALT-creation outputs) behind a single
+version check at validation time.
+
+The semantic differences:
 
 | Behaviour                                       | v=0 | v=1 |
 |-------------------------------------------------|-----|-----|
@@ -111,18 +121,23 @@ and `script` formatted as:
 ```text
   0..1     discriminator     = 0xFE
   1..9     magic             = b"SPHS-AL1"     (frozen ABI; hard fork to change)
-  9..10    flags: u8         (bits 0–6 reserved = 0; bit 7 reserved for future)
+  9..10    flags: u8         (all bits reserved in v1; must be 0)
  10..11    reserved          = 0
  11..12    entry_count: u8   (1..=MAX_ALT_ENTRIES = 256, encoded as u8 with
-                              the value 256 represented as 0)
- 12..16    payload_len: u32 LE  (total bytes of the entries section that follows)
+                              the value 256 represented as the byte 0)
+ 12..16    payload_len: u32 LE  (bytes of the entries section that follows
+                              the handle; does NOT include the handle itself)
  16..22    handle: [u8; 6]   = SHA3-384(canonical_payload)[..6]
  22..N     entries           = concatenation of length-prefixed entries (see §3.4)
 ```
 
-`canonical_payload` = bytes 16..N of the script (i.e. the handle field plus the
-entries section, hashed *as written on the wire*). The handle is produced by
-the wallet/SDK, validated by consensus, and immutable thereafter.
+`canonical_payload` = bytes `22..N` of the script (i.e. the **entries section
+only**, NOT including the handle field). The handle is therefore a pure
+function of the entries, eliminating the fixed-point problem that would
+otherwise arise if the handle hashed its own bytes. Two producers who encode
+the same entries in the same order produce the exact same handle.
+
+Total script length = `ALT_HEADER_LEN + payload_len = 22 + entries_section_bytes`.
 
 ### 3.4 ALT entry encoding
 
@@ -135,8 +150,9 @@ Each entry inside the ALT-creation output is a length-prefixed
    4..N     spk_script: bytes
 ```
 
-Total bytes per entry = 4 + `spk_script_len`. The cumulative size of all entries
-must equal `payload_len`.
+Total bytes per entry = `4 + spk_script_len`. The cumulative size of all
+entries must equal `payload_len` exactly (rule 9). The number of entries
+decoded from this section must equal the declared `entry_count` field.
 
 ### 3.5 ALT reference encoding (inside a v=1 tx output)
 
@@ -155,7 +171,7 @@ output once resolved against the registry). The script slot is exactly 8 bytes.
 |-------------------------------------|-------|
 | ALT reference (full)                | 8     |
 | ALT-creation header                 | 22    |
-| Smallest possible ALT (1 entry, P2PKH-Dilithium template) | 22 + 4 + 36 = **62** |
+| Smallest possible ALT (1 entry, P2PKH-Dilithium template, payload_len = 4 + 36 = 40) | 22 + 40 = **62** |
 | Largest possible ALT (256 × 4096-byte scripts) | 22 + 256 × (4 + 4096) ≈ **1 049 622** |
 
 The largest case is well above what consensus would actually accept (per-tx
@@ -503,7 +519,8 @@ Resolved ScriptPublicKey for that output equals the entry-0 script verbatim.
 
 | Constant                              | Value     | File |
 |---------------------------------------|-----------|------|
-| `TX_VERSION`                          | 1         | `consensus/core/src/constants.rs` |
+| `TX_VERSION`                          | 0 (default constructed) | `consensus/core/src/constants.rs` |
+| `MAX_TX_VERSION`                      | 1 (highest accepted)    | same |
 | `ALT_MAGIC`                           | `b"SPHS-AL1"` | `consensus/core/src/alt/mod.rs` |
 | `ALT_HEADER_LEN`                      | 22        | same |
 | `MAX_ALT_ENTRIES`                     | 256       | same |
