@@ -23,6 +23,7 @@ pub mod coinbase;
 pub mod config;
 pub mod constants;
 pub mod da;
+pub mod events;
 pub mod daa_score_timestamp;
 pub mod errors;
 pub mod hashing;
