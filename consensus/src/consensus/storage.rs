@@ -3,6 +3,7 @@ use crate::{
     model::stores::{
         DB,
         acceptance_data::DbAcceptanceDataStore,
+        alt::DbAltStore,
         block_transactions::DbBlockTransactionsStore,
         block_window_cache::BlockWindowCacheStore,
         da::DbDaStore,
@@ -71,6 +72,9 @@ pub struct ConsensusStorage {
     pub utxo_multisets_store: Arc<DbUtxoMultisetsStore>,
     pub acceptance_data_store: Arc<DbAcceptanceDataStore>,
     pub da_store: Arc<DbDaStore>,
+    /// L1 — Address Lookup Tables. See `consensus/src/model/stores/alt.rs`
+    /// and `docs/L1_ALT_DESIGN.md` §4.
+    pub alt_store: Arc<DbAltStore>,
 
     // Block window caches
     pub block_window_cache_for_difficulty: Arc<BlockWindowCacheStore>,
@@ -223,6 +227,10 @@ impl ConsensusStorage {
         // of carrier metadata is small in practice; payload bodies are read on
         // demand and not kept hot).
         let da_store = Arc::new(DbDaStore::new(db.clone(), block_data_builder.build()));
+        // L1 — ALT store. ALT entries are read frequently (every v=1 tx that
+        // resolves a reference) but written rarely; reuse the block_data cache
+        // budget to keep recent entries hot.
+        let alt_store = Arc::new(DbAltStore::new(db.clone(), block_data_builder.build()));
 
         // Tips
         let headers_selected_tip_store = Arc::new(RwLock::new(DbHeadersSelectedTipStore::new(db.clone())));
@@ -267,6 +275,7 @@ impl ConsensusStorage {
             utxo_diffs_store,
             utxo_multisets_store,
             da_store,
+            alt_store,
             block_window_cache_for_difficulty,
             block_window_cache_for_past_median_time,
             lkg_virtual_state,

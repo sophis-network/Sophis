@@ -183,23 +183,33 @@ explicit upper bound exists to make adversarial parsing fail fast.
 ### 4.1 RocksDB store
 
 A new module `consensus/src/model/stores/alt.rs` introduces `DbAltStore` with
-four prefixes, allocated immediately after the Phase 6 DA range:
+three prefixes, allocated immediately after the Phase 6 DA range:
 
 | Prefix | Constant                 | Key                              | Value                               |
 |--------|--------------------------|----------------------------------|-------------------------------------|
-| 200    | `AltEntries`             | `handle: [u8; 6]`                | `AltEntry` (borsh): full payload + creator metadata |
-| 201    | `AltEntriesByCreator`    | `creator_blake3[..16] \|\| handle` | `()` (presence)                   |
-| 202    | `AltCreatedInBlock`      | `block_hash`                     | `Vec<handle>` ordered by tx index in block |
-| 203    | `AltHandleResolutions`   | `handle: [u8; 6]`                | `(creating_block_hash, daa_score)` |
+| 200    | `AltEntries`             | `handle: [u8; 6]`                | `AltEntry` (borsh): handle + entries + creating_block_hash + creating_daa_score |
+| 201    | `AltCreatedInBlock`      | `block_hash`                     | `AltBlockHandles` (Vec<handle> ordered by tx index in block) |
+| 202    | `AltHandleResolutions`   | `handle: [u8; 6]`                | `AltResolution` ((creating_block_hash, daa_score)) — fast metadata lookup that avoids loading the full entries blob |
 
 `AltEntries` is the canonical store: it carries the entries themselves. The
 auxiliary stores allow:
 
-* Listing ALTs created by a given address (RPC: `listAltsByCreator`)
-* Cleaning up ALTs whose creating block has been pruned (the entry survives
-  immutably in `AltEntries`; `AltCreatedInBlock` is the lookup that lets
-  pruning logic decide whether to garbage-collect — see §4.4)
+* Cleaning up `AltCreatedInBlock` rows whose blocks have been pruned (the
+  ALT entry itself survives immutably in `AltEntries`; only the bookkeeping
+  index is pruned — see §4.4)
+* Fast metadata lookup via `AltHandleResolutions` when a caller only wants
+  `(block, daa_score)` and not the full payload (entries can reach ~1 MB
+  worst case)
 * Detecting collisions on second creation (existing `handle` ⇒ no-op)
+
+**Note:** the original L1.0 sketch included a fourth prefix
+`AltEntriesByCreator` indexed by `creator_blake3[..16]`. That prefix was
+dropped in L1.2 because content-addressed ALTs have no well-defined
+"creator" — the same handle can be (re-)created by any wallet that supplies
+the same payload, and the first creator wins idempotently. Wallets that
+want to remember "ALTs I created" should track that information
+client-side. A future soft-fork SIP can re-introduce a by-creator index if
+real demand materializes.
 
 `AltEntries` is **never deleted**. ALT entries are part of the canonical L1
 state, on the same footing as the UTXO set. Their immutability is what makes
@@ -457,9 +467,10 @@ PSBS).
 
 | Method                                          | Purpose |
 |-------------------------------------------------|---------|
-| `getAltEntry(handle: [u8;6])`                   | Returns the full `AltEntry` (entries, creator metadata). |
-| `listAltsByCreator(creator_address: Address)`   | Returns all handles created by a given address. |
+| `getAltEntry(handle: [u8;6])`                   | Returns the full `AltEntry` (entries + creating block + DAA score). |
+| `getAltResolution(handle: [u8;6])`              | Returns the lightweight `(creating_block_hash, daa_score)` without loading the entries payload. |
 | `resolveAltReference(handle, index)`            | Returns the resolved `ScriptPublicKey`. Convenience for light clients. |
+| `listAltsCreatedInBlock(block_hash)`            | Returns the handles of every ALT created inside the given block. |
 
 Bindings: gRPC + wRPC JSON, mirroring the Phase 6 `getDa*` pattern (sub-fase
 6.4.a/b/c).
@@ -533,9 +544,8 @@ Resolved ScriptPublicKey for that output equals the entry-0 script verbatim.
 | `ALT_REFERENCE_LEN`                   | 8         | same |
 | `min_alt_activation_daa_score`        | 0 (all networks) | `consensus/core/src/config/params.rs` |
 | `DatabaseStorePrefixes::AltEntries`           | 200 | `database/src/registry.rs` |
-| `DatabaseStorePrefixes::AltEntriesByCreator`  | 201 | same |
-| `DatabaseStorePrefixes::AltCreatedInBlock`    | 202 | same |
-| `DatabaseStorePrefixes::AltHandleResolutions` | 203 | same |
+| `DatabaseStorePrefixes::AltCreatedInBlock`    | 201 | same |
+| `DatabaseStorePrefixes::AltHandleResolutions` | 202 | same |
 
 ## 12. Out-of-scope (for L1)
 

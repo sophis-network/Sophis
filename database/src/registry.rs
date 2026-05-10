@@ -92,6 +92,12 @@ pub enum DatabaseStorePrefixes {
     DaCarrierByBlock = 198,  // key = block_hash;         value = Vec<payload_id> accepted in that block
     DaCarrierByDomain = 199, // key = (domain, blue_score_bucket);  value = Vec<payload_id>
 
+    // ---- L1 Address Lookup Tables (sub-fase L1.2) ----
+    // See `consensus/src/model/stores/alt.rs` and `docs/L1_ALT_DESIGN.md` §4.
+    AltEntries = 200,           // key = handle (6 B);   value = AltEntry (handle + entries + creating block + DAA score)
+    AltCreatedInBlock = 201,    // key = block_hash;     value = AltBlockHandles (handles created inside the block)
+    AltHandleResolutions = 202, // key = handle (6 B);   value = AltResolution (creating_block_hash, daa_score)
+
     // ---- Separator ----
     /// Reserved as a separator
     Separator = SEPARATOR,

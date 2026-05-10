@@ -47,8 +47,10 @@ use std::fmt;
 use sha3::{Digest, Sha3_384};
 
 pub mod codec;
+pub mod store_types;
 
 pub use codec::{alt_handle_of, encode_alt_creation_script, encode_alt_reference_script};
+pub use store_types::{AltBlockHandles, AltEntry, AltEntryRecord, AltHandleHash, AltResolution};
 
 // --- discriminators ----------------------------------------------------
 
