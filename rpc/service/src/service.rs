@@ -1438,6 +1438,79 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
             confirmations,
         })))
     }
+
+    // ---------------------------------------------------------------
+    // J4 — sVM Event Logs RPC (sub-fase J4.5.a)
+    // ---------------------------------------------------------------
+
+    async fn get_logs_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        request: GetLogsRequest,
+    ) -> RpcResult<GetLogsResponse> {
+        use sophis_consensus_core::events::{
+            EventLogFilter, EventTopic, MAX_TOPICS_PER_EVENT, TOPIC_LEN,
+        };
+
+        // Validate topic + contract sizes up front; the stores expect
+        // exact-32-byte keys and silently mis-routing a query is the
+        // worst possible failure mode.
+        if request.topics.len() > MAX_TOPICS_PER_EVENT as usize {
+            return Err(RpcError::General(format!(
+                "topics length {} exceeds MAX_TOPICS_PER_EVENT={MAX_TOPICS_PER_EVENT}",
+                request.topics.len()
+            )));
+        }
+        let contract_id: Option<[u8; 32]> = match &request.contract_id {
+            Some(c) if c.len() == 32 => {
+                let mut arr = [0u8; 32];
+                arr.copy_from_slice(c);
+                Some(arr)
+            }
+            Some(c) => {
+                return Err(RpcError::General(format!("contract_id must be 32 bytes (got {})", c.len())));
+            }
+            None => None,
+        };
+        let mut topics: Vec<Option<EventTopic>> = Vec::with_capacity(request.topics.len());
+        for (i, slot) in request.topics.iter().enumerate() {
+            match slot {
+                Some(t) if t.len() == TOPIC_LEN => {
+                    let mut arr = [0u8; TOPIC_LEN];
+                    arr.copy_from_slice(t);
+                    topics.push(Some(EventTopic(arr)));
+                }
+                Some(t) => {
+                    return Err(RpcError::General(format!(
+                        "topics[{i}] must be {TOPIC_LEN} bytes (got {})",
+                        t.len()
+                    )));
+                }
+                None => topics.push(None),
+            }
+        }
+
+        // Reject whole-chain scans per design §7.1: at least one of
+        // {contract_id, any non-None topic, both block bounds} required.
+        let any_topic = topics.iter().any(|t| t.is_some());
+        let has_block_range = request.from_block.is_some() && request.to_block.is_some();
+        if contract_id.is_none() && !any_topic && !has_block_range {
+            return Err(RpcError::General(
+                "getLogs requires at least one of: contract_id, any topic, or both from_block + to_block".into(),
+            ));
+        }
+
+        // Server cap regardless of client `limit`.
+        let limit = request
+            .limit
+            .map(|l| (l as usize).min(MAX_LOGS_PER_RESPONSE as usize))
+            .unwrap_or(MAX_LOGS_PER_RESPONSE as usize);
+        let filter = EventLogFilter { contract_id, topics, from_block: request.from_block, to_block: request.to_block, limit };
+
+        let session = self.consensus_manager.consensus().unguarded_session();
+        let logs = session.async_get_logs(filter).await;
+        Ok(GetLogsResponse::new(logs.into_iter().map(event_log_to_rpc).collect()))
+    }
 }
 
 // Phase 6 — helpers --------------------------------------------------
@@ -1449,6 +1522,19 @@ fn vec_to_array_48(v: &[u8], field: &str) -> RpcResult<[u8; 48]> {
     let mut arr = [0u8; 48];
     arr.copy_from_slice(v);
     Ok(arr)
+}
+
+fn event_log_to_rpc(log: sophis_consensus_core::events::EventLog) -> RpcEventLog {
+    RpcEventLog {
+        contract_id: log.contract_id.to_vec(),
+        topics: log.topics.into_iter().map(|t| t.0.to_vec()).collect(),
+        data: log.data,
+        block_hash: log.block_hash,
+        tx_id: log.tx_id,
+        tx_index: log.tx_index,
+        log_index: log.log_index,
+        daa_score: log.daa_score,
+    }
 }
 
 fn payload_entry_to_rpc(entry: sophis_consensus_core::da::PayloadEntry) -> RpcDaPayload {

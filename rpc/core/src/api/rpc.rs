@@ -585,6 +585,26 @@ pub trait RpcApi: Sync + Send + AnySync {
         connection: Option<&DynRpcConnection>,
         request: GetDaPayloadStatusRequest,
     ) -> RpcResult<GetDaPayloadStatusResponse>;
+
+    // ----------------------------------------------------------------
+    // J4 — sVM Event Logs RPC (sub-fase J4.5)
+    // See `docs/J4_EVENTS_DESIGN.md` §7.
+    // ----------------------------------------------------------------
+
+    /// Filters sVM event logs by an `eth_getLogs`-shaped predicate. All
+    /// axes (`contract_id`, positional `topics`, `from_block`/`to_block`,
+    /// `limit`) are AND-combined; at least one must be specified or the
+    /// server rejects the request to prevent whole-chain scans. Server
+    /// always caps the response at `MAX_LOGS_PER_RESPONSE` (= 1000)
+    /// regardless of the client `limit` field.
+    async fn get_logs(&self, request: GetLogsRequest) -> RpcResult<Vec<RpcEventLog>> {
+        Ok(self.get_logs_call(None, request).await?.logs)
+    }
+    async fn get_logs_call(
+        &self,
+        connection: Option<&DynRpcConnection>,
+        request: GetLogsRequest,
+    ) -> RpcResult<GetLogsResponse>;
 }
 
 pub type DynRpcService = Arc<dyn RpcApi>;

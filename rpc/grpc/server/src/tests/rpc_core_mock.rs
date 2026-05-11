@@ -415,6 +415,14 @@ impl RpcApi for RpcCoreMock {
         Err(RpcError::NotImplemented)
     }
 
+    async fn get_logs_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: sophis_rpc_core::model::events::GetLogsRequest,
+    ) -> RpcResult<sophis_rpc_core::model::events::GetLogsResponse> {
+        Err(RpcError::NotImplemented)
+    }
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API
 

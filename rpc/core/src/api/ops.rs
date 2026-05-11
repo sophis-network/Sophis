@@ -151,6 +151,9 @@ pub enum RpcApiOps {
     GetDaCarriersByDomain = 155,
     /// Status of a payload_id (accepted? confirmation count?).
     GetDaPayloadStatus = 156,
+    // ---- J4 — sVM Event Logs ----
+    /// Filter sVM event logs (eth_getLogs equivalent).
+    GetLogs = 157,
 }
 
 impl RpcApiOps {

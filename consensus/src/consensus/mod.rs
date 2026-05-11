@@ -1459,4 +1459,80 @@ impl ConsensusApi for Consensus {
         // blue score; carriers are confirmed against this value.
         self.get_sink_blue_score()
     }
+
+    // -- J4 — sVM Event Logs accessor (sub-fase J4.5) --
+
+    fn get_logs(&self, filter: sophis_consensus_core::events::EventLogFilter) -> Vec<sophis_consensus_core::events::EventLog> {
+        use crate::model::stores::events::EventStoreReader;
+        use crate::model::stores::headers::HeaderStoreReader;
+        use sophis_consensus_core::events::{event_log_matches, EventLog};
+
+        // Resolve block-hash bounds to DAA-score bounds via the headers
+        // store. Missing headers fall back to 0 / u64::MAX so a reorg or
+        // pruning of one bound only widens the range, never narrows it
+        // wrongly.
+        let from_daa = filter.from_block.and_then(|h| self.storage.headers_store.get_daa_score(h).ok()).unwrap_or(0);
+        let to_daa = filter.to_block.and_then(|h| self.storage.headers_store.get_daa_score(h).ok()).unwrap_or(u64::MAX);
+
+        // Pick the most-selective index per design §7.3:
+        //   topic[any non-None] > contract_id > single-block lookup > empty
+        let pointers: Vec<sophis_consensus_core::events::EventLogPointer> = if let Some(idx) =
+            filter.topics.iter().position(|t| t.is_some())
+        {
+            let topic = filter.topics[idx].expect("position() guaranteed Some");
+            self.storage.event_store.pointers_by_topic_range(&topic, from_daa, to_daa).unwrap_or_default()
+        } else if let Some(c) = filter.contract_id {
+            self.storage.event_store.pointers_by_contract_range(&c, from_daa, to_daa).unwrap_or_default()
+        } else if let (Some(from_b), Some(to_b)) = (filter.from_block, filter.to_block)
+            && from_b == to_b
+        {
+            // Single-block lookup short-circuits the pointer dance.
+            return self
+                .storage
+                .event_store
+                .get_logs_by_block(from_b)
+                .ok()
+                .flatten()
+                .map(|l| l.logs)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|log| event_log_matches(log, &filter, from_daa, to_daa))
+                .take(filter.limit)
+                .collect();
+        } else {
+            // No selective axis — caller is supposed to reject this case
+            // before the call; defensively return empty rather than scan
+            // the world.
+            return Vec::new();
+        };
+
+        // Walk the pointers, hydrating each via `get_logs_by_block`. We
+        // cache the most-recently-loaded block to avoid quadratic reads
+        // when many pointers fall in the same block.
+        let mut out: Vec<EventLog> = Vec::new();
+        let mut cached_block: Option<sophis_hashes::Hash> = None;
+        let mut cached_logs: Vec<EventLog> = Vec::new();
+        for ptr in pointers {
+            if Some(ptr.block_hash) != cached_block {
+                cached_logs = self
+                    .storage
+                    .event_store
+                    .get_logs_by_block(ptr.block_hash)
+                    .ok()
+                    .flatten()
+                    .map(|l| l.logs)
+                    .unwrap_or_default();
+                cached_block = Some(ptr.block_hash);
+            }
+            if let Some(log) = cached_logs.iter().find(|l| l.log_index == ptr.log_index)
+                && event_log_matches(log, &filter, from_daa, to_daa)
+            {
+                out.push(log.clone());
+                if out.len() >= filter.limit {
+                    break;
+                }
+            }
+        }
+        out
+    }
 }

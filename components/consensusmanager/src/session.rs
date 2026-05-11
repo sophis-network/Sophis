@@ -524,6 +524,15 @@ impl ConsensusSessionOwned {
     pub async fn async_da_current_blue_score(&self) -> u64 {
         self.clone().spawn_blocking(|c| c.da_current_blue_score()).await
     }
+
+    // -- J4 — Event Logs accessor (sub-fase J4.5) --
+
+    pub async fn async_get_logs(
+        &self,
+        filter: sophis_consensus_core::events::EventLogFilter,
+    ) -> Vec<sophis_consensus_core::events::EventLog> {
+        self.clone().spawn_blocking(move |c| c.get_logs(filter)).await
+    }
 }
 
 pub type ConsensusProxy = ConsensusSessionOwned;

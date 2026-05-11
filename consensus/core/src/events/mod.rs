@@ -73,6 +73,46 @@ pub const MAX_LOGS_PER_RESPONSE: u32 = 1_000;
 /// stores share the same partitioning convention.
 pub const EVENTS_BY_CONTRACT_BUCKET_SIZE: u64 = 65_536;
 
+// --- filter type (J4.5 — RPC getLogs) ---------------------------------
+
+/// `eth_getLogs`-shaped filter. All axes AND-combined. Consumed by the
+/// consensus-side `ConsensusApi::get_logs` accessor; the RPC service
+/// layer is responsible for clamping `limit` to `MAX_LOGS_PER_RESPONSE`
+/// and rejecting whole-chain scans before the call.
+#[derive(Clone, Debug)]
+pub struct EventLogFilter {
+    pub contract_id: Option<[u8; 32]>,
+    /// Up to `MAX_TOPICS_PER_EVENT` (= 4) positional slots.
+    /// `topics[i] = Some(t)` requires slot `i` of the event to equal `t`.
+    /// `None` slots are wildcards; a fully-empty `topics` vec means
+    /// wildcard at every slot.
+    pub topics: Vec<Option<store_types::EventTopic>>,
+    pub from_block: Option<sophis_hashes::Hash>,
+    pub to_block: Option<sophis_hashes::Hash>,
+    /// Server-enforced cap on returned rows. Must be `<= MAX_LOGS_PER_RESPONSE`.
+    pub limit: usize,
+}
+
+/// Returns true if `log` satisfies all axes of `filter`. The DAA bounds
+/// are provided pre-resolved (caller looks them up via the headers store)
+/// so this helper is independent of consensus storage.
+pub fn event_log_matches(log: &store_types::EventLog, filter: &EventLogFilter, from_daa: u64, to_daa: u64) -> bool {
+    if let Some(c) = &filter.contract_id
+        && &log.contract_id != c
+    {
+        return false;
+    }
+    for (i, slot) in filter.topics.iter().enumerate() {
+        if let Some(t) = slot {
+            match log.topics.get(i) {
+                Some(actual) if actual == t => {}
+                _ => return false,
+            }
+        }
+    }
+    log.daa_score >= from_daa && log.daa_score <= to_daa
+}
+
 // --- view types --------------------------------------------------------
 
 /// Decoded view of a single emission payload. Returned by

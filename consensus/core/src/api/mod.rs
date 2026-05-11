@@ -461,6 +461,16 @@ pub trait ConsensusApi: Send + Sync {
     fn da_current_blue_score(&self) -> u64 {
         0
     }
+
+    // -- J4 — sVM Event Logs accessor (sub-fase J4.5) --
+
+    /// Filters indexed sVM event logs by an `eth_getLogs`-shaped predicate.
+    /// Caller is responsible for clamping `filter.limit` and rejecting
+    /// whole-chain scans (no filter axis specified). Defaults to empty so
+    /// existing mocks keep compiling.
+    fn get_logs(&self, _filter: crate::events::EventLogFilter) -> Vec<crate::events::EventLog> {
+        Vec::new()
+    }
 }
 
 pub type DynConsensus = Arc<dyn ConsensusApi>;
