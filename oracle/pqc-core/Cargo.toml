@@ -1,0 +1,18 @@
+[package]
+name = "sophis-oracle-pqc-core"
+description = "Phase 9 PQC-native oracle: frozen wire-format types + Dilithium sign/verify helpers (SIP-11)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+borsh.workspace = true
+libcrux-ml-dsa.workspace = true
+sha3.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -29,6 +29,7 @@ licence (AGPL-3.0; see [`LICENSE`](../LICENSE)).
 | [8](./SIP-8-PRUNING-POLICY.md) | Pruning Policy + getPruningInfo RPC | Standards | Draft | 2026-05-11 |
 | [9](./SIP-9-POSEIDON.md) | Canonical Poseidon Specification (spec-only) | Standards | Draft | 2026-05-11 |
 | [10](./SIP-10-MULTICALL.md) | Multicall Pattern (SDK contract template) | Standards | Draft | 2026-05-11 |
+| [11](./SIP-11-PQC-ORACLE.md) | PQC-Native Oracle (Phase 9) | Standards | Draft | 2026-05-11 |
 
 (Index will grow as SIPs are submitted and accepted. Maintainers
 update this table when a SIP changes status.)
