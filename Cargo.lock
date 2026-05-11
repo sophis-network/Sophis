@@ -6907,6 +6907,7 @@ dependencies = [
  "secp256k1",
  "serde",
  "serde_json",
+ "sha3",
  "smallvec",
  "sophis-addresses",
  "sophis-consensus-core",

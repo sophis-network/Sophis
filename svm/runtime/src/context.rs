@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use sophis_svm_core::{Capability, ContractManifest, Gas, GasConfig};
 
-use crate::host::{HostAlt, HostCrypto, HostDa, StubAlt, StubDa};
+use crate::host::{HostAlt, HostCrypto, HostDa, HostVrf, StubAlt, StubDa, StubVrf};
 
 /// Data threaded through the Wasmtime Store during a single contract execution.
 /// Host functions receive a `Caller<ExecutionContext>` and read/write this.
@@ -26,6 +26,10 @@ pub struct ExecutionContext {
     /// injects `SophisAltBackend` (bound to `DbAltStore`) at the
     /// transaction-validator layer. Sub-fase L1.4.
     pub alt: Arc<dyn HostAlt>,
+    /// J3 — Verifiable Randomness backend. Stub by default; consensus
+    /// injects `SophisVrfBackend` (bound to `selected_chain_store`) at
+    /// the transaction-validator layer.
+    pub vrf: Arc<dyn HostVrf>,
     /// J4 — identifier of the contract whose code is currently executing,
     /// stamped onto every event the contract emits via `sophis_emit_event`.
     /// `[0u8; 32]` in unit tests / wasm sandbox; the consensus transaction
@@ -68,6 +72,7 @@ impl ExecutionContext {
             crypto,
             da: Arc::new(StubDa),
             alt: Arc::new(StubAlt),
+            vrf: Arc::new(StubVrf),
             contract_id: [0u8; 32],
             events: Vec::new(),
         }
@@ -95,6 +100,7 @@ impl ExecutionContext {
             crypto,
             da,
             alt: Arc::new(StubAlt),
+            vrf: Arc::new(StubVrf),
             contract_id: [0u8; 32],
             events: Vec::new(),
         }
@@ -122,9 +128,19 @@ impl ExecutionContext {
             crypto,
             da,
             alt,
+            vrf: Arc::new(StubVrf),
             contract_id: [0u8; 32],
             events: Vec::new(),
         }
+    }
+
+    /// J3 builder — chain method to inject a real `HostVrf` backend. The
+    /// transaction-validator path calls this after one of the `new_*`
+    /// constructors when the consensus storage carries a chain store.
+    /// Tests leave the default `StubVrf` (always returns `None`).
+    pub fn with_vrf_backend(mut self, vrf: Arc<dyn HostVrf>) -> Self {
+        self.vrf = vrf;
+        self
     }
 
     /// J4 — set the contract identifier stamped onto emitted events.

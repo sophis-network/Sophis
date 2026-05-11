@@ -42,6 +42,12 @@ pub enum Capability {
     /// Strictly additive — does not affect transaction wire format or
     /// state roots. See `docs/J4_EVENTS_DESIGN.md`.
     EmitEvent,
+    /// J3 — read 32 bytes of bias-resistant VRF entropy derived from a
+    /// past selected-chain block hash via `sophis_vrf_random_at`. Output
+    /// is `SHA3-384(b"sophis-vrf-v1\0" || chain_index_le || block_hash)[..32]`.
+    /// Bias-resistance comes from RandomX PoW grinding cost ≥ block
+    /// reward per output bit. See `docs/J3_VRF_DESIGN.md`.
+    VrfRandomness,
 }
 
 impl std::fmt::Display for Capability {
@@ -57,6 +63,7 @@ impl std::fmt::Display for Capability {
             Self::VerifyDataAvailability => write!(f, "VerifyDataAvailability"),
             Self::ResolveAlt => write!(f, "ResolveAlt"),
             Self::EmitEvent => write!(f, "EmitEvent"),
+            Self::VrfRandomness => write!(f, "VrfRandomness"),
         }
     }
 }

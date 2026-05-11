@@ -20,8 +20,11 @@ use sophis_txscript::{
 use sophis_consensus_core::tx::TransactionId;
 use sophis_consensus_core::{KType, mass::MassCalculator};
 
+use parking_lot::RwLock;
+
 use crate::model::stores::alt::DbAltStore;
 use crate::model::stores::da::DbDaStore;
+use crate::model::stores::selected_chain::DbSelectedChainStore;
 use crate::model::stores::virtual_state::LkgVirtualState;
 
 /// J4 — sparse side-channel collector that the transaction validator uses
@@ -66,6 +69,12 @@ pub struct SvmContext {
     /// Always present (cheap empty `DashMap`); contracts that never call
     /// `sophis_emit_event` simply leave it empty for that tx.
     pub events_collector: EventsCollector,
+    /// J3 — selected-chain store handle injected once consensus storage
+    /// is wired. `None` preserves test/lite-build behavior: VRF queries
+    /// fall back to `StubVrf` (every lookup returns `None`). Production
+    /// validators MUST set this; otherwise `vrf_random_at` returns -6
+    /// (unknown chain_index) for every call.
+    pub selected_chain_store: Option<Arc<RwLock<DbSelectedChainStore>>>,
 }
 
 impl SvmContext {
@@ -78,6 +87,7 @@ impl SvmContext {
             lkg_virtual_state: None,
             alt_store: None,
             events_collector: Arc::new(DashMap::new()),
+            selected_chain_store: None,
         })
     }
 
@@ -102,6 +112,15 @@ impl SvmContext {
     /// reference resolution (rules 15-16 of `docs/L1_ALT_DESIGN.md` §5).
     pub fn with_alt_store(mut self, alt_store: Arc<DbAltStore>) -> Self {
         self.alt_store = Some(alt_store);
+        self
+    }
+
+    /// J3 builder — attach the selected-chain store handle so the VRF
+    /// backend can resolve `chain_index → block_hash`. Production uses
+    /// `consensus.storage.selected_chain_store.clone()`; tests omit and
+    /// fall back to `StubVrf` (every VRF query returns -6 unknown_index).
+    pub fn with_selected_chain_store(mut self, store: Arc<RwLock<DbSelectedChainStore>>) -> Self {
+        self.selected_chain_store = Some(store);
         self
     }
 }

@@ -27,6 +27,11 @@ pub const GAS_EVENT_EMIT_BASE: u64 = 1_000;
 /// Topics are not metered separately — they are bounded to 4 × 32 bytes
 /// max and carry a fixed ceiling. Frozen ABI.
 pub const GAS_EVENT_EMIT_PER_BYTE: u64 = 8;
+/// J3 — single VRF lookup. Cost dominated by RocksDB chain-index lookup
+/// plus a small SHA3-384 mix. Cheaper than ALT resolve because the
+/// output is a fixed 32 bytes (no variable buffer write).
+/// Calibrate post-devnet.
+pub const GAS_VRF_RANDOM: u64 = 500;
 
 /// Minimum SOF deposit to create a Contract UTXO (storage rent, refunded on spend).
 pub const STORAGE_BASE_DEPOSIT: u64 = 100_000_000; // sompi
@@ -65,6 +70,7 @@ pub struct GasConfig {
     pub alt_resolve_cost: u64,
     pub event_emit_base_cost: u64,
     pub event_emit_per_byte_cost: u64,
+    pub vrf_random_cost: u64,
 }
 
 impl Default for GasConfig {
@@ -82,6 +88,7 @@ impl Default for GasConfig {
             alt_resolve_cost: GAS_ALT_RESOLVE,
             event_emit_base_cost: GAS_EVENT_EMIT_BASE,
             event_emit_per_byte_cost: GAS_EVENT_EMIT_PER_BYTE,
+            vrf_random_cost: GAS_VRF_RANDOM,
         }
     }
 }

@@ -45,6 +45,44 @@ impl HostDa for StubDa {
     }
 }
 
+/// J3 — Verifiable Randomness backend.
+///
+/// Stateless from the runtime's point of view: every call from a contract
+/// is answered by looking up the chain block at the requested chain
+/// index and returning a SHA3-384-domain-separated 32-byte digest. The
+/// runtime holds an `Arc<dyn HostVrf>` so the consensus layer can inject
+/// a real backend (`SophisVrfBackend`) bound to `selected_chain_store`.
+///
+/// Lookups are **deterministic** at consensus time: every full node
+/// answers the same query the same way because `selected_chain_store`
+/// is committed during virtual_processor commit before any contract
+/// runs against the same chain block. See `docs/J3_VRF_DESIGN.md` §2 D5.
+pub trait HostVrf: Send + Sync + 'static {
+    /// Returns 32 bytes of VRF entropy for the given chain index, or
+    /// `None` if the index is unknown / pruned / in the future.
+    /// `None` callers MUST distinguish from the cap by tracking the
+    /// current tip themselves; the backend does not signal "future"
+    /// vs "pruned" separately at this layer.
+    fn vrf_random_at(&self, chain_index: u64) -> Option<[u8; 32]>;
+
+    /// Returns the current chain tip index. Used by the host fn to
+    /// distinguish "future block" (status -3) from "unknown index"
+    /// (status -6) without requiring a second call.
+    fn current_tip_index(&self) -> u64;
+}
+
+/// Stub — every VRF query returns `None`. Used in svm/runtime unit tests
+/// and as a default in environments that have no chain store yet.
+pub struct StubVrf;
+impl HostVrf for StubVrf {
+    fn vrf_random_at(&self, _: u64) -> Option<[u8; 32]> {
+        None
+    }
+    fn current_tip_index(&self) -> u64 {
+        0
+    }
+}
+
 /// L1 — Address Lookup Table backend.
 ///
 /// Stateless from the runtime's point of view: every call from a contract
@@ -386,6 +424,60 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, crypto: Ar
                     topics: parsed.topics,
                     data: parsed.data,
                 });
+                0
+            },
+        )
+        .map_err(|e| RuntimeError::InstantiationFailed(e.to_string()))?;
+
+    // sophis_vrf_random_at(chain_index, out_ptr) -> i32
+    //
+    // Writes 32 bytes of VRF entropy at out_ptr derived from the
+    // selected-chain block at `chain_index`. Output is
+    //   SHA3-384(b"sophis-vrf-v1\0" || chain_index_le_8 || block_hash)[..32]
+    // (the SHA3 mixing happens inside the SophisVrfBackend, not the host
+    // fn — the trait surface returns the already-mixed [u8; 32]).
+    //
+    // Args:
+    //   chain_index : i64       — selected-chain index
+    //   out_ptr     : *mut u8   — guest buffer, must accommodate 32 bytes
+    //
+    // Returns: i32
+    //   0    success — 32 bytes written at out_ptr
+    //  -1    capability not granted (`Capability::VrfRandomness` missing)
+    //  -2    gas exhaustion
+    //  -3    chain_index >= current chain tip index (future block)
+    //  -4    chain_index < 0
+    //  -5    out_ptr write would land out of WASM linear memory
+    //  -6    chain_index < tip but the store cannot resolve it (pruned / unhealthy node)
+    linker
+        .func_wrap(
+            "env",
+            "sophis_vrf_random_at",
+            |mut caller: Caller<ExecutionContext>, chain_index: i64, out_ptr: i32| -> i32 {
+                if caller.data().check_capability(&Capability::VrfRandomness).is_err() {
+                    return -1;
+                }
+                let cost = caller.data().gas_config.vrf_random_cost;
+                if caller.data_mut().charge(Gas(cost)).is_err() {
+                    return -2;
+                }
+                if chain_index < 0 {
+                    return -4;
+                }
+                let chain_index = chain_index as u64;
+                let vrf = Arc::clone(&caller.data().vrf);
+                if chain_index >= vrf.current_tip_index() {
+                    return -3;
+                }
+                let Some(bytes) = vrf.vrf_random_at(chain_index) else {
+                    return -6;
+                };
+                // Use the standard write helper but fix-size: pass -1 for
+                // out_len_ptr since the size is fixed (32 bytes); the helper
+                // skips the length write when the pointer is negative.
+                if write_to_memory(&mut caller, &bytes, out_ptr, -1) == 0 {
+                    return -5;
+                }
                 0
             },
         )

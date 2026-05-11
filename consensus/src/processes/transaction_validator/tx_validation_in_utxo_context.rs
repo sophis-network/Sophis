@@ -51,6 +51,17 @@ fn build_alt_backend(svm: &SvmContext) -> Arc<dyn sophis_svm_runtime::HostAlt> {
     }
 }
 
+/// J3 helper — picks the right `HostVrf` backend for this validator.
+/// Production wires `SophisVrfBackend` bound to `selected_chain_store`;
+/// tests / lite builds without it fall back to `StubVrf` (every lookup
+/// returns `None`).
+fn build_vrf_backend(svm: &SvmContext) -> Arc<dyn sophis_svm_runtime::HostVrf> {
+    match &svm.selected_chain_store {
+        Some(store) => Arc::new(crate::svm_vrf::SophisVrfBackend::new(Arc::clone(store))),
+        None => Arc::new(sophis_svm_runtime::StubVrf),
+    }
+}
+
 use super::{
     SvmContext, TransactionValidator,
     errors::{TxResult, TxRuleError},
@@ -360,7 +371,8 @@ fn check_contract_input(
         build_da_backend(svm),
         build_alt_backend(svm),
     )
-    .with_contract_id(contract_data.contract_id.as_bytes());
+    .with_contract_id(contract_data.contract_id.as_bytes())
+    .with_vrf_backend(build_vrf_backend(svm));
 
     let result = svm
         .executor
@@ -430,7 +442,8 @@ fn check_token_utxo_spend(
             build_da_backend(svm),
             build_alt_backend(svm),
         )
-        .with_contract_id(policy_id.as_bytes());
+        .with_contract_id(policy_id.as_bytes())
+        .with_vrf_backend(build_vrf_backend(svm));
 
         let result = svm
             .executor
@@ -525,7 +538,8 @@ pub fn check_token_conservation(
             build_da_backend(svm),
             build_alt_backend(svm),
         )
-        .with_contract_id(token_id.as_bytes());
+        .with_contract_id(token_id.as_bytes())
+        .with_vrf_backend(build_vrf_backend(svm));
 
         let result = svm
             .executor

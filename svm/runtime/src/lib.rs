@@ -16,5 +16,5 @@ pub use db_store::DbContractStore;
 pub use engine::SvmEngine;
 pub use error::{RuntimeError, RuntimeResult};
 pub use executor::{ContractExecutor, ExecutionResult};
-pub use host::{HostAlt, HostCrypto, HostDa, StubAlt, StubCrypto, StubDa};
+pub use host::{HostAlt, HostCrypto, HostDa, HostVrf, StubAlt, StubCrypto, StubDa, StubVrf};
 pub use store::InMemoryContractStore;

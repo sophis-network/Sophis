@@ -36,6 +36,8 @@ extern "C" {
     ) -> i32;
     // J4 — emit a structured event log
     fn sophis_emit_event(payload_ptr: i32, payload_len: i32) -> i32;
+    // J3 — read 32 bytes of VRF entropy at out_ptr
+    fn sophis_vrf_random_at(chain_index: i64, out_ptr: i32) -> i32;
 }
 
 /// J4 — frozen ABI mirror of `sophis_svm_core::events::*` constants.
@@ -57,6 +59,27 @@ pub enum EmitEventError {
     DataTooLarge = 4,
     StructuralError = 5,
     PerTxCapReached = 6,
+}
+
+/// J3 — non-zero status returned by `Env::vrf_random_at_chain_index`.
+/// Numbering matches the host fn (`-1`..`-6`); positive here so callers
+/// can compare in safe arithmetic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VrfError {
+    CapabilityMissing = 1,
+    GasExhausted = 2,
+    /// Requested chain_index is at or beyond the current chain tip;
+    /// the contract should retry once the chain advances. Common
+    /// commit-reveal pattern: write a commitment now, read VRF later.
+    FutureBlock = 3,
+    /// Requested chain_index was negative (cast underflow at producer).
+    NegativeIndex = 4,
+    /// out_ptr write would land out of WASM linear memory.
+    OutputBufferOob = 5,
+    /// Requested chain_index < tip but the store cannot resolve it
+    /// (likely pruned). Should not happen on a healthy node within the
+    /// recent-history window.
+    UnknownIndex = 6,
 }
 
 /// The contract execution environment — provides access to all sVM host APIs.
@@ -250,6 +273,41 @@ impl Env {
             // already shape-checked above.
             let _ = buf;
             Ok(())
+        }
+    }
+
+    /// Reads 32 bytes of VRF entropy derived from the selected-chain
+    /// block at `chain_index` (J3 — `VrfRandomness` capability required).
+    ///
+    /// Output is `SHA3-384(b"sophis-vrf-v1\0" || chain_index_le || block_hash)[..32]`.
+    /// Bias-resistant because RandomX PoW grinding cost ≥ block reward
+    /// per output bit; deterministic because the input is a function of
+    /// committed chain state. See `docs/J3_VRF_DESIGN.md`.
+    ///
+    /// Safety note: callers SHOULD use `chain_index <= current_tip - finality_depth`
+    /// to avoid reorg-driven VRF flips. Reading the very tip is unsafe.
+    /// Outside WASM (off-chain dev), always returns `Ok([0u8; 32])`.
+    pub fn vrf_random_at_chain_index(&self, chain_index: u64) -> Result<[u8; 32], VrfError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut out = [0u8; 32];
+            let status = unsafe { sophis_vrf_random_at(chain_index as i64, out.as_mut_ptr() as i32) };
+            match status {
+                0 => Ok(out),
+                -1 => Err(VrfError::CapabilityMissing),
+                -2 => Err(VrfError::GasExhausted),
+                -3 => Err(VrfError::FutureBlock),
+                -4 => Err(VrfError::NegativeIndex),
+                -5 => Err(VrfError::OutputBufferOob),
+                -6 => Err(VrfError::UnknownIndex),
+                // Any other value is a host-fn ABI bug; treat as unknown.
+                _ => Err(VrfError::UnknownIndex),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = chain_index;
+            Ok([0u8; 32])
         }
     }
 
