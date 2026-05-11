@@ -359,7 +359,8 @@ fn check_contract_input(
         Arc::new(SophisHostCrypto),
         build_da_backend(svm),
         build_alt_backend(svm),
-    );
+    )
+    .with_contract_id(contract_data.contract_id.as_bytes());
 
     let result = svm
         .executor
@@ -368,6 +369,12 @@ fn check_contract_input(
 
     if !result.valid {
         return Err(TxRuleError::SvmValidationFailed("contract rejected transaction".into()));
+    }
+    // J4 — stash emitted events keyed by tx_id for the commit hook
+    // (virtual_processor::index_events_in_block) to drain at commit
+    // time. Re-validation on a reorg overwrites prior entries.
+    if !result.events.is_empty() {
+        svm.events_collector.insert(tx.id(), result.events);
     }
     Ok(())
 }
@@ -422,7 +429,8 @@ fn check_token_utxo_spend(
             Arc::new(SophisHostCrypto),
             build_da_backend(svm),
             build_alt_backend(svm),
-        );
+        )
+        .with_contract_id(policy_id.as_bytes());
 
         let result = svm
             .executor
@@ -434,6 +442,9 @@ fn check_token_utxo_spend(
                 "token {token_id:?} policy {policy_id:?} rejected spend",
                 token_id = token_data.token_id,
             )));
+        }
+        if !result.events.is_empty() {
+            svm.events_collector.insert(tx.id(), result.events);
         }
     }
     Ok(())
@@ -513,7 +524,8 @@ pub fn check_token_conservation(
             Arc::new(SophisHostCrypto),
             build_da_backend(svm),
             build_alt_backend(svm),
-        );
+        )
+        .with_contract_id(token_id.as_bytes());
 
         let result = svm
             .executor
@@ -522,6 +534,9 @@ pub fn check_token_conservation(
 
         if !result.valid {
             return Err(TxRuleError::MintingPolicyRejected(format!("token {token_id:?}: input={in_amt} output={out_amt}")));
+        }
+        if !result.events.is_empty() {
+            svm.events_collector.insert(tx.id(), result.events);
         }
     }
     Ok(())

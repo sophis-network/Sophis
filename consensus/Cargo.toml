@@ -36,6 +36,7 @@ sophis-svm-core.workspace = true
 sophis-svm-runtime.workspace = true
 sophis-svm-host.workspace = true
 borsh.workspace = true
+dashmap.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
 once_cell.workspace = true

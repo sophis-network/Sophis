@@ -5,7 +5,7 @@ use wasmtime::{Linker, Store};
 use sophis_svm_core::{ContractId, Gas};
 
 use crate::cache::ModuleCache;
-use crate::context::ExecutionContext;
+use crate::context::{BufferedEvent, ExecutionContext};
 use crate::engine::SvmEngine;
 use crate::error::{RuntimeError, RuntimeResult};
 use crate::host::{HostCrypto, register_host_functions};
@@ -14,6 +14,13 @@ pub struct ExecutionResult {
     /// 1 = validation passed (contract accepted the tx), 0 = rejected.
     pub valid: bool,
     pub gas_used: Gas,
+    /// J4 — events emitted by the contract during execution. Empty for
+    /// contracts that do not declare `Capability::EmitEvent` or that
+    /// declare it but never call `sophis_emit_event`. The runtime does
+    /// not promote these to canonical `EventLog` records — that is the
+    /// consensus commit hook's job (J4.4), which fills the chain
+    /// coordinates the runtime cannot know.
+    pub events: Vec<BufferedEvent>,
 }
 
 pub struct ContractExecutor {
@@ -56,6 +63,11 @@ impl ContractExecutor {
         let ratio = store.data().gas_config.wasm_fuel_ratio;
         let gas_used = Gas(fuel_used * ratio);
 
-        Ok(ExecutionResult { valid: result == 1, gas_used })
+        // Recover the post-execution context to extract any events the
+        // contract emitted via `sophis_emit_event` (J4). For contracts
+        // that did not emit (the common case), this is a cheap empty Vec.
+        let events = std::mem::take(&mut store.into_data().events);
+
+        Ok(ExecutionResult { valid: result == 1, gas_used, events })
     }
 }

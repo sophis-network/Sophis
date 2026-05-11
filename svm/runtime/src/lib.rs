@@ -11,7 +11,7 @@ pub mod validator;
 
 pub use cache::ModuleCache;
 pub use config::RuntimeConfig;
-pub use context::ExecutionContext;
+pub use context::{BufferedEvent, ExecutionContext};
 pub use db_store::DbContractStore;
 pub use engine::SvmEngine;
 pub use error::{RuntimeError, RuntimeResult};

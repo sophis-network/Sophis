@@ -8,18 +8,35 @@ pub mod tx_validation_in_isolation;
 pub mod tx_validation_in_utxo_context;
 use std::sync::Arc;
 
+use dashmap::DashMap;
 use sophis_svm_core::ContractStore;
+use sophis_svm_runtime::context::BufferedEvent;
 use sophis_svm_runtime::{ContractExecutor, RuntimeConfig, SvmEngine};
 use sophis_txscript::{
     SigCacheKey,
     caches::{Cache, TxScriptCacheCounters},
 };
 
+use sophis_consensus_core::tx::TransactionId;
 use sophis_consensus_core::{KType, mass::MassCalculator};
 
 use crate::model::stores::alt::DbAltStore;
 use crate::model::stores::da::DbDaStore;
 use crate::model::stores::virtual_state::LkgVirtualState;
+
+/// J4 — sparse side-channel collector that the transaction validator uses
+/// to publish per-tx events to the consensus commit hook
+/// (`virtual_processor::index_events_in_block`). Keyed by `TransactionId`
+/// so insertions across parallel-validated txs do not contend.
+///
+/// The collector is **drained** at commit time: `index_events_in_block`
+/// removes each entry it consumes, so live memory stays bounded by the
+/// largest in-flight chain block. Re-validation on a reorg simply
+/// overwrites prior entries with the latest sVM execution result.
+///
+/// `Arc` so cheap clones can be shared across the validator and the
+/// virtual processor without lifetime gymnastics.
+pub type EventsCollector = Arc<DashMap<TransactionId, Vec<BufferedEvent>>>;
 
 /// sVM execution context held by the validator.
 /// `None` means no contracts deployed yet — Contract UTXOs return ContractNotDeployed.
@@ -44,6 +61,11 @@ pub struct SvmContext {
     /// from L1.3.a still fires either way). Production validators MUST set
     /// this; otherwise dangling references would be silently accepted.
     pub alt_store: Option<Arc<DbAltStore>>,
+    /// J4 — events collector populated at sVM execution time and drained
+    /// by `virtual_processor::index_events_in_block` at commit time.
+    /// Always present (cheap empty `DashMap`); contracts that never call
+    /// `sophis_emit_event` simply leave it empty for that tx.
+    pub events_collector: EventsCollector,
 }
 
 impl SvmContext {
@@ -55,6 +77,7 @@ impl SvmContext {
             da_store: None,
             lkg_virtual_state: None,
             alt_store: None,
+            events_collector: Arc::new(DashMap::new()),
         })
     }
 

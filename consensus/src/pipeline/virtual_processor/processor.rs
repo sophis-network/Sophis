@@ -20,6 +20,7 @@ use crate::{
             alt::DbAltStore,
             block_window_cache::{BlockWindowCacheStore, BlockWindowCacheWriter},
             da::{CarrierIndex, DbDaStore},
+            events::DbEventStore,
             daa::DbDaaStore,
             depth::{DbDepthStore, DepthStoreReader},
             ghostdag::{DbGhostdagStore, GhostdagData, GhostdagStoreReader},
@@ -103,6 +104,62 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
+/// J4 — extract the per-block event-log batch from the validator's
+/// `events_collector`, fully shaped for `DbEventStore::index_events`.
+///
+/// Drains entries (per-tx removal) from the collector as it walks the
+/// `acceptance_data`. Promotes each `BufferedEvent` to a canonical
+/// `EventLog` with all chain-coordinate fields (`block_hash`, `tx_id`,
+/// `tx_index`, `log_index` sequential within the block, `daa_score`).
+/// Enforces `MAX_EVENTS_PER_BLOCK` (= 1024); trailing events are
+/// silently truncated with a `warn!` line. Returns the (possibly
+/// capped) batch — caller is responsible for the actual store write.
+pub(crate) fn drain_events_collector_for_block(
+    events_collector: &crate::processes::transaction_validator::EventsCollector,
+    acceptance_data: &AcceptanceData,
+    chain_block_hash: Hash,
+    daa_score: u64,
+) -> Vec<sophis_consensus_core::events::EventLog> {
+    use sophis_consensus_core::events::{EventLog, EventTopic, MAX_EVENTS_PER_BLOCK};
+
+    let mut all_events: Vec<EventLog> = Vec::new();
+    let mut log_index_in_block: u32 = 0;
+
+    for mergeset_block in acceptance_data.iter() {
+        for accepted in &mergeset_block.accepted_transactions {
+            // Per-tx removal — guarantees the collector drains during commit
+            // and prevents leaks from txs the consensus layer has finished
+            // with. Re-validation on a reorg re-populates with equivalent
+            // events, so removal is safe.
+            let Some((_tx_id, buffered)) = events_collector.remove(&accepted.transaction_id) else {
+                continue;
+            };
+            let tx_index = accepted.index_within_block;
+            for be in buffered {
+                if all_events.len() >= MAX_EVENTS_PER_BLOCK {
+                    log::warn!(
+                        "J4: per-block event cap ({MAX_EVENTS_PER_BLOCK}) reached for chain block {chain_block_hash}; trailing events truncated",
+                    );
+                    return all_events;
+                }
+                let topics: Vec<EventTopic> = be.topics.into_iter().map(EventTopic).collect();
+                all_events.push(EventLog {
+                    contract_id: be.contract_id,
+                    topics,
+                    data: be.data,
+                    block_hash: chain_block_hash,
+                    tx_id: accepted.transaction_id,
+                    tx_index,
+                    log_index: log_index_in_block,
+                    daa_score,
+                });
+                log_index_in_block += 1;
+            }
+        }
+    }
+    all_events
+}
+
 pub struct VirtualStateProcessor {
     // Channels
     receiver: CrossbeamReceiver<VirtualStateProcessingMessage>,
@@ -142,6 +199,15 @@ pub struct VirtualStateProcessor {
     /// can index ALT-creation outputs atomically with the rest of the
     /// chain-block commit batch.
     pub(super) alt_store: Arc<DbAltStore>,
+    /// J4 — Event store. Wired alongside `da_store`/`alt_store` so
+    /// `commit_utxo_state` can index sVM-emitted events atomically with
+    /// the rest of the chain-block commit batch.
+    pub(super) event_store: Arc<DbEventStore>,
+    /// J4 — Side-channel events collector populated by the transaction
+    /// validator at sVM execution time. `index_events_in_block` drains
+    /// it (per-tx removal) at commit time. Sparse map; cheap when no
+    /// contracts emit. See `processes::transaction_validator::EventsCollector`.
+    pub(super) events_collector: crate::processes::transaction_validator::EventsCollector,
     pub(super) virtual_stores: Arc<RwLock<VirtualStores>>,
     pub(super) pruning_meta_stores: Arc<RwLock<PruningMetaStores>>,
     /// Anti long-range attack — the virtual processor is responsible for
@@ -229,6 +295,16 @@ impl VirtualStateProcessor {
             acceptance_data_store: storage.acceptance_data_store.clone(),
             da_store: storage.da_store.clone(),
             alt_store: storage.alt_store.clone(),
+            event_store: storage.event_store.clone(),
+            // Share the SAME `Arc<DashMap>` instance the validator's SvmContext
+            // populates at execution time. Falls back to an empty map if sVM
+            // is disabled (lite/test builds without contract store).
+            events_collector: services
+                .transaction_validator
+                .svm
+                .as_ref()
+                .map(|svm| svm.events_collector.clone())
+                .unwrap_or_else(|| Arc::new(dashmap::DashMap::new())),
             virtual_stores: storage.virtual_stores.clone(),
             pruning_meta_stores: storage.pruning_meta_stores.clone(),
             max_chain_work_seen_store: storage.max_chain_work_seen_store.clone(),
@@ -570,6 +646,14 @@ impl VirtualStateProcessor {
         if let Err(e) = self.index_alt_creations_in_block(&mut batch, current, &acceptance_data) {
             warn!("ALT creation indexing failed for block {current}: {e}");
         }
+        // J4 — index any sVM events emitted by the accepted txs of this
+        // chain block. Same atomicity envelope as carriers / ALT (single
+        // WriteBatch). Failures are non-fatal — events are pure observability
+        // and a bad write must not stall the chain. Drains the validator's
+        // events_collector for the accepted txs as a side effect.
+        if let Err(e) = self.index_events_in_block(&mut batch, current, &acceptance_data) {
+            warn!("J4: event indexing failed for block {current}: {e}");
+        }
         self.acceptance_data_store.insert_batch(&mut batch, current, Arc::new(acceptance_data)).unwrap();
         // Note we call idempotent since this field can be populated during IBD with headers proof
         self.pruning_samples_store.insert_batch(&mut batch, current, pruning_sample_from_pov).idempotent().unwrap();
@@ -721,6 +805,34 @@ impl VirtualStateProcessor {
         }
 
         self.alt_store.index_alt_creations(batch, chain_block_hash, &creations)
+    }
+
+    /// J4 — drains the events_collector for every accepted tx of this
+    /// chain block, promotes each `BufferedEvent` to a canonical
+    /// `EventLog` (filling the chain-coordinate fields the runtime cannot
+    /// know), enforces the per-block cap (`MAX_EVENTS_PER_BLOCK = 1024`,
+    /// trailing events silently truncated with a warn), and indexes the
+    /// resulting batch into the four `EventsBy*` sub-stores in the same
+    /// `WriteBatch` as the rest of `commit_utxo_state`.
+    ///
+    /// Idempotency: the collector is **drained** as we go (per-tx
+    /// removal). On a reorg replay the validator would re-execute the
+    /// same txs and re-populate the collector with byte-equal events,
+    /// then this function would re-derive the same `EventLog` records.
+    /// `DbEventStore::index_events` overwrites byte-equal rows.
+    fn index_events_in_block(
+        &self,
+        batch: &mut WriteBatch,
+        chain_block_hash: Hash,
+        acceptance_data: &AcceptanceData,
+    ) -> Result<(), sophis_database::prelude::StoreError> {
+        // Skip the work entirely when nothing emitted (the common case).
+        if self.events_collector.is_empty() {
+            return Ok(());
+        }
+        let daa_score = self.headers_store.get_daa_score(chain_block_hash).unwrap_or(0);
+        let all_events = drain_events_collector_for_block(&self.events_collector, acceptance_data, chain_block_hash, daa_score);
+        self.event_store.index_events(batch, chain_block_hash, all_events)
     }
 
     fn calculate_and_commit_virtual_state(
@@ -1478,4 +1590,176 @@ impl VirtualStateProcessor {
 enum MergesetIncreaseResult {
     Accepted { increase_size: u64 },
     Rejected { new_candidate: Hash },
+}
+
+#[cfg(test)]
+mod j4_index_events_tests {
+    //! J4.4 — unit tests for the per-block event-log batch builder.
+    //! Exercises `drain_events_collector_for_block` directly without
+    //! spinning up a full `VirtualStateProcessor`.
+
+    use super::drain_events_collector_for_block;
+    use crate::processes::transaction_validator::EventsCollector;
+    use dashmap::DashMap;
+    use sophis_consensus_core::acceptance_data::{AcceptanceData, AcceptedTxEntry, MergesetBlockAcceptanceData};
+    use sophis_consensus_core::events::MAX_EVENTS_PER_BLOCK;
+    use sophis_hashes::Hash;
+    use sophis_svm_runtime::BufferedEvent;
+    use std::sync::Arc;
+
+    fn tx_id(byte: u8) -> Hash {
+        Hash::from_slice(&[byte; 32])
+    }
+
+    fn buf_event(contract: u8, topic: u8, data: &[u8]) -> BufferedEvent {
+        BufferedEvent {
+            contract_id: [contract; 32],
+            topics: vec![[topic; 32]],
+            data: data.to_vec(),
+        }
+    }
+
+    fn collector() -> EventsCollector {
+        Arc::new(DashMap::new())
+    }
+
+    fn ad_one_block(merge_block: u8, txs: Vec<(u8, u32)>) -> AcceptanceData {
+        vec![MergesetBlockAcceptanceData {
+            block_hash: Hash::from_slice(&[merge_block; 32]),
+            accepted_transactions: txs
+                .into_iter()
+                .map(|(tx_byte, idx)| AcceptedTxEntry { transaction_id: tx_id(tx_byte), index_within_block: idx })
+                .collect(),
+        }]
+    }
+
+    #[test]
+    fn empty_collector_yields_no_events() {
+        let coll = collector();
+        let ad = ad_one_block(1, vec![(2, 0), (3, 1)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 1234);
+        assert!(logs.is_empty());
+    }
+
+    #[test]
+    fn single_tx_single_event_full_chain_coords() {
+        let coll = collector();
+        coll.insert(tx_id(7), vec![buf_event(0xAA, 0xBB, b"payload")]);
+        let chain_block = tx_id(50);
+        let ad = ad_one_block(1, vec![(7, 4)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, chain_block, 9999);
+        assert_eq!(logs.len(), 1);
+        let log = &logs[0];
+        assert_eq!(log.contract_id, [0xAAu8; 32]);
+        assert_eq!(log.topics.len(), 1);
+        assert_eq!(log.topics[0].as_array(), &[0xBBu8; 32]);
+        assert_eq!(log.data, b"payload".to_vec());
+        assert_eq!(log.block_hash, chain_block);
+        assert_eq!(log.tx_id, tx_id(7));
+        assert_eq!(log.tx_index, 4);
+        assert_eq!(log.log_index, 0);
+        assert_eq!(log.daa_score, 9999);
+    }
+
+    #[test]
+    fn collector_is_drained_per_tx() {
+        let coll = collector();
+        coll.insert(tx_id(7), vec![buf_event(1, 1, b"x")]);
+        coll.insert(tx_id(8), vec![buf_event(2, 2, b"y")]);
+        let ad = ad_one_block(1, vec![(7, 0), (8, 1)]);
+        let _ = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert!(coll.is_empty(), "collector must be drained after consume");
+    }
+
+    #[test]
+    fn log_index_is_sequential_within_block_across_txs() {
+        let coll = collector();
+        // tx A emits 2 events, tx B emits 3
+        coll.insert(tx_id(7), vec![buf_event(1, 1, b"a"), buf_event(1, 1, b"b")]);
+        coll.insert(tx_id(8), vec![buf_event(2, 2, b"c"), buf_event(2, 2, b"d"), buf_event(2, 2, b"e")]);
+        let ad = ad_one_block(1, vec![(7, 0), (8, 1)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert_eq!(logs.len(), 5);
+        for (i, log) in logs.iter().enumerate() {
+            assert_eq!(log.log_index, i as u32, "log_index must be sequential across txs");
+        }
+        // tx_index follows the AcceptedTxEntry — first 2 from tx_id(7)/tx_index=0,
+        // last 3 from tx_id(8)/tx_index=1
+        assert_eq!(logs[0].tx_id, tx_id(7));
+        assert_eq!(logs[0].tx_index, 0);
+        assert_eq!(logs[1].tx_id, tx_id(7));
+        assert_eq!(logs[1].tx_index, 0);
+        assert_eq!(logs[2].tx_id, tx_id(8));
+        assert_eq!(logs[2].tx_index, 1);
+        assert_eq!(logs[4].tx_id, tx_id(8));
+        assert_eq!(logs[4].tx_index, 1);
+    }
+
+    #[test]
+    fn missing_txs_do_not_break_walk() {
+        let coll = collector();
+        // Only tx 7 has events; tx 8 is in acceptance_data but emitted nothing.
+        coll.insert(tx_id(7), vec![buf_event(1, 1, b"x")]);
+        let ad = ad_one_block(1, vec![(8, 0), (7, 1), (9, 2)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert_eq!(logs.len(), 1);
+        assert_eq!(logs[0].tx_id, tx_id(7));
+        assert_eq!(logs[0].tx_index, 1);
+    }
+
+    #[test]
+    fn multi_mergeset_block_walk_orders_correctly() {
+        let coll = collector();
+        coll.insert(tx_id(10), vec![buf_event(1, 1, b"first")]);
+        coll.insert(tx_id(20), vec![buf_event(2, 2, b"second")]);
+        // 2 mergeset blocks; tx 10 in block #1, tx 20 in block #2
+        let ad = vec![
+            MergesetBlockAcceptanceData {
+                block_hash: Hash::from_slice(&[1u8; 32]),
+                accepted_transactions: vec![AcceptedTxEntry { transaction_id: tx_id(10), index_within_block: 0 }],
+            },
+            MergesetBlockAcceptanceData {
+                block_hash: Hash::from_slice(&[2u8; 32]),
+                accepted_transactions: vec![AcceptedTxEntry { transaction_id: tx_id(20), index_within_block: 0 }],
+            },
+        ];
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert_eq!(logs.len(), 2);
+        assert_eq!(logs[0].data, b"first".to_vec());
+        assert_eq!(logs[1].data, b"second".to_vec());
+        assert_eq!(logs[0].log_index, 0);
+        assert_eq!(logs[1].log_index, 1);
+    }
+
+    #[test]
+    fn per_block_cap_truncates_trailing_events() {
+        let coll = collector();
+        // Single tx emitting MAX_EVENTS_PER_BLOCK + 5 events
+        let many: Vec<BufferedEvent> = (0..(MAX_EVENTS_PER_BLOCK + 5)).map(|i| buf_event((i % 256) as u8, 0, b"x")).collect();
+        coll.insert(tx_id(7), many);
+        let ad = ad_one_block(1, vec![(7, 0)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert_eq!(logs.len(), MAX_EVENTS_PER_BLOCK, "must cap at MAX_EVENTS_PER_BLOCK = 1024");
+    }
+
+    #[test]
+    fn per_block_cap_stops_walking_subsequent_txs() {
+        let coll = collector();
+        coll.insert(tx_id(7), vec![buf_event(1, 0, b"a"); MAX_EVENTS_PER_BLOCK + 3]);
+        // tx 8 also emits — these must be dropped because cap was hit in tx 7.
+        coll.insert(tx_id(8), vec![buf_event(2, 0, b"shouldnt_appear"); 5]);
+        let ad = ad_one_block(1, vec![(7, 0), (8, 1)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 0);
+        assert_eq!(logs.len(), MAX_EVENTS_PER_BLOCK);
+        assert!(logs.iter().all(|l| l.contract_id == [1u8; 32]));
+    }
+
+    #[test]
+    fn daa_score_is_propagated() {
+        let coll = collector();
+        coll.insert(tx_id(7), vec![buf_event(1, 1, b"x")]);
+        let ad = ad_one_block(1, vec![(7, 0)]);
+        let logs = drain_events_collector_for_block(&coll, &ad, tx_id(99), 42_000);
+        assert_eq!(logs[0].daa_score, 42_000);
+    }
 }
