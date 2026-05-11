@@ -53,6 +53,8 @@ impl Router {
                 GetDaCarriersByBlock,
                 GetDaCarriersByDomain,
                 GetDaPayloadStatus,
+                // J4 — sVM Event Logs (sub-fase J4.5.c)
+                GetLogs,
                 GetDaaScoreTimestampEstimate,
                 GetUtxoReturnAddress,
                 GetCurrentNetwork,

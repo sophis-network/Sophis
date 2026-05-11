@@ -618,17 +618,6 @@ impl RpcApi for SophisRpcClient {
     //     Ok(response.map_err(|e| e.to_string())?)
     // }
 
-    // J4 — sVM Event Logs wRPC binding pending sub-fase J4.5.c
-    // (server router + client method via macro list). Until then the wRPC
-    // client returns NotImplemented so the trait stays compilable.
-    async fn get_logs_call(
-        &self,
-        _connection: Option<&sophis_rpc_core::api::connection::DynRpcConnection>,
-        _request: sophis_rpc_core::model::events::GetLogsRequest,
-    ) -> sophis_rpc_core::RpcResult<sophis_rpc_core::model::events::GetLogsResponse> {
-        Err(sophis_rpc_core::RpcError::NotImplemented)
-    }
-
     build_wrpc_client_interface!(
         RpcApiOps,
         [
@@ -654,6 +643,8 @@ impl RpcApi for SophisRpcClient {
             GetDaCarriersByBlock,
             GetDaCarriersByDomain,
             GetDaPayloadStatus,
+            // J4 — sVM Event Logs (sub-fase J4.5.c)
+            GetLogs,
             GetDaaScoreTimestampEstimate,
             GetFeeEstimate,
             GetFeeEstimateExperimental,
