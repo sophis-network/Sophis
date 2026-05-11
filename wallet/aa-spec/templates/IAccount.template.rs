@@ -16,7 +16,7 @@
 // Status: pre-RFC draft, NOT a frozen API. Maintainers may propose changes via
 // SIP. The shape below is the recommended starting point, not the mandate.
 //
-// Author: Hiroshi Tatakawa <sophis-network@proton.me>
+// Author: Marcelo Delgado <sophis-network@proton.me>
 // Date:   2026-05-09
 // =============================================================================
 

@@ -2,7 +2,7 @@
 
 **Status:** Pre-RFC draft. Frozen for publication. Implementation gated on the RFC process described in `README.md`.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date prepared:** 2026-05-09
 

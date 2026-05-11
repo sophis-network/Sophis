@@ -3,7 +3,7 @@
 ## A Fair-Launch, Post-Quantum Layer-1 BlockDAG
 
 **Version — 2026-05-05**
-**Author:** Hiroshi Tatakawa
+**Author:** Marcelo Delgado
 **Status:** devnet
 
 ---

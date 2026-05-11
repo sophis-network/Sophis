@@ -2,7 +2,7 @@
 
 **Status:** Pre-RFC draft. Empirical-cases section may be updated as new failures emerge in production on other chains.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date:** 2026-05-09
 

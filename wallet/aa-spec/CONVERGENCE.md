@@ -2,7 +2,7 @@
 
 **Status:** Pre-RFC draft. Maintainers MUST verify these claims against current chain specs before publishing the RFC. The founder's knowledge cutoff is 2026-01; some details may have evolved.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date:** 2026-05-09
 

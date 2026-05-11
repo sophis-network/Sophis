@@ -1,7 +1,7 @@
 ```
 SIP: 0
 Title: SIP Process and Template
-Author: Hiroshi Tatakawa
+Author: Marcelo Delgado
 Status: Active
 Type: Process
 Created: 2026-05-08

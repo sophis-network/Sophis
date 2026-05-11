@@ -16,7 +16,7 @@
 // "guardian-based recovery" everywhere — including comments, error messages,
 // and documentation generated from this file.
 //
-// Author: Hiroshi Tatakawa <sophis-network@proton.me>
+// Author: Marcelo Delgado <sophis-network@proton.me>
 // Date:   2026-05-09
 // =============================================================================
 

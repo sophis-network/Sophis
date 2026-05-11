@@ -19,7 +19,7 @@ Project has no legal entity — see `project_no_entity_decision.md`).
 |---|---|
 | Founder mining address (single, lifetime) | `sophis:q2sdls98vf40p3v53eyu2ylu3rnfyvjr3cw3gwmuhj8pwnkkgdn5677h7448r` |
 | GitHub identity | `sophis-network` |
-| Public name | Hiroshi Tatakawa |
+| Public name | Marcelo Delgado |
 | Mainnet T-0 timestamp | (filled in at announcement) |
 | Statement publication time | (filled in at announcement, ≥72h before T-0) |
 

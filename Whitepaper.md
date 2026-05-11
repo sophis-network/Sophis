@@ -3,7 +3,7 @@
 ## A Fair-Launch, Post-Quantum Layer-1 BlockDAG
 
 **Version 2.1 — 2026-05-11**
-**Author:** Hiroshi Tatakawa
+**Author:** Marcelo Delgado
 **Status:** Pre-mainnet (whitepaper supersedes Whitepaper.pdf v1.0 and Whitepaper.md v2.0)
 
 > **Changes since v2.0 (2026-05-05).** Phase 5 ZK-Oracle (Pyth +

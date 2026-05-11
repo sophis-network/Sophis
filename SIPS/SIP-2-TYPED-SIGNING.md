@@ -1,7 +1,7 @@
 ```
 SIP: 2
 Title: Typed Data Signing for Dilithium (EIP-712-equivalent)
-Author: Hiroshi Tatakawa <sophis-network@proton.me>
+Author: Marcelo Delgado <sophis-network@proton.me>
 Status: Draft
 Type: Standards
 Created: 2026-05-10

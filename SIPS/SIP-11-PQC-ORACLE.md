@@ -1,7 +1,7 @@
 ```
 SIP: 11
 Title: PQC-Native Oracle (Phase 9)
-Author: Hiroshi Tatakawa <sophis-network@proton.me>
+Author: Marcelo Delgado <sophis-network@proton.me>
 Status: Draft
 Type: Standards
 Created: 2026-05-11

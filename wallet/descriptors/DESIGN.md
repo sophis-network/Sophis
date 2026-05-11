@@ -7,7 +7,7 @@ the historical artifact that drove the K3 implementation (the same
 pattern as `wallet/pskt/DESIGN.md` for SIP-1). Future spec changes
 happen against `SIPS/SIP-5-DESCRIPTORS.md`, not this file.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date:** 2026-05-09 (original design freeze) / 2026-05-11 (SIP-5 graduation)
 

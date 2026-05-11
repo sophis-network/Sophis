@@ -1,7 +1,7 @@
 ```
 SIP: 5
 Title: Wallet Descriptors (BIP-380-style, Dilithium-aware)
-Author: Hiroshi Tatakawa <sophis-network@proton.me>
+Author: Marcelo Delgado <sophis-network@proton.me>
 Status: Draft
 Type: Standards
 Created: 2026-05-11

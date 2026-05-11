@@ -2,7 +2,7 @@
 
 **Status:** Design freeze for K1 implementation. Will graduate to formal SIP-1 in K1.5.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date:** 2026-05-09
 

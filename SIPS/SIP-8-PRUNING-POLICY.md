@@ -1,7 +1,7 @@
 ```
 SIP: 8
 Title: Pruning Policy + getPruningInfo RPC
-Author: Hiroshi Tatakawa <sophis-network@proton.me>
+Author: Marcelo Delgado <sophis-network@proton.me>
 Status: Draft
 Type: Standards
 Created: 2026-05-11

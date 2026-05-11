@@ -18,7 +18,7 @@ The maintainer list interacts with two other documents:
 
 | Name / handle | Role | Since | Commit access | Public key (GPG fingerprint) |
 |---|---|---|---|---|
-| Hiroshi Tatakawa (`sophis-network`) | Founder, lead maintainer | 2024 | yes | `5D8F DABF 2394 1210 3CFB  69DD 9EBC FF7D A279 7E07` |
+| Marcelo Delgado (`sophis-network`) | Founder, lead maintainer | 2024 | yes | `5D8F DABF 2394 1210 3CFB  69DD 9EBC FF7D A279 7E07` |
 
 (The list intentionally has only one entry at v1. The founder is
 actively recruiting per the `Year 1–2` step of

@@ -2,7 +2,7 @@
 
 **Status:** Drop-in text. Insert verbatim into the listed destinations **only when** the first AA reference contract is published as code (i.e., when a maintainer opens the SIP and begins the public review process). Inserting earlier is premature; inserting later is a missed signaling opportunity.
 
-**Author:** Hiroshi Tatakawa <sophis-network@proton.me>
+**Author:** Marcelo Delgado <sophis-network@proton.me>
 
 **Date:** 2026-05-09
 
