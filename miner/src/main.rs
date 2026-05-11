@@ -5,8 +5,7 @@ use std::time::{Duration, Instant};
 
 use clap::{Arg, Command};
 use rayon::prelude::*;
-use secp256k1::rand::thread_rng;
-use sophis_addresses::{Address, Prefix, Version};
+use sophis_addresses::Address;
 use sophis_consensus_core::{header::Header, merkle::calc_hash_merkle_root, tx::Transaction};
 use sophis_core::{info, warn};
 use sophis_grpc_client::GrpcClient;
@@ -24,8 +23,6 @@ const BATCH_SIZE: u64 = 5_000_000;
 
 // Intervalo máximo antes de buscar novo template (ms)
 const TEMPLATE_REFRESH_MS: u64 = 500;
-
-const ADDRESS_VERSION: Version = Version::PubKeyDilithium;
 
 // ---------------------------------------------------------------------------
 // Mining
@@ -83,7 +80,13 @@ async fn main() {
                 .value_parser(clap::value_parser!(usize))
                 .help("Threads de mineracao (0 = todos os nucleos)"),
         )
-        .arg(Arg::new("mining-address").long("mining-address").short('a').help("Endereco Sophis que recebe a recompensa coinbase"))
+        .arg(
+            Arg::new("mining-address")
+                .long("mining-address")
+                .short('a')
+                .required(true)
+                .help("Endereco Sophis Dilithium que recebe a recompensa coinbase (obrigatorio — gere com `dilithium-wallet new`)"),
+        )
         .arg(
             Arg::new("fast-mode")
                 .long("fast-mode")
@@ -116,17 +119,9 @@ async fn main() {
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
     }
 
-    // Endereço de mineração
-    let pay_address = if let Some(addr_str) = m.get_one::<String>("mining-address") {
-        Address::try_from(addr_str.clone()).expect("Endereco de mineracao invalido")
-    } else {
-        let (sk, pk) = secp256k1::generate_keypair(&mut thread_rng());
-        let address = Address::new(Prefix::Devnet, ADDRESS_VERSION, &pk.x_only_public_key().0.serialize());
-        info!("Endereco gerado   : {}", String::from(&address));
-        info!("Chave privada     : {}", sk.display_secret());
-        info!("Para reutilizar   : --mining-address {}", String::from(&address));
-        address
-    };
+    // Endereço de mineração — `--mining-address` é obrigatório (clap enforces).
+    let addr_str = m.get_one::<String>("mining-address").expect("clap garante --mining-address obrigatorio");
+    let pay_address = Address::try_from(addr_str.clone()).expect("Endereco de mineracao invalido");
 
     // Donations (cliente-side, opt-in). Default: nenhuma → 100% pro minerador.
     let donate_addrs: Vec<String> = m.get_many::<String>("donate-to").map(|v| v.cloned().collect()).unwrap_or_default();

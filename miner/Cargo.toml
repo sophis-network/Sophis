@@ -29,7 +29,6 @@ hex.workspace = true
 log.workspace = true
 rand.workspace = true
 rayon.workspace = true
-secp256k1 = { workspace = true, features = ["global-context", "rand-std"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }
 
