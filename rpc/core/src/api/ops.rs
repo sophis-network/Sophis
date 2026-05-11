@@ -165,6 +165,9 @@ pub enum RpcApiOps {
     // ---- J5 — Light client SPV ----
     /// Per-transaction Merkle proof against a block's hash_merkle_root.
     GetTxMerkleProof = 161,
+    // ---- J8 — Pruning info ----
+    /// Read-only inspection of pruning state (depth, point, archival flag).
+    GetPruningInfo = 162,
 }
 
 impl RpcApiOps {

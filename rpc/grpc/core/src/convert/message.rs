@@ -1156,6 +1156,44 @@ try_from!(item: &protowire::GetTxMerkleProofResponseMessage, RpcResult<sophis_rp
     Self { proof: item.proof.first().map(|p| p.try_into()).transpose()? }
 });
 
+// J8 — Pruning info (sub-fase J8)
+from!(item: &sophis_rpc_core::RpcPruningInfo, protowire::RpcPruningInfoEntry, {
+    Self {
+        pruning_depth: item.pruning_depth,
+        finality_depth: item.finality_depth,
+        current_pruning_point: item.current_pruning_point.to_string(),
+        pruning_point_blue_score: item.pruning_point_blue_score,
+        is_archival: item.is_archival,
+    }
+});
+
+from!(_item: &sophis_rpc_core::GetPruningInfoRequest, protowire::GetPruningInfoRequestMessage, {
+    Self {}
+});
+
+from!(item: RpcResult<&sophis_rpc_core::GetPruningInfoResponse>, protowire::GetPruningInfoResponseMessage, {
+    Self { info: vec![(&item.info).into()], error: None }
+});
+
+try_from!(item: &protowire::RpcPruningInfoEntry, sophis_rpc_core::RpcPruningInfo, {
+    Self {
+        pruning_depth: item.pruning_depth,
+        finality_depth: item.finality_depth,
+        current_pruning_point: RpcHash::from_str(&item.current_pruning_point)?,
+        pruning_point_blue_score: item.pruning_point_blue_score,
+        is_archival: item.is_archival,
+    }
+});
+
+try_from!(_item: &protowire::GetPruningInfoRequestMessage, sophis_rpc_core::GetPruningInfoRequest, {
+    Self {}
+});
+
+try_from!(item: &protowire::GetPruningInfoResponseMessage, RpcResult<sophis_rpc_core::GetPruningInfoResponse>, {
+    let entry = item.info.first().ok_or_else(|| RpcError::General("GetPruningInfoResponseMessage missing info".into()))?;
+    Self { info: entry.try_into()? }
+});
+
 try_from!(item: &protowire::GetBlocksRequestMessage, sophis_rpc_core::GetBlocksRequest, {
     Self {
         low_hash: if item.low_hash.is_empty() { None } else { Some(RpcHash::from_str(&item.low_hash)?) },

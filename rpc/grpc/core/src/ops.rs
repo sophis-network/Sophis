@@ -110,6 +110,9 @@ pub enum SophisdPayloadOps {
     // J5 — Light client SPV Merkle proof (sub-fase J5)
     GetTxMerkleProof,
 
+    // J8 — Pruning info (sub-fase J8)
+    GetPruningInfo,
+
     // Subscription commands for starting/stopping notifications
     NotifyBlockAdded,
     NotifyNewBlockTemplate,

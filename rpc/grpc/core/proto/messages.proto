@@ -82,6 +82,8 @@ message SophisdRequest {
     GetBlockFilterHeaderRequestMessage getBlockFilterHeaderRequest = 1132;
     // J5 — Light client SPV Merkle proof (sub-fase J5)
     GetTxMerkleProofRequestMessage getTxMerkleProofRequest = 1134;
+    // J8 — Pruning info (sub-fase J8)
+    GetPruningInfoRequestMessage getPruningInfoRequest = 1136;
   }
 }
 
@@ -164,6 +166,8 @@ message SophisdResponse {
     GetBlockFilterHeaderResponseMessage getBlockFilterHeaderResponse = 1133;
     // J5 — Light client SPV Merkle proof (sub-fase J5)
     GetTxMerkleProofResponseMessage getTxMerkleProofResponse = 1135;
+    // J8 — Pruning info (sub-fase J8)
+    GetPruningInfoResponseMessage getPruningInfoResponse = 1137;
   }
 }
 

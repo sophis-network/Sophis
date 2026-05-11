@@ -455,6 +455,14 @@ impl RpcApi for RpcCoreMock {
         Err(RpcError::NotImplemented)
     }
 
+    async fn get_pruning_info_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: sophis_rpc_core::model::pruning_info::GetPruningInfoRequest,
+    ) -> RpcResult<sophis_rpc_core::model::pruning_info::GetPruningInfoResponse> {
+        Err(RpcError::NotImplemented)
+    }
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API
 

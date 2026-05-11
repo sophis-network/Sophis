@@ -33,7 +33,7 @@ use sophis_rpc_core::{
     api::rpc::RpcApi,
     error::RpcError,
     error::RpcResult,
-    model::{commitment::*, da::*, events::*, filters::*, merkle_proof::*, message::*},
+    model::{commitment::*, da::*, events::*, filters::*, merkle_proof::*, message::*, pruning_info::*},
     notify::{collector::RpcCoreConverter, connection::ChannelConnection, mode::NotificationMode},
 };
 use sophis_utils::{channel::Channel, triggers::DuplexTrigger};
@@ -298,6 +298,9 @@ impl RpcApi for GrpcClient {
 
     // J5 — Light client SPV Merkle proof gRPC binding (sub-fase J5)
     route!(get_tx_merkle_proof_call, GetTxMerkleProof);
+
+    // J8 — Pruning info gRPC binding (sub-fase J8)
+    route!(get_pruning_info_call, GetPruningInfo);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API

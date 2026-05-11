@@ -670,6 +670,25 @@ pub trait RpcApi: Sync + Send + AnySync {
         connection: Option<&DynRpcConnection>,
         request: GetTxMerkleProofRequest,
     ) -> RpcResult<GetTxMerkleProofResponse>;
+
+    // ----------------------------------------------------------------
+    // J8 — Pruning info (sub-fase J8)
+    // See `docs/J8_PRUNING_AUDIT.md`.
+    // ----------------------------------------------------------------
+
+    /// Returns this node's pruning state: the per-network pruning_depth
+    /// and finality_depth, the current pruning point hash + blue score,
+    /// and whether the node is running in `--archival` mode.
+    /// Read-only; mutation of pruning depth or archival flag is
+    /// startup-only per design D6.
+    async fn get_pruning_info(&self) -> RpcResult<RpcPruningInfo> {
+        Ok(self.get_pruning_info_call(None, GetPruningInfoRequest::new()).await?.info)
+    }
+    async fn get_pruning_info_call(
+        &self,
+        connection: Option<&DynRpcConnection>,
+        request: GetPruningInfoRequest,
+    ) -> RpcResult<GetPruningInfoResponse>;
 }
 
 pub type DynRpcService = Arc<dyn RpcApi>;

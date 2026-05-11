@@ -1319,3 +1319,25 @@ message GetTxMerkleProofResponseMessage {
   repeated RpcTxMerkleProofEntry proof = 1;
   RPCError error = 1000;
 }
+
+// ----------------------------------------------------------------
+// J8 — Pruning info (sub-fase J8)
+// ----------------------------------------------------------------
+
+message RpcPruningInfoEntry {
+  uint64 pruning_depth = 1;
+  uint64 finality_depth = 2;
+  string current_pruning_point = 3;
+  uint64 pruning_point_blue_score = 4;
+  bool is_archival = 5;
+}
+
+message GetPruningInfoRequestMessage {
+}
+
+message GetPruningInfoResponseMessage {
+  // Single-element repeated for transport homogeneity with other
+  // Option-shaped RPCs; populated by exactly one entry per response.
+  repeated RpcPruningInfoEntry info = 1;
+  RPCError error = 1000;
+}

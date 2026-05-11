@@ -86,6 +86,9 @@ pub mod sophisd_request_convert {
     // J5 — Light client SPV Merkle proof (sub-fase J5)
     impl_into_sophisd_request!(GetTxMerkleProof);
 
+    // J8 — Pruning info (sub-fase J8)
+    impl_into_sophisd_request!(GetPruningInfo);
+
     impl_into_sophisd_request!(NotifyBlockAdded);
     impl_into_sophisd_request!(NotifyNewBlockTemplate);
     impl_into_sophisd_request!(NotifyUtxosChanged);
@@ -244,6 +247,9 @@ pub mod sophisd_response_convert {
 
     // J5 — Light client SPV Merkle proof (sub-fase J5)
     impl_into_sophisd_response!(GetTxMerkleProof);
+
+    // J8 — Pruning info (sub-fase J8)
+    impl_into_sophisd_response!(GetPruningInfo);
 
     impl_into_sophisd_notify_response!(NotifyBlockAdded);
     impl_into_sophisd_notify_response!(NotifyNewBlockTemplate);

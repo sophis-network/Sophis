@@ -917,6 +917,19 @@ async fn sanity_test() {
                     assert!(response.proof.is_none());
                 })
             }
+            // J8 — Pruning info round-trip; just verify call succeeds.
+            SophisdPayloadOps::GetPruningInfo => {
+                let rpc_client = client.clone();
+                tst!(op, {
+                    let _response = rpc_client
+                        .get_pruning_info_call(
+                            None,
+                            sophis_rpc_core::model::pruning_info::GetPruningInfoRequest::new(),
+                        )
+                        .await
+                        .unwrap();
+                })
+            }
         };
         tasks.push(task);
     }

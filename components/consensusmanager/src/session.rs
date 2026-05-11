@@ -555,6 +555,12 @@ impl ConsensusSessionOwned {
     pub async fn async_get_block_filter_header(&self, block_hash: Hash) -> Option<([u8; 32], [u8; 32], [u8; 32])> {
         self.clone().spawn_blocking(move |c| c.get_block_filter_header(block_hash)).await
     }
+
+    // -- J8 — Pruning info accessor (sub-fase J8) --
+
+    pub async fn async_get_pruning_info(&self) -> (u64, u64, Hash, u64, bool) {
+        self.clone().spawn_blocking(|c| c.get_pruning_info()).await
+    }
 }
 
 pub type ConsensusProxy = ConsensusSessionOwned;

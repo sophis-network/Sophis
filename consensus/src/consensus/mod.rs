@@ -1462,6 +1462,17 @@ impl ConsensusApi for Consensus {
 
     // -- J4 — sVM Event Logs accessor (sub-fase J4.5) --
 
+    // -- J8 — Pruning info accessor (sub-fase J8) --
+
+    fn get_pruning_info(&self) -> (u64, u64, Hash, u64, bool) {
+        let pruning_depth = self.config.params.pruning_depth();
+        let finality_depth = self.config.params.finality_depth();
+        let pruning_point = self.storage.pruning_point_store.read().pruning_point_and_index().map(|(h, _)| h).unwrap_or_default();
+        let pruning_point_blue_score = self.headers_store.get_blue_score(pruning_point).unwrap_or(0);
+        let is_archival = self.config.is_archival;
+        (pruning_depth, finality_depth, pruning_point, pruning_point_blue_score, is_archival)
+    }
+
     // -- J5 — Light client SPV Merkle proof accessor (sub-fase J5) --
 
     fn get_tx_merkle_proof(&self, tx_id: Hash, block_hash: Hash) -> Option<sophis_merkle::TxMerkleProof> {

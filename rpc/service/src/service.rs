@@ -1440,6 +1440,27 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
     }
 
     // ---------------------------------------------------------------
+    // J8 — Pruning info RPC (sub-fase J8)
+    // ---------------------------------------------------------------
+
+    async fn get_pruning_info_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: GetPruningInfoRequest,
+    ) -> RpcResult<GetPruningInfoResponse> {
+        let session = self.consensus_manager.consensus().unguarded_session();
+        let (pruning_depth, finality_depth, pruning_point, pruning_point_blue_score, is_archival) =
+            session.async_get_pruning_info().await;
+        Ok(GetPruningInfoResponse::new(RpcPruningInfo {
+            pruning_depth,
+            finality_depth,
+            current_pruning_point: pruning_point,
+            pruning_point_blue_score,
+            is_archival,
+        }))
+    }
+
+    // ---------------------------------------------------------------
     // J5 — Light client SPV Merkle proof RPC (sub-fase J5)
     // ---------------------------------------------------------------
 

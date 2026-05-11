@@ -507,6 +507,16 @@ pub trait ConsensusApi: Send + Sync {
     fn get_tx_merkle_proof(&self, _tx_id: Hash, _block_hash: Hash) -> Option<sophis_merkle::TxMerkleProof> {
         None
     }
+
+    // -- J8 — Pruning info accessor (sub-fase J8) --
+
+    /// Returns this node's current pruning info per
+    /// `docs/J8_PRUNING_AUDIT.md` §4. Tuple shape:
+    /// `(pruning_depth, finality_depth, pruning_point, pruning_point_blue_score, is_archival)`.
+    /// Defaults to a zeroed tuple so existing mocks keep compiling.
+    fn get_pruning_info(&self) -> (u64, u64, Hash, u64, bool) {
+        (0, 0, Hash::default(), 0, false)
+    }
 }
 
 pub type DynConsensus = Arc<dyn ConsensusApi>;
