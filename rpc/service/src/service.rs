@@ -1440,6 +1440,26 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
     }
 
     // ---------------------------------------------------------------
+    // J5 — Light client SPV Merkle proof RPC (sub-fase J5)
+    // ---------------------------------------------------------------
+
+    async fn get_tx_merkle_proof_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        request: GetTxMerkleProofRequest,
+    ) -> RpcResult<GetTxMerkleProofResponse> {
+        let session = self.consensus_manager.consensus().unguarded_session();
+        let p = session.async_get_tx_merkle_proof(request.tx_id, request.block_hash).await;
+        Ok(GetTxMerkleProofResponse::new(p.map(|proof| RpcTxMerkleProof {
+            tx_id: proof.tx_id,
+            block_hash: proof.block_hash,
+            leaf_sibling: proof.leaf_sibling.as_bytes().to_vec(),
+            node_siblings: proof.node_siblings.iter().map(|h| h.as_bytes().to_vec()).collect(),
+            position: proof.position,
+        })))
+    }
+
+    // ---------------------------------------------------------------
     // K2 — Compact Block Filters RPC (sub-fase K2)
     // ---------------------------------------------------------------
 

@@ -1462,6 +1462,18 @@ impl ConsensusApi for Consensus {
 
     // -- J4 — sVM Event Logs accessor (sub-fase J4.5) --
 
+    // -- J5 — Light client SPV Merkle proof accessor (sub-fase J5) --
+
+    fn get_tx_merkle_proof(&self, tx_id: Hash, block_hash: Hash) -> Option<sophis_merkle::TxMerkleProof> {
+        // Read the block's transactions; build the proof from local state.
+        let txs = self.block_transactions_store.get(block_hash).ok()?;
+        // Find the position of tx_id within the block. Each tx has a
+        // computed `id()` that matches its consensus identity.
+        let position = txs.iter().position(|tx| tx.id() == tx_id)?;
+        let tx_ids: Vec<Hash> = txs.iter().map(|tx| tx.id()).collect();
+        sophis_merkle::build_merkle_proof(&tx_ids, position as u32, block_hash)
+    }
+
     // -- K2 — Compact Block Filters accessors (sub-fase K2) --
 
     fn get_block_filter(&self, block_hash: Hash) -> Option<(Vec<u8>, [u8; 32])> {

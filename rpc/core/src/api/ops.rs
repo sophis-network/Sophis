@@ -162,6 +162,9 @@ pub enum RpcApiOps {
     GetBlockFilter = 159,
     /// Per-block filter header chain entry.
     GetBlockFilterHeader = 160,
+    // ---- J5 — Light client SPV ----
+    /// Per-transaction Merkle proof against a block's hash_merkle_root.
+    GetTxMerkleProof = 161,
 }
 
 impl RpcApiOps {

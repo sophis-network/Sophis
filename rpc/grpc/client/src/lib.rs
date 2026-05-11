@@ -33,7 +33,7 @@ use sophis_rpc_core::{
     api::rpc::RpcApi,
     error::RpcError,
     error::RpcResult,
-    model::{commitment::*, da::*, events::*, filters::*, message::*},
+    model::{commitment::*, da::*, events::*, filters::*, merkle_proof::*, message::*},
     notify::{collector::RpcCoreConverter, connection::ChannelConnection, mode::NotificationMode},
 };
 use sophis_utils::{channel::Channel, triggers::DuplexTrigger};
@@ -295,6 +295,9 @@ impl RpcApi for GrpcClient {
     // K2 — Compact Block Filters gRPC binding (sub-fase K2)
     route!(get_block_filter_call, GetBlockFilter);
     route!(get_block_filter_header_call, GetBlockFilterHeader);
+
+    // J5 — Light client SPV Merkle proof gRPC binding (sub-fase J5)
+    route!(get_tx_merkle_proof_call, GetTxMerkleProof);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API

@@ -540,6 +540,12 @@ impl ConsensusSessionOwned {
         self.clone().spawn_blocking(move |c| c.get_block_commitment(block_hash)).await
     }
 
+    // -- J5 — Light client SPV Merkle proof accessor (sub-fase J5) --
+
+    pub async fn async_get_tx_merkle_proof(&self, tx_id: Hash, block_hash: Hash) -> Option<sophis_merkle::TxMerkleProof> {
+        self.clone().spawn_blocking(move |c| c.get_tx_merkle_proof(tx_id, block_hash)).await
+    }
+
     // -- K2 — Compact Block Filters accessors (sub-fase K2) --
 
     pub async fn async_get_block_filter(&self, block_hash: Hash) -> Option<(Vec<u8>, [u8; 32])> {

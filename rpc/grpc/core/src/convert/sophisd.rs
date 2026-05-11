@@ -83,6 +83,9 @@ pub mod sophisd_request_convert {
     impl_into_sophisd_request!(GetBlockFilter);
     impl_into_sophisd_request!(GetBlockFilterHeader);
 
+    // J5 — Light client SPV Merkle proof (sub-fase J5)
+    impl_into_sophisd_request!(GetTxMerkleProof);
+
     impl_into_sophisd_request!(NotifyBlockAdded);
     impl_into_sophisd_request!(NotifyNewBlockTemplate);
     impl_into_sophisd_request!(NotifyUtxosChanged);
@@ -238,6 +241,9 @@ pub mod sophisd_response_convert {
     // K2 — Compact Block Filters (sub-fase K2)
     impl_into_sophisd_response!(GetBlockFilter);
     impl_into_sophisd_response!(GetBlockFilterHeader);
+
+    // J5 — Light client SPV Merkle proof (sub-fase J5)
+    impl_into_sophisd_response!(GetTxMerkleProof);
 
     impl_into_sophisd_notify_response!(NotifyBlockAdded);
     impl_into_sophisd_notify_response!(NotifyNewBlockTemplate);

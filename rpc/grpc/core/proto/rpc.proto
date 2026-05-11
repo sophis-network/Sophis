@@ -1297,3 +1297,25 @@ message GetBlockFilterHeaderResponseMessage {
   repeated RpcBlockFilterHeaderEntry header = 1;
   RPCError error = 1000;
 }
+
+// ----------------------------------------------------------------
+// J5 — Light client SPV Merkle proof (sub-fase J5)
+// ----------------------------------------------------------------
+
+message RpcTxMerkleProofEntry {
+  string tx_id = 1;
+  string block_hash = 2;
+  bytes leaf_sibling = 3;            // 32 bytes
+  repeated bytes node_siblings = 4;  // each 48 bytes
+  uint32 position = 5;
+}
+
+message GetTxMerkleProofRequestMessage {
+  string tx_id = 1;
+  string block_hash = 2;
+}
+
+message GetTxMerkleProofResponseMessage {
+  repeated RpcTxMerkleProofEntry proof = 1;
+  RPCError error = 1000;
+}

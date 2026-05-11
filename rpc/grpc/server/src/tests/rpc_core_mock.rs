@@ -447,6 +447,14 @@ impl RpcApi for RpcCoreMock {
         Err(RpcError::NotImplemented)
     }
 
+    async fn get_tx_merkle_proof_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: sophis_rpc_core::model::merkle_proof::GetTxMerkleProofRequest,
+    ) -> RpcResult<sophis_rpc_core::model::merkle_proof::GetTxMerkleProofResponse> {
+        Err(RpcError::NotImplemented)
+    }
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API
 

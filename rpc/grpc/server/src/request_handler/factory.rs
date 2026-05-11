@@ -96,6 +96,8 @@ impl Factory {
                 // K2 — Compact Block Filters (sub-fase K2)
                 GetBlockFilter,
                 GetBlockFilterHeader,
+                // J5 — Light client SPV Merkle proof (sub-fase J5)
+                GetTxMerkleProof,
                 NotifyBlockAdded,
                 NotifyNewBlockTemplate,
                 NotifyFinalityConflict,

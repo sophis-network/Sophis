@@ -107,6 +107,9 @@ pub enum SophisdPayloadOps {
     GetBlockFilter,
     GetBlockFilterHeader,
 
+    // J5 — Light client SPV Merkle proof (sub-fase J5)
+    GetTxMerkleProof,
+
     // Subscription commands for starting/stopping notifications
     NotifyBlockAdded,
     NotifyNewBlockTemplate,

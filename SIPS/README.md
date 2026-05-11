@@ -25,6 +25,7 @@ licence (AGPL-3.0; see [`LICENSE`](../LICENSE)).
 | [2](./SIP-2-TYPED-SIGNING.md) | Typed Data Signing for Dilithium | Standards | Draft | 2026-05-10 |
 | [3](./SIP-3-ALT.md) | Address Lookup Tables (ALT) | Standards | Draft | 2026-05-10 |
 | [4](./SIP-4-EVENTS.md) | sVM Event Logs | Standards | Draft | 2026-05-10 |
+| [7](./SIP-7-LIGHT-CLIENT.md) | Light Client SPV Protocol | Standards | Draft | 2026-05-10 |
 
 (Index will grow as SIPs are submitted and accepted. Maintainers
 update this table when a SIP changes status.)

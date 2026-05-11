@@ -80,6 +80,8 @@ message SophisdRequest {
     // K2 — Compact Block Filters (sub-fase K2)
     GetBlockFilterRequestMessage getBlockFilterRequest = 1130;
     GetBlockFilterHeaderRequestMessage getBlockFilterHeaderRequest = 1132;
+    // J5 — Light client SPV Merkle proof (sub-fase J5)
+    GetTxMerkleProofRequestMessage getTxMerkleProofRequest = 1134;
   }
 }
 
@@ -160,6 +162,8 @@ message SophisdResponse {
     // K2 — Compact Block Filters (sub-fase K2)
     GetBlockFilterResponseMessage getBlockFilterResponse = 1131;
     GetBlockFilterHeaderResponseMessage getBlockFilterHeaderResponse = 1133;
+    // J5 — Light client SPV Merkle proof (sub-fase J5)
+    GetTxMerkleProofResponseMessage getTxMerkleProofResponse = 1135;
   }
 }
 

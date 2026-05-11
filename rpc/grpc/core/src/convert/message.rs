@@ -1116,6 +1116,46 @@ try_from!(item: &protowire::GetBlockFilterHeaderResponseMessage, RpcResult<sophi
     Self { header: item.header.first().map(|h| h.try_into()).transpose()? }
 });
 
+// J5 — Light client SPV Merkle proof (sub-fase J5)
+from!(item: &sophis_rpc_core::RpcTxMerkleProof, protowire::RpcTxMerkleProofEntry, {
+    Self {
+        tx_id: item.tx_id.to_string(),
+        block_hash: item.block_hash.to_string(),
+        leaf_sibling: item.leaf_sibling.clone(),
+        node_siblings: item.node_siblings.clone(),
+        position: item.position,
+    }
+});
+
+from!(item: &sophis_rpc_core::GetTxMerkleProofRequest, protowire::GetTxMerkleProofRequestMessage, {
+    Self { tx_id: item.tx_id.to_string(), block_hash: item.block_hash.to_string() }
+});
+
+from!(item: RpcResult<&sophis_rpc_core::GetTxMerkleProofResponse>, protowire::GetTxMerkleProofResponseMessage, {
+    Self { proof: item.proof.iter().map(|p| p.into()).collect(), error: None }
+});
+
+try_from!(item: &protowire::RpcTxMerkleProofEntry, sophis_rpc_core::RpcTxMerkleProof, {
+    Self {
+        tx_id: RpcHash::from_str(&item.tx_id)?,
+        block_hash: RpcHash::from_str(&item.block_hash)?,
+        leaf_sibling: item.leaf_sibling.clone(),
+        node_siblings: item.node_siblings.clone(),
+        position: item.position,
+    }
+});
+
+try_from!(item: &protowire::GetTxMerkleProofRequestMessage, sophis_rpc_core::GetTxMerkleProofRequest, {
+    Self {
+        tx_id: RpcHash::from_str(&item.tx_id)?,
+        block_hash: RpcHash::from_str(&item.block_hash)?,
+    }
+});
+
+try_from!(item: &protowire::GetTxMerkleProofResponseMessage, RpcResult<sophis_rpc_core::GetTxMerkleProofResponse>, {
+    Self { proof: item.proof.first().map(|p| p.try_into()).transpose()? }
+});
+
 try_from!(item: &protowire::GetBlocksRequestMessage, sophis_rpc_core::GetBlocksRequest, {
     Self {
         low_hash: if item.low_hash.is_empty() { None } else { Some(RpcHash::from_str(&item.low_hash)?) },

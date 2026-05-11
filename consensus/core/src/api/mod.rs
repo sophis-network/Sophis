@@ -496,6 +496,17 @@ pub trait ConsensusApi: Send + Sync {
     fn get_block_filter_header(&self, _block_hash: Hash) -> Option<([u8; 32], [u8; 32], [u8; 32])> {
         None
     }
+
+    // -- J5 — Light client SPV Merkle proof accessor (sub-fase J5) --
+
+    /// Returns a Merkle proof of `tx_id`'s membership in `block_hash`'s
+    /// transaction set. `None` if the block is unknown / pruned, or if
+    /// the tx is not in the block. The proof is verifiable against the
+    /// block header's `hash_merkle_root` via
+    /// `sophis_merkle::verify_merkle_proof`.
+    fn get_tx_merkle_proof(&self, _tx_id: Hash, _block_hash: Hash) -> Option<sophis_merkle::TxMerkleProof> {
+        None
+    }
 }
 
 pub type DynConsensus = Arc<dyn ConsensusApi>;

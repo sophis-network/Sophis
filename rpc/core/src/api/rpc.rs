@@ -651,6 +651,25 @@ pub trait RpcApi: Sync + Send + AnySync {
         connection: Option<&DynRpcConnection>,
         request: GetBlockFilterHeaderRequest,
     ) -> RpcResult<GetBlockFilterHeaderResponse>;
+
+    // ----------------------------------------------------------------
+    // J5 — Light client SPV (sub-fase J5)
+    // See `docs/J5_LIGHT_CLIENT_DESIGN.md`.
+    // ----------------------------------------------------------------
+
+    /// Returns a Merkle proof for `tx_id` within `block_hash`.
+    /// `None` if the block is unknown / pruned, or if `tx_id` is
+    /// not in that block. The proof is verifiable against the
+    /// block header's `hash_merkle_root` (blake2b-384) via
+    /// `sophis_merkle::verify_merkle_proof`.
+    async fn get_tx_merkle_proof(&self, tx_id: RpcHash, block_hash: RpcHash) -> RpcResult<Option<RpcTxMerkleProof>> {
+        Ok(self.get_tx_merkle_proof_call(None, GetTxMerkleProofRequest::new(tx_id, block_hash)).await?.proof)
+    }
+    async fn get_tx_merkle_proof_call(
+        &self,
+        connection: Option<&DynRpcConnection>,
+        request: GetTxMerkleProofRequest,
+    ) -> RpcResult<GetTxMerkleProofResponse>;
 }
 
 pub type DynRpcService = Arc<dyn RpcApi>;

@@ -18,6 +18,7 @@ sophis-addresses.workspace=true
 sophis-consensus-core.workspace = true
 sophis-consensus-notify.workspace = true
 sophis-core.workspace = true
+sophis-merkle.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
 parking_lot.workspace = true

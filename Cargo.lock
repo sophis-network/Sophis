@@ -7085,6 +7085,7 @@ dependencies = [
  "sophis-consensus-core",
  "sophis-consensus-notify",
  "sophis-core",
+ "sophis-merkle",
  "sophis-utils",
  "tokio",
 ]
@@ -7942,6 +7943,20 @@ dependencies = [
  "sophis-sdk",
  "syn 2.0.110",
  "trybuild",
+]
+
+[[package]]
+name = "sophis-spv"
+version = "1.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sophis-compact-filters",
+ "sophis-hashes",
+ "sophis-merkle",
+ "thiserror 1.0.64",
 ]
 
 [[package]]

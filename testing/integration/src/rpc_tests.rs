@@ -900,6 +900,23 @@ async fn sanity_test() {
                     assert!(response.header.is_none());
                 })
             }
+            // J5 — Light client SPV Merkle proof. Unknown tx → None.
+            SophisdPayloadOps::GetTxMerkleProof => {
+                let rpc_client = client.clone();
+                tst!(op, {
+                    let response = rpc_client
+                        .get_tx_merkle_proof_call(
+                            None,
+                            sophis_rpc_core::model::merkle_proof::GetTxMerkleProofRequest::new(
+                                sophis_rpc_core::RpcHash::from_slice(&[0xFCu8; 32]),
+                                sophis_rpc_core::RpcHash::from_slice(&[0xFBu8; 32]),
+                            ),
+                        )
+                        .await
+                        .unwrap();
+                    assert!(response.proof.is_none());
+                })
+            }
         };
         tasks.push(task);
     }

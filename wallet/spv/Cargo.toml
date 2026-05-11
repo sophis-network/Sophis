@@ -1,0 +1,27 @@
+[package]
+name = "sophis-spv"
+description = "Sophis SPV light client library — header chain validation, K2 filter chain verifier, wallet scan, Merkle proof verification"
+keywords = ["sophis", "wallet", "spv", "light-client", "bip-157"]
+categories = ["cryptography::cryptocurrencies"]
+rust-version.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+edition.workspace = true
+include.workspace = true
+
+[dependencies]
+sha3.workspace = true
+sophis-hashes.workspace = true
+sophis-merkle.workspace = true
+sophis-compact-filters.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
