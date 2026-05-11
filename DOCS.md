@@ -99,6 +99,7 @@ immutable once accepted; numbered gaps are reserved.
 - [SIPS/SIP-2-TYPED-SIGNING.md](SIPS/SIP-2-TYPED-SIGNING.md) — EIP-712-equivalent for Dilithium
 - [SIPS/SIP-3-ALT.md](SIPS/SIP-3-ALT.md) — Address Lookup Tables
 - [SIPS/SIP-4-EVENTS.md](SIPS/SIP-4-EVENTS.md) — sVM event logs
+- [SIPS/SIP-5-DESCRIPTORS.md](SIPS/SIP-5-DESCRIPTORS.md) — Wallet descriptors (BIP-380-style, Dilithium-aware)
 - [SIPS/SIP-7-LIGHT-CLIENT.md](SIPS/SIP-7-LIGHT-CLIENT.md) — Light client SPV
 - [SIPS/SIP-8-PRUNING-POLICY.md](SIPS/SIP-8-PRUNING-POLICY.md) — State pruning policy
 - [SIPS/SIP-9-POSEIDON.md](SIPS/SIP-9-POSEIDON.md) — Poseidon canonical hash (spec-only)

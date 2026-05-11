@@ -1,10 +1,15 @@
 # Sophis Wallet Descriptors — Design Document
 
-**Status:** Design freeze for K3 implementation. Will graduate to formal SIP-2 in K3.7.
+**Status:** ✅ **GRADUATED to [SIP-5](../../SIPS/SIP-5-DESCRIPTORS.md) on 2026-05-11.**
+
+The SIP is the canonical specification. This document is preserved as
+the historical artifact that drove the K3 implementation (the same
+pattern as `wallet/pskt/DESIGN.md` for SIP-1). Future spec changes
+happen against `SIPS/SIP-5-DESCRIPTORS.md`, not this file.
 
 **Author:** Hiroshi Tatakawa <sophis-network@proton.me>
 
-**Date:** 2026-05-09
+**Date:** 2026-05-09 (original design freeze) / 2026-05-11 (SIP-5 graduation)
 
 **Replaces:** none (greenfield).
 

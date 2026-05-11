@@ -25,6 +25,7 @@ licence (AGPL-3.0; see [`LICENSE`](../LICENSE)).
 | [2](./SIP-2-TYPED-SIGNING.md) | Typed Data Signing for Dilithium | Standards | Draft | 2026-05-10 |
 | [3](./SIP-3-ALT.md) | Address Lookup Tables (ALT) | Standards | Draft | 2026-05-10 |
 | [4](./SIP-4-EVENTS.md) | sVM Event Logs | Standards | Draft | 2026-05-10 |
+| [5](./SIP-5-DESCRIPTORS.md) | Wallet Descriptors (BIP-380-style, Dilithium-aware) | Standards | Draft | 2026-05-11 |
 | [7](./SIP-7-LIGHT-CLIENT.md) | Light Client SPV Protocol | Standards | Draft | 2026-05-10 |
 | [8](./SIP-8-PRUNING-POLICY.md) | Pruning Policy + getPruningInfo RPC | Standards | Draft | 2026-05-11 |
 | [9](./SIP-9-POSEIDON.md) | Canonical Poseidon Specification (spec-only) | Standards | Draft | 2026-05-11 |
