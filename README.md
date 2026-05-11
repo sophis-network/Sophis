@@ -22,6 +22,12 @@ know where to start, scan the section that matches your role.
 
 ---
 
+## 📄 Whitepaper — start here
+
+- [Whitepaper.md](Whitepaper.md) — Sophis v2.0 whitepaper (English). Canonical project document: vision, monetary policy, PoW + PQC stack, sVM, ZK-Rollup, oracle, governance boundaries. Read this before any section below.
+
+---
+
 ## 🌍 Users — running a node, mining, using a wallet
 
 You want to participate in the network: run `sophisd`, mine, hold
