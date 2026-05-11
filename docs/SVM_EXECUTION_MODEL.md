@@ -183,7 +183,8 @@ What is **extensible** (SIP-friendly future work):
 | Token issuance | See `examples/contracts/token-minting-policy/` |
 | Access-controlled transfer | See `examples/contracts/transfer-policy/` |
 | Verifiable rollup state | Contract calls `Capability::VerifyRisc0Proof` against the Phase 3 sequencer's batch journal |
-| Verifiable oracle price | Contract calls `Capability::VerifyPlonky3Proof` with the appropriate `air_id`; consumes the SDK in `oracle/sdk/` |
+| Verifiable oracle price (Phase 9, current) | Contract reads a Dilithium-signed attestation from `utxo.script_public_key.script` and calls `Capability::VerifyDilithium`; consumer SDK in `oracle/pqc-core/` |
+| Verifiable oracle price (Phase 5, deprecated 2026-05-11) | Contract calls `Capability::VerifyPlonky3Proof` with the appropriate `air_id`; fallback path while Phase 9 publishers bootstrap |
 
 ## 9. Common pitfalls
 

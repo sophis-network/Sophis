@@ -73,7 +73,8 @@ service users could route value through.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Phase 5 — ZK-Oracle (Pythnet → Plonky3 STARK → Sophis)      │
+│  Phase 9 — PQC-native Oracle (Dilithium publishers, current) │
+│  Phase 5 — ZK-Oracle (Pythnet→Plonky3, deprecated 2026-05-11)│
 ├──────────────────────────────────────────────────────────────┤
 │  Phase 6 — Self-DA (V5 carrier UTXOs, SHA3-384 Merkle)       │
 ├──────────────────────────────────────────────────────────────┤
@@ -164,7 +165,8 @@ You are writing smart contracts that run on the sVM.
 4. Run `cargo dylint` against your contract before deploy
    (`svm/lint/` is the dylint library)
 5. For contracts that consume verifiable data: see
-   `oracle/sdk/` (price feeds), `rollup/verifier/` (rollup state),
+   `oracle/pqc-core/` (Phase 9 price feeds, current),
+   `rollup/verifier/` (rollup state),
    `oracle/docs/PHASE6_DA_DESIGN.md` (data availability)
 
 ## Common pitfalls
@@ -230,25 +232,34 @@ You are integrating Sophis as a deposit/withdrawal asset.
 
 # Oracle operator track
 
-You are running a price-feed relayer or building an oracle consumer.
+You are running an oracle price-feed publisher or building an oracle
+consumer.
 
-## Relayer operator
+## Publisher operator (Phase 9 — PQC-native, current)
 
-1. Read `oracle/docs/RUNBOOK.md` for the operational runbook
-2. Read `oracle/docs/CONTRACT_DISPATCH.md` for the on-chain dispatch
-   ABI
-3. Build the relayer: `cargo build -p sophis-oracle-relayer --release`
-4. Configure: see `oracle/relayer/src/config.rs` for the structure
-5. Run as daemon; submit to L1 via the `grpc-submit` feature
+1. Read `oracle/docs/PHASE9_RUNBOOK.md` for the operational runbook
+2. Read `SIPS/SIP-11-PQC-ORACLE.md` for the protocol spec
+3. Build the publisher: `cargo build -p sophis-oracle-publisher --release`
+4. Generate a Dilithium keypair: `sophis-oracle-publisher keygen`
+5. Sign attestations and pipe into your wallet-side tx-construction
+   tool (the publisher CLI is a signer, not a submitter)
 
 ## Oracle consumer (contract author)
 
-1. Read `oracle/sdk/` README for the consumer API
-2. Read `oracle/docs/ABI.md` for the on-chain ABI
-3. In your contract, call `Capability::VerifyPlonky3Proof` with the
-   appropriate `air_id`
-4. Read `oracle/docs/PHASE5_ETAPA3_10_CHUNKED_DESIGN.md` if you need
-   to understand the proof internals (most consumers do not)
+1. Read `docs/PQC_NATIVE_ORACLE_DESIGN.md` for the consumer pattern
+2. Use `oracle/pqc-core::evaluate_flip` to pick between Phase 5 fallback
+   and Phase 9 medians during the bootstrap window
+3. In your contract, decode the attestation from
+   `utxo.script_public_key.script` and call `Capability::VerifyDilithium`
+4. Read `oracle/docs/PHASE9_3_DUAL_PATH.md` for the dual-path dispatch
+   pattern that indexers and consumers should mirror
+
+> Phase 5 (Pyth + Plonky3 STARK + Dilithium relayer) was deprecated on
+> 2026-05-11. The `oracle/{core,feeds,host,relayer}` crates still build
+> while indexers fall back to Phase 5 medians, but new operators should
+> run the Phase 9 publisher instead. The Phase 5 design / ABI / runbook
+> documents were deleted in the same audit; consult git history if you
+> need them.
 
 ## Phase 6 DA consumer
 
@@ -374,9 +385,10 @@ hashes. Any divergence is a public breach of stated commitment.
 
 ## Phase-specific reference
 
-- `oracle/docs/CONTRACT_DISPATCH.md` — Phase 5 oracle on-chain ABI
-- `oracle/docs/ABI.md` — Phase 5 oracle SDK reference
-- `oracle/docs/RUNBOOK.md` — Phase 5 oracle relayer runbook
+- `oracle/docs/PHASE9_RUNBOOK.md` — Phase 9 publisher / indexer / consumer ops
+- `oracle/docs/PHASE9_3_DUAL_PATH.md` — Phase 5 ↔ Phase 9 dispatch pattern
+- `SIPS/SIP-11-PQC-ORACLE.md` — Phase 9 protocol spec
+- `docs/PQC_NATIVE_ORACLE_DESIGN.md` — Phase 9 design doc
 - `oracle/docs/PHASE6_DA_DESIGN.md` — Phase 6 self-DA design
 - `oracle/docs/PHASE6_RUNBOOK.md` — Phase 6 operational runbook
 - `oracle/docs/PHASE6_AUDIT.md` — Phase 6 threat matrix

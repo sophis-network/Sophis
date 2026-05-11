@@ -12,3 +12,11 @@
 
 ---
 
+## Documentation
+
+See [DOCS.md](DOCS.md) for the full documentation index, grouped by
+audience (users / developers / operators / governance / SIPs /
+architecture / contributors).
+
+---
+

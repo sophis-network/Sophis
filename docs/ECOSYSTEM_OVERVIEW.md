@@ -13,7 +13,8 @@ for a given purpose. It is not a tutorial; it is a map.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Phase 5 — ZK-Oracle Aggregator (Pythnet → Plonky3 → Sophis) │
+│  Phase 9 — PQC-native Oracle (Dilithium publishers, current) │
+│  Phase 5 — ZK-Oracle (Pythnet→Plonky3, deprecated 2026-05-11)│
 ├──────────────────────────────────────────────────────────────┤
 │  Phase 6 — Self-DA (V5 carrier UTXOs, SHA3-384 Merkle)       │
 ├──────────────────────────────────────────────────────────────┤
@@ -76,15 +77,23 @@ points you to the right one.
 | Deposit / withdraw between L1 and L2 | `rollup/bridge/deposit/`, `rollup/bridge/withdrawal/` (internal bridge contracts; not cross-chain) |
 | Understand the prover | `rollup/host/` (host) and `rollup/host/guest/` (guest, separate workspace compiled by `risc0-build`) |
 
-### 2.5 Use the Oracle (Phase 5)
+### 2.5 Use the Oracle (Phase 9 — PQC-native, current)
 
 | Goal | Read |
 |---|---|
-| Subscribe to a price feed | `oracle/sdk/` — Rust SDK for consumer contracts |
-| Understand the proof system | `oracle/host/` chips and STARK plumbing; `oracle/docs/PHASE5_ETAPA3_10_CHUNKED_DESIGN.md` for the field25519 chunked redesign |
-| Run a relayer | `oracle/relayer/` binary; daemon mode with optional gRPC submit (`grpc-submit` feature) |
-| Verify a Plonky3 proof on-chain | sVM `Capability::VerifyPlonky3Proof` + `air_id` dispatch (feature `plonky3`) |
-| Contract dispatch ABI | `oracle/docs/CONTRACT_DISPATCH.md`, `oracle/docs/ABI.md` |
+| Subscribe to a price feed | `oracle/pqc-core/src/source.rs` — `evaluate_flip` + `FeedSource` dual-path dispatch |
+| Run a publisher | `oracle/pqc-publisher/` CLI; sign attestations with Dilithium directly |
+| Verify an attestation on-chain | `oracle/pqc-contract/` reads `utxo.script_public_key.script`, calls `Capability::VerifyDilithium` |
+| Design doc | `docs/PQC_NATIVE_ORACLE_DESIGN.md`, `SIPS/SIP-11-PQC-ORACLE.md` |
+| Operator runbook | `oracle/docs/PHASE9_RUNBOOK.md` |
+| Dual-path Phase 5 ↔ Phase 9 dispatch | `oracle/docs/PHASE9_3_DUAL_PATH.md` |
+
+> Phase 5 (Pyth + Plonky3 STARK + ed25519 trust chain) was deprecated on
+> 2026-05-11 and is scheduled for deletion after Phase 9 publisher quorum
+> bootstrap. The `oracle/{core,feeds,host,relayer}` crates still build and
+> run as a fallback until indexers flip per SIP-11 D11; the corresponding
+> design / ABI / runbook documents under `oracle/docs/` were removed in
+> the same audit, since no production deployment depends on them.
 
 ### 2.6 Use Data Availability (Phase 6)
 
@@ -157,15 +166,27 @@ Use it when you need higher TPS than L1 can offer for an
 application-specific subdomain. Bridges in/out are internal-only
 contracts (`rollup/bridge/`); cross-chain is out of scope.
 
-### 3.5 Phase 5 — ZK-Oracle Aggregator (optional layer)
+### 3.5 Phase 9 — PQC-native Oracle (optional layer, current)
 
-`oracle/`. Relayer pulls signed price updates from Pythnet, generates
-Plonky3 STARK proofs over the ed25519 verification + aggregation
-logic, and submits them to a Sophis contract. Contracts consume
-verified prices via the SDK in `oracle/sdk/`.
+`oracle/pqc-{core,contract,publisher,tests}`. Each publisher fetches its
+own data source and signs attestations directly with Dilithium ML-DSA-44.
+The on-chain contract reads the attestation from a UTXO's
+`script_public_key.script` and verifies via `Capability::VerifyDilithium`.
+Indexers aggregate published medians and emit J4 events; consumers read
+those events and apply `evaluate_flip` policy.
 
-Use it when you need external price data verifiable on-chain without
-trusting a single relayer.
+Use it when you need external price data verifiable on-chain with a
+PQC-only trust chain.
+
+### 3.5.1 Phase 5 — ZK-Oracle Aggregator (deprecated 2026-05-11)
+
+`oracle/{core,feeds,host,relayer}`. The original ZK-Oracle path: a
+relayer pulls signed price updates from Pythnet, generates Plonky3
+STARK proofs over the ed25519 verification + aggregation logic, and
+submits them to a Sophis contract. Still builds and runs as a fallback
+during the Phase 9 publisher quorum bootstrap window. Scheduled for
+deletion per SIP-11 D11 once `evaluate_flip` returns `Flip` on
+production indexers. Do not start new integrations against Phase 5.
 
 ### 3.6 Phase 6 — Self-DA (optional layer)
 
@@ -203,7 +224,8 @@ See `OPERATIONAL_BOUNDARIES.md` for the full statement.
 | Phase 2 — sVM + native tokens | ✅ Complete | `svm/`, `examples/contracts/` |
 | Phase 3 — ZK-Rollup internal | ✅ Complete | `rollup/` |
 | Phase 4 — Cross-chain ZK-Bridge | ❌ **Extracted** to standalone repo (out of scope) | (not in this workspace) |
-| Phase 5 — ZK-Oracle Aggregator | ✅ Complete (with documented post-mainnet hardening) | `oracle/` |
+| Phase 5 — ZK-Oracle Aggregator | ⚠️ **Deprecated 2026-05-11** (fallback only; superseded by Phase 9) | `oracle/{core,feeds,host,relayer}` |
+| Phase 9 — PQC-native Oracle | ✅ Complete (production path) | `oracle/pqc-{core,contract,publisher,tests}` |
 | Phase 6 — Self-DA | ✅ Complete | `consensus/core/src/da/`, `oracle/docs/PHASE6_*.md` |
 | Phase 7 — DeFi infrastructure | ❌ **Excluded** — ecosystem builds | (n/a) |
 | Phase 8 — FHE / privacy | ❌ **Removed** 2026-05-04 (out of scope) | (n/a) |
@@ -218,13 +240,15 @@ and `DECISOES_2026-05-04.md`.
   `POW_POLICY.md`, `HARD_FORK_POLICY.md`, `SUCCESSION.md`
 - **Process:** `CONTRIBUTING.md`, `MAINTAINERS.md`,
   `LAUNCH_CHECKLIST.md`, `SIPS/SIP-0-process.md`
-- **Phase docs:** `oracle/docs/PHASE5_*.md`, `oracle/docs/PHASE6_*.md`,
-  `oracle/docs/CONTRACT_DISPATCH.md`, `oracle/docs/ABI.md`,
-  `oracle/docs/RUNBOOK.md`
+- **Oracle (current):** `oracle/docs/PHASE9_RUNBOOK.md`,
+  `oracle/docs/PHASE9_3_DUAL_PATH.md`, `docs/PQC_NATIVE_ORACLE_DESIGN.md`
+- **Data availability:** `oracle/docs/PHASE6_DA_DESIGN.md`,
+  `oracle/docs/PHASE6_RUNBOOK.md`, `oracle/docs/PHASE6_AUDIT.md`,
+  `oracle/docs/PHASE6_RFC.md`, `oracle/docs/PHASE6_BUG_BOUNTY.md`,
+  `oracle/docs/PHASE6_STRESS_PLAN.md`
 - **Operational:** `docs/MEMPOOL_POLICY.md`, `docs/FEE_PRIORITY.md`,
-  `docs/SVM_EXECUTION_MODEL.md`, `docs/WALLET_VERIFICATION.md`
+  `docs/SVM_EXECUTION_MODEL.md`, `docs/WALLET_VERIFICATION.md`,
+  `docs/archival.md`, `docs/override-params.md`
 - **Audit:** `docs/PRE_MAINNET_AUDIT.md`,
   `docs/deferred-decisions.md`
-- **Historical:** `docs/crescendo-guide.md`,
-  `docs/testnet10-transition.md`, `docs/archival.md`
 - **Pivot decision:** `DECISOES_2026-05-04.md`

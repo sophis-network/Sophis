@@ -5,8 +5,10 @@
 //! ambos os lados bound `≤ 2¹⁷ ≪ p ≈ 2³¹`, garantindo que `k = 0` é a única
 //! solução inteira (fecha estruturalmente a BB-wrap collision class `k ≥ 1`).
 //!
-//! Veja `oracle/docs/PHASE5_ETAPA3_10_CHUNKED_DESIGN.md` para a análise
-//! completa de bound e threat model.
+//! A análise completa de bound e threat model do redesign chunked vivia em
+//! `oracle/docs/PHASE5_ETAPA3_10_CHUNKED_DESIGN.md`, deletado em 2026-05-11
+//! junto com a deprecação do Phase 5 (SIP-11 D11). Consulte git history se
+//! precisar do design doc original.
 //!
 //! ## Representação
 //!
