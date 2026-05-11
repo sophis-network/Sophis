@@ -157,6 +157,11 @@ pub enum RpcApiOps {
     // ---- L3 — Block commitment levels ----
     /// Per-block commitment level (Pending/Accepted/Confirmed/Finalized).
     GetBlockCommitment = 158,
+    // ---- K2 — Compact block filters ----
+    /// Per-block compact filter (BIP-158-equivalent, SHA3-384).
+    GetBlockFilter = 159,
+    /// Per-block filter header chain entry.
+    GetBlockFilterHeader = 160,
 }
 
 impl RpcApiOps {

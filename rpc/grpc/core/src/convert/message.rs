@@ -1049,6 +1049,73 @@ try_from!(item: &protowire::GetBlockCommitmentResponseMessage, RpcResult<sophis_
     Self { commitment: item.commitment.first().map(|c| c.try_into()).transpose()? }
 });
 
+// K2 — Compact Block Filters (sub-fase K2)
+from!(item: &sophis_rpc_core::RpcBlockFilter, protowire::RpcBlockFilterEntry, {
+    Self {
+        block_hash: item.block_hash.to_string(),
+        filter_bytes: item.filter_bytes.clone(),
+        filter_hash: item.filter_hash.clone(),
+    }
+});
+
+from!(item: &sophis_rpc_core::RpcBlockFilterHeader, protowire::RpcBlockFilterHeaderEntry, {
+    Self {
+        block_hash: item.block_hash.to_string(),
+        prev_header: item.prev_header.clone(),
+        filter_hash: item.filter_hash.clone(),
+        filter_header: item.filter_header.clone(),
+    }
+});
+
+from!(item: &sophis_rpc_core::GetBlockFilterRequest, protowire::GetBlockFilterRequestMessage, {
+    Self { block_hash: item.block_hash.to_string() }
+});
+
+from!(item: RpcResult<&sophis_rpc_core::GetBlockFilterResponse>, protowire::GetBlockFilterResponseMessage, {
+    Self { filter: item.filter.iter().map(|f| f.into()).collect(), error: None }
+});
+
+from!(item: &sophis_rpc_core::GetBlockFilterHeaderRequest, protowire::GetBlockFilterHeaderRequestMessage, {
+    Self { block_hash: item.block_hash.to_string() }
+});
+
+from!(item: RpcResult<&sophis_rpc_core::GetBlockFilterHeaderResponse>, protowire::GetBlockFilterHeaderResponseMessage, {
+    Self { header: item.header.iter().map(|h| h.into()).collect(), error: None }
+});
+
+try_from!(item: &protowire::RpcBlockFilterEntry, sophis_rpc_core::RpcBlockFilter, {
+    Self {
+        block_hash: RpcHash::from_str(&item.block_hash)?,
+        filter_bytes: item.filter_bytes.clone(),
+        filter_hash: item.filter_hash.clone(),
+    }
+});
+
+try_from!(item: &protowire::RpcBlockFilterHeaderEntry, sophis_rpc_core::RpcBlockFilterHeader, {
+    Self {
+        block_hash: RpcHash::from_str(&item.block_hash)?,
+        prev_header: item.prev_header.clone(),
+        filter_hash: item.filter_hash.clone(),
+        filter_header: item.filter_header.clone(),
+    }
+});
+
+try_from!(item: &protowire::GetBlockFilterRequestMessage, sophis_rpc_core::GetBlockFilterRequest, {
+    Self { block_hash: RpcHash::from_str(&item.block_hash)? }
+});
+
+try_from!(item: &protowire::GetBlockFilterResponseMessage, RpcResult<sophis_rpc_core::GetBlockFilterResponse>, {
+    Self { filter: item.filter.first().map(|f| f.try_into()).transpose()? }
+});
+
+try_from!(item: &protowire::GetBlockFilterHeaderRequestMessage, sophis_rpc_core::GetBlockFilterHeaderRequest, {
+    Self { block_hash: RpcHash::from_str(&item.block_hash)? }
+});
+
+try_from!(item: &protowire::GetBlockFilterHeaderResponseMessage, RpcResult<sophis_rpc_core::GetBlockFilterHeaderResponse>, {
+    Self { header: item.header.first().map(|h| h.try_into()).transpose()? }
+});
+
 try_from!(item: &protowire::GetBlocksRequestMessage, sophis_rpc_core::GetBlocksRequest, {
     Self {
         low_hash: if item.low_hash.is_empty() { None } else { Some(RpcHash::from_str(&item.low_hash)?) },

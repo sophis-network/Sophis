@@ -1462,6 +1462,20 @@ impl ConsensusApi for Consensus {
 
     // -- J4 — sVM Event Logs accessor (sub-fase J4.5) --
 
+    // -- K2 — Compact Block Filters accessors (sub-fase K2) --
+
+    fn get_block_filter(&self, block_hash: Hash) -> Option<(Vec<u8>, [u8; 32])> {
+        use crate::model::stores::block_filters::BlockFiltersStoreReader;
+        let f = self.storage.block_filters_store.get_filter(block_hash).ok().flatten()?;
+        Some((f.filter_bytes, f.filter_hash))
+    }
+
+    fn get_block_filter_header(&self, block_hash: Hash) -> Option<([u8; 32], [u8; 32], [u8; 32])> {
+        use crate::model::stores::block_filters::BlockFiltersStoreReader;
+        let h = self.storage.block_filters_store.get_filter_header(block_hash).ok().flatten()?;
+        Some((h.prev_header, h.filter_hash, h.filter_header))
+    }
+
     // -- L3 — Block commitment levels accessor (sub-fase L3) --
 
     fn get_block_commitment(&self, block_hash: Hash) -> Option<sophis_consensus_core::commitment::BlockCommitment> {

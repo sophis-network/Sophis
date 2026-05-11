@@ -103,6 +103,10 @@ pub enum SophisdPayloadOps {
     // L3 — Block commitment levels (sub-fase L3)
     GetBlockCommitment,
 
+    // K2 — Compact Block Filters (sub-fase K2)
+    GetBlockFilter,
+    GetBlockFilterHeader,
+
     // Subscription commands for starting/stopping notifications
     NotifyBlockAdded,
     NotifyNewBlockTemplate,

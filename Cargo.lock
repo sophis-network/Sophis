@@ -6877,6 +6877,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sophis-compact-filters"
+version = "1.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "sha3",
+ "sophis-hashes",
+ "thiserror 1.0.64",
+]
+
+[[package]]
 name = "sophis-connectionmanager"
 version = "1.1.0"
 dependencies = [
@@ -6922,6 +6933,7 @@ dependencies = [
  "sha3",
  "smallvec",
  "sophis-addresses",
+ "sophis-compact-filters",
  "sophis-consensus-core",
  "sophis-consensus-notify",
  "sophis-consensusmanager",

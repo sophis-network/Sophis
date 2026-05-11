@@ -622,6 +622,35 @@ pub trait RpcApi: Sync + Send + AnySync {
         connection: Option<&DynRpcConnection>,
         request: GetBlockCommitmentRequest,
     ) -> RpcResult<GetBlockCommitmentResponse>;
+
+    // ----------------------------------------------------------------
+    // K2 — Compact Block Filters (sub-fase K2)
+    // See `docs/K2_COMPACT_FILTERS_DESIGN.md`.
+    // ----------------------------------------------------------------
+
+    /// Returns the compact filter for `block_hash`. `None` if the block
+    /// is unknown to the node OR its filter has been pruned. The filter
+    /// header (always retained) lives at `getBlockFilterHeader`.
+    async fn get_block_filter(&self, block_hash: RpcHash) -> RpcResult<Option<RpcBlockFilter>> {
+        Ok(self.get_block_filter_call(None, GetBlockFilterRequest::new(block_hash)).await?.filter)
+    }
+    async fn get_block_filter_call(
+        &self,
+        connection: Option<&DynRpcConnection>,
+        request: GetBlockFilterRequest,
+    ) -> RpcResult<GetBlockFilterResponse>;
+
+    /// Returns the filter header chain entry for `block_hash`.
+    /// `None` if the block is unknown to the node. Headers are
+    /// archival (never pruned) per design §6.
+    async fn get_block_filter_header(&self, block_hash: RpcHash) -> RpcResult<Option<RpcBlockFilterHeader>> {
+        Ok(self.get_block_filter_header_call(None, GetBlockFilterHeaderRequest::new(block_hash)).await?.header)
+    }
+    async fn get_block_filter_header_call(
+        &self,
+        connection: Option<&DynRpcConnection>,
+        request: GetBlockFilterHeaderRequest,
+    ) -> RpcResult<GetBlockFilterHeaderResponse>;
 }
 
 pub type DynRpcService = Arc<dyn RpcApi>;

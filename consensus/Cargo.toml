@@ -38,6 +38,7 @@ sophis-svm-host.workspace = true
 borsh.workspace = true
 dashmap.workspace = true
 sha3.workspace = true
+sophis-compact-filters.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
 once_cell.workspace = true

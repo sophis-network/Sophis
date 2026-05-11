@@ -18,6 +18,7 @@ use crate::{
             acceptance_data::{AcceptanceDataStoreReader, DbAcceptanceDataStore},
             block_transactions::{BlockTransactionsStoreReader, DbBlockTransactionsStore},
             alt::DbAltStore,
+            block_filters::DbBlockFiltersStore,
             block_window_cache::{BlockWindowCacheStore, BlockWindowCacheWriter},
             da::{CarrierIndex, DbDaStore},
             events::DbEventStore,
@@ -203,6 +204,10 @@ pub struct VirtualStateProcessor {
     /// `commit_utxo_state` can index sVM-emitted events atomically with
     /// the rest of the chain-block commit batch.
     pub(super) event_store: Arc<DbEventStore>,
+    /// K2 — Compact Block Filters store. Wired alongside the other
+    /// indexes so `commit_utxo_state` can index per-block filters +
+    /// header-chain entries atomically.
+    pub(super) block_filters_store: Arc<DbBlockFiltersStore>,
     /// J4 — Side-channel events collector populated by the transaction
     /// validator at sVM execution time. `index_events_in_block` drains
     /// it (per-tx removal) at commit time. Sparse map; cheap when no
@@ -296,6 +301,7 @@ impl VirtualStateProcessor {
             da_store: storage.da_store.clone(),
             alt_store: storage.alt_store.clone(),
             event_store: storage.event_store.clone(),
+            block_filters_store: storage.block_filters_store.clone(),
             // Share the SAME `Arc<DashMap>` instance the validator's SvmContext
             // populates at execution time. Falls back to an empty map if sVM
             // is disabled (lite/test builds without contract store).
@@ -630,6 +636,10 @@ impl VirtualStateProcessor {
         pruning_sample_from_pov: Hash,
     ) {
         let mut batch = WriteBatch::default();
+        // K2 — extract spent input SPKs BEFORE the diff is moved into the
+        // store. The values are needed by `index_filters_in_block` below.
+        let spent_input_spks: Vec<Vec<u8>> =
+            mergeset_diff.remove.values().map(|e| e.script_public_key.script().to_vec()).collect();
         self.utxo_diffs_store.insert_batch(&mut batch, current, Arc::new(mergeset_diff)).unwrap();
         self.utxo_multisets_store.insert_batch(&mut batch, current, multiset).unwrap();
         // Phase 6 — index any V5 carrier outputs in the accepted txs of this
@@ -653,6 +663,14 @@ impl VirtualStateProcessor {
         // events_collector for the accepted txs as a side effect.
         if let Err(e) = self.index_events_in_block(&mut batch, current, &acceptance_data) {
             warn!("J4: event indexing failed for block {current}: {e}");
+        }
+        // K2 — index the per-block compact filter + header-chain entry.
+        // Built from output SPKs (via acceptance_data + block_transactions)
+        // and spent input SPKs (extracted from mergeset_diff before move
+        // above). Same atomicity envelope as carriers / ALT / events.
+        // Failures non-fatal — light-client UX, not consensus.
+        if let Err(e) = self.index_filters_in_block(&mut batch, current, &acceptance_data, &spent_input_spks) {
+            warn!("K2: filter indexing failed for block {current}: {e}");
         }
         self.acceptance_data_store.insert_batch(&mut batch, current, Arc::new(acceptance_data)).unwrap();
         // Note we call idempotent since this field can be populated during IBD with headers proof
@@ -833,6 +851,85 @@ impl VirtualStateProcessor {
         let daa_score = self.headers_store.get_daa_score(chain_block_hash).unwrap_or(0);
         let all_events = drain_events_collector_for_block(&self.events_collector, acceptance_data, chain_block_hash, daa_score);
         self.event_store.index_events(batch, chain_block_hash, all_events)
+    }
+
+    /// K2 — builds the BIP-158-equivalent compact filter for this
+    /// chain block and indexes both the filter bytes and the chained
+    /// filter header into `block_filters_store`.
+    ///
+    /// Items are:
+    /// * every output's `script_public_key.script()` for every
+    ///   accepted tx (incl. coinbase outputs)
+    /// * every spent input's resolved SPK, taken from the
+    ///   mergeset_diff's `remove` map (coinbase has no inputs).
+    ///
+    /// Filter header chains via `selected_chain_store` to find the
+    /// previous chain block's filter_header. Genesis-parent uses
+    /// `[0u8; 32]`.
+    fn index_filters_in_block(
+        &self,
+        batch: &mut WriteBatch,
+        chain_block_hash: Hash,
+        acceptance_data: &AcceptanceData,
+        spent_input_spks: &[Vec<u8>],
+    ) -> Result<(), sophis_database::prelude::StoreError> {
+        use crate::model::stores::block_filters::{BlockFilter, BlockFilterHeader, BlockFiltersStoreReader};
+        use crate::model::stores::selected_chain::SelectedChainStoreReader;
+        use sophis_compact_filters::{build_basic_filter, build_filter_header, filter_hash};
+
+        // 1. Collect output SPKs from every accepted tx.
+        let mut output_spks: Vec<Vec<u8>> = Vec::new();
+        for mergeset_block in acceptance_data.iter() {
+            let txs = match self.block_transactions_store.get(mergeset_block.block_hash) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            for accepted in &mergeset_block.accepted_transactions {
+                let tx_idx = accepted.index_within_block as usize;
+                let Some(tx) = txs.get(tx_idx) else { continue };
+                for output in &tx.outputs {
+                    output_spks.push(output.script_public_key.script().to_vec());
+                }
+            }
+        }
+
+        // 2. Combine output SPKs (collected here) with spent input SPKs
+        // (extracted by the caller before mergeset_diff was moved into
+        // the utxo_diffs store).
+        let mut all_items: Vec<&[u8]> = Vec::with_capacity(output_spks.len() + spent_input_spks.len());
+        for s in &output_spks {
+            all_items.push(s.as_slice());
+        }
+        for s in spent_input_spks {
+            all_items.push(s.as_slice());
+        }
+        let filter_bytes = build_basic_filter(&chain_block_hash, &all_items);
+        let fh = filter_hash(&filter_bytes);
+
+        // 4. Resolve previous header. Walk selected_chain_store to find
+        // the parent chain block at chain_index - 1; missing → genesis-
+        // parent default [0; 32].
+        let prev_header: [u8; 32] = match self.selected_chain_store.read().get_by_hash(chain_block_hash) {
+            Ok(idx) if idx > 0 => match self.selected_chain_store.read().get_by_index(idx - 1) {
+                Ok(prev_hash) => self
+                    .block_filters_store
+                    .get_filter_header(prev_hash)
+                    .ok()
+                    .flatten()
+                    .map(|h| h.filter_header)
+                    .unwrap_or([0u8; 32]),
+                _ => [0u8; 32],
+            },
+            _ => [0u8; 32],
+        };
+        let header = BlockFilterHeader {
+            prev_header,
+            filter_hash: fh,
+            filter_header: build_filter_header(&prev_header, &fh),
+        };
+
+        let filter = BlockFilter { filter_bytes, filter_hash: fh };
+        self.block_filters_store.index_filter(batch, chain_block_hash, filter, header)
     }
 
     fn calculate_and_commit_virtual_state(

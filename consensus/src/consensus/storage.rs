@@ -7,6 +7,7 @@ use crate::{
         block_transactions::DbBlockTransactionsStore,
         block_window_cache::BlockWindowCacheStore,
         da::DbDaStore,
+        block_filters::DbBlockFiltersStore,
         events::DbEventStore,
         daa::DbDaaStore,
         depth::DbDepthStore,
@@ -79,6 +80,10 @@ pub struct ConsensusStorage {
     /// J4 — sVM event logs. See `consensus/src/model/stores/events.rs`
     /// and `docs/J4_EVENTS_DESIGN.md` §4.
     pub event_store: Arc<DbEventStore>,
+    /// K2 — Compact Block Filters store. See
+    /// `consensus/src/model/stores/block_filters.rs` and
+    /// `docs/K2_COMPACT_FILTERS_DESIGN.md`.
+    pub block_filters_store: Arc<DbBlockFiltersStore>,
 
     // Block window caches
     pub block_window_cache_for_difficulty: Arc<BlockWindowCacheStore>,
@@ -238,6 +243,9 @@ impl ConsensusStorage {
         // J4 — Event store. Events are read on getLogs RPC queries; reuse the
         // block_data cache budget for the per-block / per-tx canonical stores.
         let event_store = Arc::new(DbEventStore::new(db.clone(), block_data_builder.build()));
+        // K2 — Compact Block Filters store. SPV light clients hit this on
+        // every block sync; reuse the block_data cache budget for hot tip.
+        let block_filters_store = Arc::new(DbBlockFiltersStore::new(db.clone(), block_data_builder.build()));
 
         // Tips
         let headers_selected_tip_store = Arc::new(RwLock::new(DbHeadersSelectedTipStore::new(db.clone())));
@@ -284,6 +292,7 @@ impl ConsensusStorage {
             da_store,
             alt_store,
             event_store,
+            block_filters_store,
             block_window_cache_for_difficulty,
             block_window_cache_for_past_median_time,
             lkg_virtual_state,

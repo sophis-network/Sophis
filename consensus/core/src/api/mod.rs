@@ -481,6 +481,21 @@ pub trait ConsensusApi: Send + Sync {
     fn get_block_commitment(&self, _block_hash: Hash) -> Option<crate::commitment::BlockCommitment> {
         None
     }
+
+    // -- K2 — Compact Block Filters accessors (sub-fase K2) --
+
+    /// Returns the per-block compact filter bytes + 32-byte filter_hash.
+    /// `None` if the block is unknown / pruned. Returns `(filter_bytes, filter_hash)`.
+    fn get_block_filter(&self, _block_hash: Hash) -> Option<(Vec<u8>, [u8; 32])> {
+        None
+    }
+
+    /// Returns the per-block filter header chain entry.
+    /// `None` if the block is unknown / pruned. Returns
+    /// `(prev_header, filter_hash, filter_header)`.
+    fn get_block_filter_header(&self, _block_hash: Hash) -> Option<([u8; 32], [u8; 32], [u8; 32])> {
+        None
+    }
 }
 
 pub type DynConsensus = Arc<dyn ConsensusApi>;

@@ -448,6 +448,22 @@ impl RpcApi for RpcCoreMock {
         Err(RpcError::NotImplemented)
     }
 
+    async fn get_block_filter_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: sophis_rpc_core::model::filters::GetBlockFilterRequest,
+    ) -> RpcResult<sophis_rpc_core::model::filters::GetBlockFilterResponse> {
+        Err(RpcError::NotImplemented)
+    }
+
+    async fn get_block_filter_header_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        _request: sophis_rpc_core::model::filters::GetBlockFilterHeaderRequest,
+    ) -> RpcResult<sophis_rpc_core::model::filters::GetBlockFilterHeaderResponse> {
+        Err(RpcError::NotImplemented)
+    }
+
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API
 

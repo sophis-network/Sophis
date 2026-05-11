@@ -77,6 +77,9 @@ message SophisdRequest {
     GetLogsRequestMessage getLogsRequest = 1126;
     // L3 — Block commitment levels (sub-fase L3)
     GetBlockCommitmentRequestMessage getBlockCommitmentRequest = 1128;
+    // K2 — Compact Block Filters (sub-fase K2)
+    GetBlockFilterRequestMessage getBlockFilterRequest = 1130;
+    GetBlockFilterHeaderRequestMessage getBlockFilterHeaderRequest = 1132;
   }
 }
 
@@ -154,6 +157,9 @@ message SophisdResponse {
     GetLogsResponseMessage getLogsResponse = 1127;
     // L3 — Block commitment levels (sub-fase L3)
     GetBlockCommitmentResponseMessage getBlockCommitmentResponse = 1129;
+    // K2 — Compact Block Filters (sub-fase K2)
+    GetBlockFilterResponseMessage getBlockFilterResponse = 1131;
+    GetBlockFilterHeaderResponseMessage getBlockFilterHeaderResponse = 1133;
   }
 }
 

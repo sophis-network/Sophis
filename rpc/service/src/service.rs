@@ -1440,6 +1440,39 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
     }
 
     // ---------------------------------------------------------------
+    // K2 — Compact Block Filters RPC (sub-fase K2)
+    // ---------------------------------------------------------------
+
+    async fn get_block_filter_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        request: GetBlockFilterRequest,
+    ) -> RpcResult<GetBlockFilterResponse> {
+        let session = self.consensus_manager.consensus().unguarded_session();
+        let f = session.async_get_block_filter(request.block_hash).await;
+        Ok(GetBlockFilterResponse::new(f.map(|(bytes, hash)| RpcBlockFilter {
+            block_hash: request.block_hash,
+            filter_bytes: bytes,
+            filter_hash: hash.to_vec(),
+        })))
+    }
+
+    async fn get_block_filter_header_call(
+        &self,
+        _connection: Option<&DynRpcConnection>,
+        request: GetBlockFilterHeaderRequest,
+    ) -> RpcResult<GetBlockFilterHeaderResponse> {
+        let session = self.consensus_manager.consensus().unguarded_session();
+        let h = session.async_get_block_filter_header(request.block_hash).await;
+        Ok(GetBlockFilterHeaderResponse::new(h.map(|(prev, fh, fhdr)| RpcBlockFilterHeader {
+            block_hash: request.block_hash,
+            prev_header: prev.to_vec(),
+            filter_hash: fh.to_vec(),
+            filter_header: fhdr.to_vec(),
+        })))
+    }
+
+    // ---------------------------------------------------------------
     // J4 — sVM Event Logs RPC (sub-fase J4.5.a)
     // ---------------------------------------------------------------
 

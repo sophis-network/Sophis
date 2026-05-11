@@ -79,6 +79,10 @@ pub mod sophisd_request_convert {
     // L3 — Block commitment levels (sub-fase L3)
     impl_into_sophisd_request!(GetBlockCommitment);
 
+    // K2 — Compact Block Filters (sub-fase K2)
+    impl_into_sophisd_request!(GetBlockFilter);
+    impl_into_sophisd_request!(GetBlockFilterHeader);
+
     impl_into_sophisd_request!(NotifyBlockAdded);
     impl_into_sophisd_request!(NotifyNewBlockTemplate);
     impl_into_sophisd_request!(NotifyUtxosChanged);
@@ -230,6 +234,10 @@ pub mod sophisd_response_convert {
 
     // L3 — Block commitment levels (sub-fase L3)
     impl_into_sophisd_response!(GetBlockCommitment);
+
+    // K2 — Compact Block Filters (sub-fase K2)
+    impl_into_sophisd_response!(GetBlockFilter);
+    impl_into_sophisd_response!(GetBlockFilterHeader);
 
     impl_into_sophisd_notify_response!(NotifyBlockAdded);
     impl_into_sophisd_notify_response!(NotifyNewBlockTemplate);

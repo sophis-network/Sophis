@@ -1262,3 +1262,38 @@ message GetBlockCommitmentResponseMessage {
 
   RPCError error = 1000;
 }
+
+// ----------------------------------------------------------------
+// K2 — Compact Block Filters (sub-fase K2)
+// ----------------------------------------------------------------
+
+message RpcBlockFilterEntry {
+  string block_hash = 1;
+  bytes filter_bytes = 2;
+  bytes filter_hash = 3;   // 32 bytes
+}
+
+message RpcBlockFilterHeaderEntry {
+  string block_hash = 1;
+  bytes prev_header = 2;    // 32 bytes
+  bytes filter_hash = 3;    // 32 bytes
+  bytes filter_header = 4;  // 32 bytes
+}
+
+message GetBlockFilterRequestMessage {
+  string block_hash = 1;
+}
+
+message GetBlockFilterResponseMessage {
+  repeated RpcBlockFilterEntry filter = 1;
+  RPCError error = 1000;
+}
+
+message GetBlockFilterHeaderRequestMessage {
+  string block_hash = 1;
+}
+
+message GetBlockFilterHeaderResponseMessage {
+  repeated RpcBlockFilterHeaderEntry header = 1;
+  RPCError error = 1000;
+}

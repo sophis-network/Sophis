@@ -868,6 +868,38 @@ async fn sanity_test() {
                     assert!(response.commitment.is_none());
                 })
             }
+            // K2 — Compact Block Filter. Same round-trip-with-unknown-hash pattern.
+            SophisdPayloadOps::GetBlockFilter => {
+                let rpc_client = client.clone();
+                tst!(op, {
+                    let response = rpc_client
+                        .get_block_filter_call(
+                            None,
+                            sophis_rpc_core::model::filters::GetBlockFilterRequest::new(sophis_rpc_core::RpcHash::from_slice(
+                                &[0xFEu8; 32],
+                            )),
+                        )
+                        .await
+                        .unwrap();
+                    assert!(response.filter.is_none());
+                })
+            }
+            // K2 — Compact Block Filter Header.
+            SophisdPayloadOps::GetBlockFilterHeader => {
+                let rpc_client = client.clone();
+                tst!(op, {
+                    let response = rpc_client
+                        .get_block_filter_header_call(
+                            None,
+                            sophis_rpc_core::model::filters::GetBlockFilterHeaderRequest::new(sophis_rpc_core::RpcHash::from_slice(
+                                &[0xFDu8; 32],
+                            )),
+                        )
+                        .await
+                        .unwrap();
+                    assert!(response.header.is_none());
+                })
+            }
         };
         tasks.push(task);
     }

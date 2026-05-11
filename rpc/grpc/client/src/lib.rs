@@ -33,7 +33,7 @@ use sophis_rpc_core::{
     api::rpc::RpcApi,
     error::RpcError,
     error::RpcResult,
-    model::{commitment::*, da::*, events::*, message::*},
+    model::{commitment::*, da::*, events::*, filters::*, message::*},
     notify::{collector::RpcCoreConverter, connection::ChannelConnection, mode::NotificationMode},
 };
 use sophis_utils::{channel::Channel, triggers::DuplexTrigger};
@@ -291,6 +291,10 @@ impl RpcApi for GrpcClient {
 
     // L3 — Block commitment levels gRPC binding (sub-fase L3)
     route!(get_block_commitment_call, GetBlockCommitment);
+
+    // K2 — Compact Block Filters gRPC binding (sub-fase K2)
+    route!(get_block_filter_call, GetBlockFilter);
+    route!(get_block_filter_header_call, GetBlockFilterHeader);
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Notification API

@@ -105,6 +105,11 @@ pub enum DatabaseStorePrefixes {
     EventsByContract = 205, // key = (contract_id, daa_bucket_le 8B);  value = EventLogPointers (Vec<(block_hash, log_index)>)
     EventsByTopic = 206,    // key = (topic, daa_bucket_le 8B);        value = EventLogPointers (Vec<(block_hash, log_index)>)
 
+    // ---- K2 Compact Block Filters (sub-fase K2.2) ----
+    // See `consensus/src/model/stores/block_filters.rs` and `docs/K2_COMPACT_FILTERS_DESIGN.md` §3.
+    BlockFilters = 207,        // key = block_hash;   value = BlockFilter (raw on-the-wire filter bytes + 32-byte filter_hash)
+    BlockFilterHeaders = 208,  // key = block_hash;   value = BlockFilterHeader (prev_header || filter_hash || filter_header, all 32 B)
+
     // ---- Separator ----
     /// Reserved as a separator
     Separator = SEPARATOR,

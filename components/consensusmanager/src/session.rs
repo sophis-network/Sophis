@@ -539,6 +539,16 @@ impl ConsensusSessionOwned {
     pub async fn async_get_block_commitment(&self, block_hash: Hash) -> Option<sophis_consensus_core::commitment::BlockCommitment> {
         self.clone().spawn_blocking(move |c| c.get_block_commitment(block_hash)).await
     }
+
+    // -- K2 — Compact Block Filters accessors (sub-fase K2) --
+
+    pub async fn async_get_block_filter(&self, block_hash: Hash) -> Option<(Vec<u8>, [u8; 32])> {
+        self.clone().spawn_blocking(move |c| c.get_block_filter(block_hash)).await
+    }
+
+    pub async fn async_get_block_filter_header(&self, block_hash: Hash) -> Option<([u8; 32], [u8; 32], [u8; 32])> {
+        self.clone().spawn_blocking(move |c| c.get_block_filter_header(block_hash)).await
+    }
 }
 
 pub type ConsensusProxy = ConsensusSessionOwned;

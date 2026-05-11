@@ -93,6 +93,9 @@ impl Factory {
                 GetLogs,
                 // L3 — Block commitment levels (sub-fase L3)
                 GetBlockCommitment,
+                // K2 — Compact Block Filters (sub-fase K2)
+                GetBlockFilter,
+                GetBlockFilterHeader,
                 NotifyBlockAdded,
                 NotifyNewBlockTemplate,
                 NotifyFinalityConflict,
