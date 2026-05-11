@@ -60,7 +60,6 @@ criterion.workspace = true
 serde_json.workspace = true
 flate2.workspace = true
 rand_distr.workspace = true
-secp256k1.workspace = true
 sophis-txscript-errors.workspace = true
 sophis-addresses.workspace = true
 wat = "1"

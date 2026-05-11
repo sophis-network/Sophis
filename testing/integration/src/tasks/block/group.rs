@@ -36,14 +36,11 @@ impl MinerGroupTask {
         // Block submitter
         let submitter = BlockSubmitterTask::build(client_manager.clone(), submitter_pool_size, stopper).await;
 
-        // Mining key and address
-        let (sk, pk) = &secp256k1::generate_keypair(&mut secp256k1::rand::thread_rng());
-        let pay_address = Address::new(
-            network.network_type().into(),
-            sophis_addresses::Version::PubKeyDilithium,
-            &pk.x_only_public_key().0.serialize(),
-        );
-        debug!("Generated private key {} and address {}", sk.display_secret(), pay_address);
+        // Mining address — tests do not sign, so a deterministic 32-byte
+        // payload is sufficient for routing coinbase rewards in fixtures.
+        let pay_address =
+            Address::new(network.network_type().into(), sophis_addresses::Version::PubKeyDilithium, &[0u8; 32]);
+        debug!("Test mining address {}", pay_address);
 
         // Block template receiver
         let client = Arc::new(client_manager.new_client().await);

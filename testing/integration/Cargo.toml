@@ -57,7 +57,6 @@ rand.workspace = true
 rayon.workspace = true
 rocksdb.workspace = true
 libcrux-ml-dsa.workspace = true
-secp256k1.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 smallvec.workspace = true

@@ -302,10 +302,9 @@ async fn double_search_disqualified_test() {
 }
 
 fn new_miner_data() -> MinerData {
-    let secp = secp256k1::Secp256k1::new();
-    let mut rng = secp256k1::rand::thread_rng();
-    let (_sk, pk) = secp.generate_keypair(&mut rng);
-    let script = ScriptVec::from_slice(&pk.serialize());
+    // Tests do not sign — a deterministic 32-byte payload is sufficient for
+    // exercising the MinerData / ScriptPublicKey plumbing.
+    let script = ScriptVec::from_slice(&[0u8; 32]);
     MinerData::new(ScriptPublicKey::new(0, script), vec![])
 }
 

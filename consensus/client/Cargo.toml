@@ -27,7 +27,6 @@ faster-hex.workspace = true
 hex.workspace = true
 js-sys.workspace = true
 rand.workspace = true
-secp256k1.workspace = true
 serde_json.workspace = true
 serde-wasm-bindgen.workspace = true
 serde.workspace = true

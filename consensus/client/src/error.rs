@@ -28,9 +28,6 @@ pub enum Error {
     InvalidTransactionOutpoint(String),
 
     #[error(transparent)]
-    Secp256k1(#[from] secp256k1::Error),
-
-    #[error(transparent)]
     Sign(#[from] sophis_consensus_core::sign::Error),
 
     #[error(transparent)]
