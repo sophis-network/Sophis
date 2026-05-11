@@ -1,0 +1,30 @@
+[package]
+name = "sophis-oracle-publisher"
+description = "Phase 9 PQC-native oracle publisher CLI — Dilithium-sign PriceAttestations (SIP-11)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-oracle-publisher"
+path = "src/main.rs"
+
+[lib]
+name = "sophis_oracle_publisher"
+path = "src/lib.rs"
+
+[dependencies]
+sophis-oracle-pqc-core.workspace = true
+sophis-bip39.workspace = true
+borsh.workspace = true
+clap = { workspace = true }
+faster-hex.workspace = true
+getrandom.workspace = true
+libcrux-ml-dsa.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
