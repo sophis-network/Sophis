@@ -1,0 +1,26 @@
+{
+  "_comment": "Template for .well-known/sophis-wallet.json. Copy this file, fill the values, sign with your Dilithium ML-DSA-44 key, and host at https://<your-domain>/.well-known/sophis-wallet.json. See docs/WALLET_VERIFICATION.md for the full spec, signing procedure, and verifier responsibilities. The _comment field MUST be removed before publishing.",
+  "version": 1,
+  "domain": "example.org",
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": "2027-01-01T00:00:00Z",
+  "addresses": [
+    {
+      "address": "sophis:qREPLACE_WITH_ADDRESS_DERIVED_FROM_SIGNATURE_PUBLIC_KEY",
+      "purpose": "donations",
+      "label": "Project donation address",
+      "categories": ["education", "open-source"]
+    },
+    {
+      "address": "sophis:qREPLACE_WITH_SECOND_ADDRESS_OPTIONAL",
+      "purpose": "mining-rewards",
+      "label": "Mining payout"
+    }
+  ],
+  "signature": {
+    "scheme": "ml-dsa-44",
+    "public_key": "REPLACE_WITH_BASE64_DILITHIUM_PUBLIC_KEY",
+    "value": "REPLACE_WITH_BASE64_DILITHIUM_SIGNATURE",
+    "covers": ["version", "domain", "issued_at", "expires_at", "addresses"]
+  }
+}
