@@ -974,6 +974,110 @@ fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf) {
     println!("Próximo passo: broadcast da tx via RPC submit_transaction (manual ou ferramenta dedicada).");
 }
 
+// ─── J2 Typed-data signing ──────────────────────────────────────────────────
+
+/// J2 — sign a typed-data message with the wallet's Dilithium key.
+/// Reads schema (TypedStruct) and values (Vec<TypedValue>) from JSON
+/// files, computes the typed digest, signs with Dilithium, prints
+/// hex-encoded digest + signature + verification key.
+fn cmd_typed_sign(
+    wallet_path: &PathBuf,
+    domain_name: &str,
+    domain_version: &str,
+    schema_path: &PathBuf,
+    values_path: &PathBuf,
+) {
+    use libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE;
+    use sophis_typed_data::{TypedDataDomain, TypedStruct, TypedValue, compute_typed_digest};
+
+    let wallet = Wallet::load(wallet_path).expect("Wallet não encontrada");
+    let vk_bytes = wallet.verification_key().unwrap();
+    let sk_bytes = wallet.signing_key().unwrap();
+
+    let network = match wallet.network.as_str() {
+        "mainnet" => sophis_typed_data::NETWORK_MAINNET,
+        "testnet" => sophis_typed_data::NETWORK_TESTNET,
+        "devnet" => sophis_typed_data::NETWORK_DEVNET,
+        "simnet" => sophis_typed_data::NETWORK_SIMNET,
+        other => panic!("network desconhecido: {other}"),
+    };
+
+    let schema_str = std::fs::read_to_string(schema_path).expect("read schema");
+    let schema: TypedStruct = serde_json::from_str(&schema_str).expect("parse schema JSON");
+    let values_str = std::fs::read_to_string(values_path).expect("read values");
+    let values: Vec<TypedValue> = serde_json::from_str(&values_str).expect("parse values JSON");
+
+    let domain = TypedDataDomain::new(domain_name, domain_version, network);
+    let digest = compute_typed_digest(&domain, &schema, &values, &[]).expect("compute digest");
+
+    let signing_key = ml_dsa_44::MLDSA44SigningKey::new(sk_bytes);
+    let mut randomness = [0u8; SIGNING_RANDOMNESS_SIZE];
+    getrandom::getrandom(&mut randomness).expect("rand");
+    let sig = ml_dsa_44::sign(&signing_key, &digest, b"", randomness).expect("Dilithium sign failed");
+    randomness.iter_mut().for_each(|b| *b = 0);
+    let sig_array: [u8; DILITHIUM44_SIG_SIZE] = *sig.as_ref();
+
+    println!("Typed-data assinatura.");
+    println!("  Domain    : {} v{} (network={})", domain_name, domain_version, wallet.network);
+    println!("  Schema    : {}", schema.name);
+    println!("  Digest    : {}", hex::encode(digest));
+    println!("  Signature : {}", hex::encode(sig_array));
+    println!("  PubKey    : {}", hex::encode(vk_bytes));
+    println!();
+    println!("Próximo passo: distribuir Domain + Schema + Values + Signature + PubKey ao verificador.");
+}
+
+/// J2 — verify a typed-data signature.
+fn cmd_typed_verify(
+    domain_name: &str,
+    domain_version: &str,
+    network: &str,
+    schema_path: &PathBuf,
+    values_path: &PathBuf,
+    pubkey_hex: &str,
+    signature_hex: &str,
+) {
+    use libcrux_ml_dsa::ml_dsa_44::{MLDSA44Signature, MLDSA44VerificationKey};
+    use sophis_typed_data::{TypedDataDomain, TypedStruct, TypedValue, compute_typed_digest};
+
+    let network_byte = match network {
+        "mainnet" => sophis_typed_data::NETWORK_MAINNET,
+        "testnet" => sophis_typed_data::NETWORK_TESTNET,
+        "devnet" => sophis_typed_data::NETWORK_DEVNET,
+        "simnet" => sophis_typed_data::NETWORK_SIMNET,
+        other => panic!("network desconhecido: {other}"),
+    };
+
+    let schema_str = std::fs::read_to_string(schema_path).expect("read schema");
+    let schema: TypedStruct = serde_json::from_str(&schema_str).expect("parse schema JSON");
+    let values_str = std::fs::read_to_string(values_path).expect("read values");
+    let values: Vec<TypedValue> = serde_json::from_str(&values_str).expect("parse values JSON");
+
+    let domain = TypedDataDomain::new(domain_name, domain_version, network_byte);
+    let digest = compute_typed_digest(&domain, &schema, &values, &[]).expect("compute digest");
+
+    let vk_bytes_vec = hex::decode(pubkey_hex).expect("invalid pubkey hex");
+    let vk_bytes: [u8; VK_SIZE] = vk_bytes_vec.try_into().expect("pubkey wrong length");
+    let sig_bytes_vec = hex::decode(signature_hex).expect("invalid signature hex");
+    let sig_bytes: [u8; DILITHIUM44_SIG_SIZE] = sig_bytes_vec.try_into().expect("sig wrong length");
+
+    let vk = MLDSA44VerificationKey::new(vk_bytes);
+    let signature = MLDSA44Signature::new(sig_bytes);
+
+    match ml_dsa_44::verify(&vk, &digest, b"", &signature) {
+        Ok(()) => {
+            println!("VALID");
+            println!("  Domain    : {} v{} (network={})", domain_name, domain_version, network);
+            println!("  Schema    : {}", schema.name);
+            println!("  Digest    : {}", hex::encode(digest));
+        }
+        Err(_) => {
+            println!("INVALID");
+            std::process::exit(1);
+        }
+    }
+}
+
 // ─── CLI ─────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -1101,6 +1205,33 @@ async fn main() {
                         .arg(Arg::new("output").long("output").short('o').required(true).help("Arquivo .json de tx de saída")),
                 ),
         )
+        .subcommand(
+            // J2 — Typed-data signing (EIP-712-equivalent for Dilithium).
+            // See docs/J2_TYPED_SIGNING_DESIGN.md and SIPS/SIP-2-TYPED-SIGNING.md.
+            Command::new("typed")
+                .about("Typed-data signing (EIP-712 equivalent) — sign / verify")
+                .subcommand_required(true)
+                .subcommand(
+                    Command::new("sign")
+                        .about("Assina mensagem typed-data com chave Dilithium da wallet")
+                        .arg(wallet_arg())
+                        .arg(Arg::new("domain-name").long("domain-name").required(true).help("Nome da dApp (e.g. MyDApp)"))
+                        .arg(Arg::new("domain-version").long("domain-version").required(true).help("Versão da dApp (e.g. 1.0.0)"))
+                        .arg(Arg::new("schema").long("schema").required(true).help("Arquivo JSON com TypedStruct"))
+                        .arg(Arg::new("values").long("values").required(true).help("Arquivo JSON com Vec<TypedValue>")),
+                )
+                .subcommand(
+                    Command::new("verify")
+                        .about("Verifica assinatura typed-data (offline)")
+                        .arg(Arg::new("domain-name").long("domain-name").required(true))
+                        .arg(Arg::new("domain-version").long("domain-version").required(true))
+                        .arg(network_arg())
+                        .arg(Arg::new("schema").long("schema").required(true))
+                        .arg(Arg::new("values").long("values").required(true))
+                        .arg(Arg::new("pubkey").long("pubkey").required(true).help("VK em hex (1312 bytes = 2624 hex chars)"))
+                        .arg(Arg::new("signature").long("signature").required(true).help("Sig em hex (2420 bytes = 4840 hex chars)")),
+                ),
+        )
         .get_matches();
 
     match m.subcommand() {
@@ -1182,6 +1313,27 @@ async fn main() {
                 let i = PathBuf::from(ssub.get_one::<String>("input").unwrap());
                 let o = PathBuf::from(ssub.get_one::<String>("output").unwrap());
                 cmd_pskt_extract(&i, &o);
+            }
+            _ => unreachable!(),
+        },
+        Some(("typed", sub)) => match sub.subcommand() {
+            Some(("sign", ssub)) => {
+                let w = PathBuf::from(ssub.get_one::<String>("wallet").unwrap());
+                let dn = ssub.get_one::<String>("domain-name").unwrap();
+                let dv = ssub.get_one::<String>("domain-version").unwrap();
+                let sc = PathBuf::from(ssub.get_one::<String>("schema").unwrap());
+                let vl = PathBuf::from(ssub.get_one::<String>("values").unwrap());
+                cmd_typed_sign(&w, dn, dv, &sc, &vl);
+            }
+            Some(("verify", ssub)) => {
+                let dn = ssub.get_one::<String>("domain-name").unwrap();
+                let dv = ssub.get_one::<String>("domain-version").unwrap();
+                let net = ssub.get_one::<String>("network").unwrap();
+                let sc = PathBuf::from(ssub.get_one::<String>("schema").unwrap());
+                let vl = PathBuf::from(ssub.get_one::<String>("values").unwrap());
+                let pk = ssub.get_one::<String>("pubkey").unwrap();
+                let sg = ssub.get_one::<String>("signature").unwrap();
+                cmd_typed_verify(dn, dv, net, &sc, &vl, pk, sg);
             }
             _ => unreachable!(),
         },

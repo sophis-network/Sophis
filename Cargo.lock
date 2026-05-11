@@ -1963,6 +1963,7 @@ dependencies = [
  "sophis-notify",
  "sophis-rpc-core",
  "sophis-txscript",
+ "sophis-typed-data",
  "sophis-wallet-pskt",
  "tokio",
 ]
@@ -8109,6 +8110,17 @@ name = "sophis-txscript-errors"
 version = "1.1.0"
 dependencies = [
  "secp256k1",
+ "thiserror 1.0.64",
+]
+
+[[package]]
+name = "sophis-typed-data"
+version = "1.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha3",
  "thiserror 1.0.64",
 ]
 

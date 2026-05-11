@@ -12,6 +12,7 @@ members = [
     "wallet/keys",
     "wallet/pskt",
     "wallet/descriptors",
+    "wallet/typed-data",
     "consensus",
     "consensus/core",
     "consensus/client",
@@ -168,6 +169,7 @@ sophis-wallet-keys = { version = "1.1.0", path = "wallet/keys" }
 sophis-wallet-pskt = { version = "1.1.0", path = "wallet/pskt" }
 sophis-wallet-core = { version = "1.1.0", path = "wallet/core" }
 sophis-wallet-descriptors = { version = "1.1.0", path = "wallet/descriptors" }
+sophis-typed-data = { version = "1.1.0", path = "wallet/typed-data" }
 sophis-wallet-macros = { version = "1.1.0", path = "wallet/macros" }
 sophis-wasm = { version = "1.1.0", path = "wasm" }
 sophis-wasm-core = { version = "1.1.0", path = "wasm/core" }

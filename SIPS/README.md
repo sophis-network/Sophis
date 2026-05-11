@@ -22,6 +22,7 @@ licence (AGPL-3.0; see [`LICENSE`](../LICENSE)).
 |---|---|---|---|---|
 | [0](./SIP-0-process.md) | SIP Process and Template | Process | Active | 2026-05-08 |
 | [1](./SIP-1-PSBS.md) | Partially-Signed Sophis Transactions (PSBS) | Standards | Draft | 2026-05-09 |
+| [2](./SIP-2-TYPED-SIGNING.md) | Typed Data Signing for Dilithium | Standards | Draft | 2026-05-10 |
 | [3](./SIP-3-ALT.md) | Address Lookup Tables (ALT) | Standards | Draft | 2026-05-10 |
 | [4](./SIP-4-EVENTS.md) | sVM Event Logs | Standards | Draft | 2026-05-10 |
 
