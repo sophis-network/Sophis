@@ -91,6 +91,7 @@ members = [
     "oracle/feeds",
     "oracle/host",
     "oracle/pqc-core",
+    "oracle/pqc-contract",
     "oracle/verifier",
     "oracle/relayer",
     "oracle/contract",
@@ -185,7 +186,8 @@ sophis-bridge-deposit    = { version = "1.1.0", path = "rollup/bridge/deposit" }
 sophis-bridge-withdrawal = { version = "1.1.0", path = "rollup/bridge/withdrawal" }
 sophis-oracle-core       = { version = "1.1.0", path = "oracle/core" }
 sophis-oracle-feeds      = { version = "1.1.0", path = "oracle/feeds" }
-sophis-oracle-pqc-core   = { version = "1.1.0", path = "oracle/pqc-core" }
+sophis-oracle-pqc-core     = { version = "1.1.0", path = "oracle/pqc-core" }
+sophis-oracle-pqc-contract = { version = "1.1.0", path = "oracle/pqc-contract" }
 sophis-oracle-host       = { version = "1.1.0", path = "oracle/host" }
 sophis-oracle-verifier   = { version = "1.1.0", path = "oracle/verifier" }
 sophis-oracle-contract   = { version = "1.1.0", path = "oracle/contract" }

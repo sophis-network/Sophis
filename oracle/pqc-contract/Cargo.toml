@@ -1,0 +1,22 @@
+[package]
+name = "sophis-oracle-pqc-contract"
+description = "Phase 9 PQC-native oracle: stateless submission-validator contract (sVM, SIP-11)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+# cdylib = compiled to .wasm when targeting wasm32-unknown-unknown (deploy to sVM)
+# rlib   = compiled as a Rust library when targeting native (enables `cargo test`)
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+sophis-sdk.workspace = true
+sophis-oracle-pqc-core.workspace = true
+borsh.workspace = true
+sha3.workspace = true
+
+[lints]
+workspace = true
