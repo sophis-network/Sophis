@@ -181,9 +181,6 @@ cfg_if::cfg_if! {
         }
 
         pub use sophis_consensus_wasm::*;
-        pub use sophis_wallet_core::wasm::*;
-        pub use sophis_wallet_keys::prelude::*;
-        pub use sophis_bip32::wasm::*;
 
     } else if #[cfg(feature = "wasm32-core")] {
 
@@ -209,9 +206,6 @@ cfg_if::cfg_if! {
         }
 
         pub use sophis_consensus_wasm::*;
-        pub use sophis_wallet_keys::prelude::*;
-        pub use sophis_wallet_core::wasm::*;
-        pub use sophis_bip32::wasm::*;
 
     } else if #[cfg(feature = "wasm32-rpc")] {
 
@@ -222,13 +216,6 @@ cfg_if::cfg_if! {
         pub use sophis_wrpc_wasm::resolver::*;
         pub use sophis_wrpc_wasm::notify::*;
         pub use sophis_wasm_core::types::*;
-
-    } else if #[cfg(feature = "wasm32-keygen")] {
-
-        pub use sophis_addresses::{Address, Version as AddressVersion};
-        pub use sophis_wallet_keys::prelude::*;
-        pub use sophis_wasm_core::types::*;
-        pub use sophis_bip32::wasm::*;
 
     }
 }

@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sophis_bip32::{DerivationPath, KeyFingerprint};
+use sophis_bip39::{DerivationPath, KeyFingerprint};
 use sophis_consensus_core::{Hash, hashing::sighash::SigHashReusedValuesUnsync};
 use std::{fmt::Display, fmt::Formatter, future::Future, marker::PhantomData, ops::Deref};
 

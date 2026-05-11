@@ -1,10 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "daemon",
     "core",
-    "wallet/macros",
-    "wallet/bip32",
+    "wallet/bip39",
     "wallet/pskt",
     "wallet/descriptors",
     "wallet/typed-data",
@@ -123,7 +121,7 @@ include = [
 sophis-testing-integration = { version = "1.1.0", path = "testing/integration" }
 sophis-addresses = { version = "1.1.0", path = "crypto/addresses" }
 sophis-addressmanager = { version = "1.1.0", path = "components/addressmanager" }
-sophis-bip32 = { version = "1.1.0", path = "wallet/bip32" }
+sophis-bip39 = { version = "1.1.0", path = "wallet/bip39" }
 sophis-connectionmanager = { version = "1.1.0", path = "components/connectionmanager" }
 sophis-consensus = { version = "1.1.0", path = "consensus" }
 sophis-consensus-core = { version = "1.1.0", path = "consensus/core" }
@@ -132,7 +130,6 @@ sophis-consensus-notify = { version = "1.1.0", path = "consensus/notify" }
 sophis-consensus-wasm = { version = "1.1.0", path = "consensus/wasm" }
 sophis-consensusmanager = { version = "1.1.0", path = "components/consensusmanager" }
 sophis-core = { version = "1.1.0", path = "core" }
-sophis-daemon = { version = "1.1.0", path = "daemon" }
 sophis-database = { version = "1.1.0", path = "database" }
 sophis-grpc-client = { version = "1.1.0", path = "rpc/grpc/client" }
 sophis-grpc-core = { version = "1.1.0", path = "rpc/grpc/core" }
@@ -165,7 +162,6 @@ sophis-wallet-descriptors = { version = "1.1.0", path = "wallet/descriptors" }
 sophis-typed-data = { version = "1.1.0", path = "wallet/typed-data" }
 sophis-compact-filters = { version = "1.1.0", path = "wallet/filters" }
 sophis-spv = { version = "1.1.0", path = "wallet/spv" }
-sophis-wallet-macros = { version = "1.1.0", path = "wallet/macros" }
 sophis-wasm = { version = "1.1.0", path = "wasm" }
 sophis-wasm-core = { version = "1.1.0", path = "wasm/core" }
 sophis-wrpc-client = { version = "1.1.0", path = "rpc/wrpc/client" }
@@ -353,21 +349,15 @@ indexed_db_futures = "0.5.0"
 
 # workflow-perf-monitor = { path = "../../../workflow-perf-monitor-rs" }
 workflow-perf-monitor = "0.0.2"
-nw-sys = "0.1.6"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 # workflow dependencies
 workflow-core = { version = "0.18.0" }
-workflow-d3 = { version = "0.18.0" }
 workflow-dom = { version = "0.18.0" }
 workflow-http = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "charset", "macos-system-configuration"] }
 workflow-log = { version = "0.18.0" }
-workflow-node = { version = "0.18.0" }
-workflow-nw = { version = "0.18.0" }
 workflow-rpc = { version = "0.18.0", default-features = false, features = ["rustls-tls-webpki-roots"] }
 workflow-serializer = { version = "0.18.0" }
-workflow-store = { version = "0.18.0" }
-workflow-terminal = { version = "0.18.0" }
 workflow-wasm = { version = "0.18.0" }
 
 # if below is enabled, this means that there is an ongoing work

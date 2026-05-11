@@ -7,7 +7,7 @@ use faster_hex::hex_encode;
 use libcrux_ml_dsa::{KEY_GENERATION_RANDOMNESS_SIZE, ml_dsa_44};
 use serde::{Deserialize, Serialize};
 use sophis_addresses::{Address, Prefix};
-use sophis_bip32::{Language, Mnemonic, WordCount};
+use sophis_bip39::{Language, Mnemonic, WordCount};
 use sophis_consensus_core::{
     config::params::DEVNET_PARAMS,
     constants::{SCRIPT_VERSION_CARRIER, SOMPI_PER_SOPHIS, TX_VERSION},

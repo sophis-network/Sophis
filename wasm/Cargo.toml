@@ -50,7 +50,6 @@ wasm32-rpc = [
     "sophis-wrpc-client/wasm32-sdk",
     "sophis-wrpc-wasm/wasm32-sdk",
 ]
-wasm32-keygen = []
 default = []
 
 [package.metadata.docs.rs]

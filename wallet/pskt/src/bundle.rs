@@ -4,7 +4,7 @@ use crate::pskt::{Inner as PSKTInner, PSKT};
 // use crate::wasm::result;
 
 use sophis_addresses::{Address, Prefix};
-// use sophis_bip32::Prefix;
+// use sophis_bip39::Prefix;
 use sophis_consensus_core::network::{NetworkId, NetworkType};
 use sophis_consensus_core::tx::{ScriptPublicKey, TransactionOutpoint, UtxoEntry};
 

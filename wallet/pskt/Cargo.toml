@@ -20,7 +20,7 @@ wasm32-types = ["sophis-consensus-client/wasm32-types"]
 
 [dependencies]
 sophis-addresses.workspace = true
-sophis-bip32.workspace = true
+sophis-bip39.workspace = true
 sophis-consensus-client.workspace = true
 sophis-consensus-core.workspace = true
 sophis-txscript-errors.workspace = true

@@ -1,6 +1,6 @@
 [package]
-name = "sophis-bip32"
-description = "BIP32 for Sophis"
+name = "sophis-bip39"
+description = "BIP-39 mnemonic + BIP-32 metadata types for Sophis (no EC math; transaction signing is Dilithium ML-DSA-44)"
 rust-version.workspace = true
 version.workspace = true
 edition.workspace = true
