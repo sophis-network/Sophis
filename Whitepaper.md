@@ -2,25 +2,9 @@
 
 ## A Fair-Launch, Post-Quantum Layer-1 BlockDAG
 
-**Version 2.1 — 2026-05-11**
+**2026-05-11**
 **Author:** Marcelo Delgado
-**Status:** Pre-mainnet (whitepaper supersedes Whitepaper.pdf v1.0 and Whitepaper.md v2.0)
-
-> **Changes since v2.0 (2026-05-05).** Phase 5 ZK-Oracle (Pyth +
-> Plonky3 STARK + ed25519 trust chain + Dilithium relayer) was
-> built pre-mainnet but then **deprecated on 2026-05-11** in favor
-> of **Phase 9** — a PQC-native oracle where each publisher signs
-> attestations directly with Dilithium ML-DSA-44, eliminating the
-> ed25519 trust chain entirely. Phase 6 Data Availability also
-> changed direction: instead of integrating Avail (as proposed in
-> v2.0 §14.5), Sophis ships a **self-hosted DA layer** using V5
-> carrier UTXOs with SHA3-384 Merkle commitments. Sections §8.2,
-> §14.1, §14.4 and §14.5 reflect these decisions. The protocol's
-> three foundational properties — PQC from genesis, pure fair
-> launch, transparent L1 with no bridge and no native privacy —
-> are unchanged.
-
----
+**Status:** Pre-testnet
 
 > *"First fair-launch L1 native in post-quantum cryptography, modeled after Bitcoin's monetary discipline."*
 
@@ -32,9 +16,7 @@ Sophis is a Proof-of-Work BlockDAG built on the GHOSTDAG protocol, designed from
 
 The protocol extends the GHOSTDAG ordering algorithm to a 10-blocks-per-second BlockDAG, with a hard supply cap of 210,000,000 SPHS and a Bitcoin-style halving emission curve. On top of consensus, Sophis ships a sandboxed WASM virtual machine (sVM) for smart contracts, native L1 token primitives with linear-typed `Resource<T>` accounting, and a Risc0-based ZK-Rollup providing optional L2 throughput while preserving the L1's transparent, single-asset character.
 
-The protocol does **not** include native privacy (no FHE, no ring signatures, no shielded pools, no `OP_PRIVACY`) and does **not** ship an official cross-chain bridge. These boundaries are deliberate, regulatory-aware, and binding on the core team — they are documented in `DECISOES_2026-05-04.md` and reflected in the codebase invariants. Sophis is therefore a transparent, isolated L1 in the Bitcoin / Monero Project mold, rather than a privacy chain or a multi-chain hub.
-
-This whitepaper supersedes v1.0 (2026-04-XX). Sections describing FHE, OP_PRIVACY, cross-chain ZK-Bridge, Wrapped SPHS (WSPHS) and on-chain devfund have been removed; they are no longer part of the Sophis core scope.
+The protocol does **not** include native privacy (no FHE, no ring signatures, no shielded pools, no `OP_PRIVACY`) and does **not** ship an official cross-chain bridge. These boundaries are deliberate, regulatory-aware, and binding on the core team. Sophis is therefore a transparent, isolated L1 in the Bitcoin / Monero Project mold, rather than a privacy chain or a multi-chain hub.
 
 ---
 
@@ -89,7 +71,7 @@ Sophis side-steps that migration debt by being PQC from block 0. There is no leg
 | Ticker | SPHS |
 | Hard supply cap | 210,000,000 SPHS |
 | Smallest unit | 1 sompi = 10⁻⁸ SPHS (i.e. 1 SPHS = 100,000,000 sompi) |
-| Address prefixes | `sophis:` (mainnet) · `sophistest:` (testnet) · `sophisdev:` (devnet) · `sophissim:` (simnet) |
+| Address prefixes | `sophis:` (mainnet) · `sophistest:` (testnet) · `sophisdev:` (devnet) |
 | Coinbase distribution | 100 % to miner — **no devfund**, no split, no protocol-level recipient |
 | Coinbase maturity | 100 blocks (mainnet) / 20 blocks (devnet) |
 | L1 ports (mainnet) | P2P 46111 · gRPC 46110 · Borsh RPC 47110 · JSON RPC 48110 |
@@ -191,7 +173,7 @@ The exact subsidy formula is implemented in `consensus/src/processes/coinbase.rs
 - There is no coinbase split.
 - There is no schedule that gradually retires a devfund, because there is no devfund to retire.
 
-This is enforced in code: `consensus/core/src/config/params.rs` carries no `dev_fund_address` field, and `expected_coinbase_transaction()` in `consensus/src/processes/coinbase.rs` produces a single output per blue mergeset block, paying the full subsidy plus fees to the miner. The structures that previously held a devfund script-public-key were removed in the 2026-05-04 cleanup commit. (See `DECISOES_2026-05-04.md`, Decision 2.)
+This is enforced in code: `consensus/core/src/config/params.rs` carries no `dev_fund_address` field, and `expected_coinbase_transaction()` in `consensus/src/processes/coinbase.rs` produces a single output per blue mergeset block, paying the full subsidy plus fees to the miner. The structures that previously held a devfund script-public-key were removed in the 2026-05-04 cleanup commit.
 
 This is an irrevocable design choice. The core team commits publicly that no future hard fork will reintroduce a devfund — not as a multisig, not as a "voluntary" recipient compulsorily encoded in consensus, not under any other label. Voluntary donations to a published address are acceptable; consensus-encoded recipients are not.
 
@@ -442,15 +424,13 @@ The L1 `sophisd` Windows native build does not require ZK verification by defaul
 
 ## 10. Out-of-scope by design
 
-This section lists features that are not, and will not become, part of the Sophis core protocol. Each exclusion is binding on the core team, documented in `DECISOES_2026-05-04.md`, and reflected as a code-level invariant.
+This section lists features that are not, and will not become, part of the Sophis core protocol. Each exclusion is binding on the core team and reflected as a code-level invariant.
 
 ### 10.1 No cross-chain bridge
 
 Sophis does not include, and will not include, an officially-developed cross-chain bridge. There is no Wrapped SPHS (WSPHS) ERC-20 issued by the Sophis team on any foreign chain.
 
 The reasoning is regulatory, not technical: an officially-operated bridge processes third-party funds, which under FATF Recommendation 16, MiCA Title V, FinCEN 31 CFR §1010.100(ff)(5), and Brazil's Lei 14.478/2022 unambiguously qualifies as money transmission requiring a license the Sophis team does not have and will not pursue. The Pertsev (Tornado Cash, sentenced May 2024 to 5y4m in the Netherlands) and Storm (Tornado Cash, US trial 2024–2025) cases have clarified that protocol authors who deploy and promote such infrastructure are personally exposed regardless of the contract's permissionless character.
-
-If independent third parties build bridges between Sophis and other chains at their own risk, the core team **does not endorse, does not promote, and does not operate** any such bridge. The reference codebase that previously prototyped a ZK-Bridge has been extracted to an external, non-deploy repository (`C:\Projetos\ZKBridge\`, BSL 1.1, private).
 
 ### 10.2 No native privacy
 
@@ -508,7 +488,6 @@ Devnet uses 46611 / 46610 / 47610 / 48610 with +10 offsets per node in a multi-n
 `sophis:` — mainnet.
 `sophistest:` — testnet.
 `sophisdev:` — devnet.
-`sophissim:` — simnet.
 
 Bech32 prefixes are part of consensus: a transaction signed for `sophistest:` cannot be replayed on mainnet.
 
@@ -524,7 +503,7 @@ Coinbase outputs require **100 confirmations on mainnet** (20 on devnet) before 
 
 ## 13. Reference implementation
 
-Sophis ships as a Rust workspace at `C:\Projetos\sophis\`, organized into the following top-level crates:
+Sophis is organized into the following top-level crates:
 
 | Component | Location |
 |---|---|
@@ -541,7 +520,7 @@ Sophis ships as a Rust workspace at `C:\Projetos\sophis\`, organized into the fo
 | Block explorer | external repo (separate from `sophisd`) |
 | Faucet | external repo (separate from `sophisd`) |
 
-Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`LIBCLANG_PATH`), `protoc`, and CMake 4.3+ (required by `randomx-rs`). The codebase **must** live outside Google Drive paths — Drive's lack of hard-link support breaks Cargo's incremental cache. The canonical path is `C:\Projetos\sophis\`.
+Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`LIBCLANG_PATH`), `protoc`, and CMake 4.3+ (required by `randomx-rs`). The codebase **must** live outside Google Drive paths — Drive's lack of hard-link support breaks Cargo's incremental cache. 
 
 ---
 
@@ -555,7 +534,6 @@ Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`L
 - **Phase 5 (deprecated 2026-05-11).** ZK-Oracle aggregator with Pyth + Plonky3 STARK + ed25519 verification AIR + Dilithium relayer was built and tested pre-mainnet, then deprecated in favor of Phase 9 once the operational complexity and ed25519 trust-chain residue were judged structurally inferior to a publisher-direct PQC scheme. Phase 5 crates (`oracle/{core,feeds,host,relayer}`) still build and run as a fallback while indexers transition; they are scheduled for removal after Phase 9 publisher quorum bootstrap per SIP-11 D11.
 - **Phase 6.** Self-hosted Data Availability layer using V5 carrier UTXOs, SHA3-384 Merkle commitments, and `Capability::VerifyDataAvailability`. Replaces the Avail integration that v2.0 of this whitepaper proposed in §14.5. Built end-to-end pre-mainnet (carrier consensus rules, DA codec, RocksDB store, sequencer integration, RPC, sVM capability, runbook, stress plan, audit, RFC, fuzz tests). See §14.5 for the rationale behind self-hosting versus integrating an external DA network.
 - **Phase 9.** PQC-native oracle. Each publisher signs price attestations directly with Dilithium ML-DSA-44, eliminating the Phase 5 ed25519-STARK trust chain. Open-permissioned publisher set, median aggregation, dual-path Phase 5/Phase 9 dispatch helper (`evaluate_flip`) to support smooth migration. Foundation crate `oracle/pqc-core`, on-chain contract `oracle/pqc-contract`, publisher CLI `oracle/pqc-publisher`, end-to-end integration tests `oracle/pqc-tests`; SIP-11 specifies the wire format. Pre-mainnet operational follow-up: recruit ≥ 3 independent publishers and stand up at least one reference indexer before mainnet (see §14.2).
-- **Roadmap items L1, I1, J2–J8, K2, L3, H1.** Address Lookup Tables, public-dashboard backend + Hyperliquid-style frontend, typed signing (SIP-2), VRF via RandomX, sVM event logs (SIP-4), commitment levels, energy calculator, BIP-157/158-equivalent compact filters, light-client SPV library (SIP-7), pruning policy (SIP-8), Poseidon spec (SIP-9), multicall template (SIP-10) — all shipped pre-mainnet between 2026-05-10 and 2026-05-11. Each item is tracked by its corresponding SIP under `SIPS/`.
 - **SIPs formalized.** SIP-0 process spec, SIP-1 PSBS (partially-signed transactions, Dilithium-aware), SIP-2 typed signing, SIP-3 ALT, SIP-4 events, SIP-5 wallet descriptors (BIP-380-style, graduated 2026-05-11), SIP-7 light client, SIP-8 pruning policy, SIP-9 Poseidon, SIP-10 multicall, SIP-11 PQC-native oracle. SIP-5 in particular formalizes a Dilithium-aware descriptor language used by hardware wallets, multisig coordination, and watch-only backup workflows.
 
 ### 14.2 In progress (pre-mainnet)
@@ -568,7 +546,6 @@ Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`L
 - **LICENSE** (AGPL-3.0) and **CONTRIBUTING.md** with DCO requirement at the repo root — both shipped.
 - **Donation wallet published** — a single personal donation address, generated on a freshly-keyed wallet distinct from both the mining wallet (§5.3) and the maintainer's day-to-day wallet, published in `README.md` and on the project website together with the canonical disclaimer text from §5.5. No multisig, no project treasury, no governance.
 - **Project site** at `sophis.org` — landing page + faucet + block explorer + the documentation index already inlined in `README.md`.
-- **Whitepaper v2.x sync passes** as features land. This v2.1 captures the Phase 5 → Phase 9 + Phase 6 → Self-DA transitions of 2026-05-11.
 - **Testnet hardening** — final stress test under realistic geographic and adversarial conditions, including the 72-hour Phase 6 DA stress run.
 
 ### 14.3 Mainnet launch — defensive measures around the 24h founder wait
@@ -627,10 +604,9 @@ The trade-off: Sophis's DA throughput is bounded by L1 block bandwidth, which is
 
 The following items, present in earlier roadmap drafts, are **removed and will not return**:
 
-- Phase 3 (FHE / OP_PRIVACY / native privacy) — see §10.2.
 - Phase 4 (ZK-Bridge cross-chain / WSPHS) — see §10.1.
 - **Phase 7 (DeFi infrastructure as a core protocol deliverable)** — excluded 2026-05-05. A team-built and team-operated DeFi stack (AMM, lending, stablecoin, perpetuals) requires US$ 15M–40M and 30–48 months, exposes the founder personally to civil liability without a legal entity (Decision 7), and aligns uncomfortably with CVM Lei 14.478/2022 (oferta de valor mobiliário with governance tokens), the *Howey* test, BCB PSAV licensure if any custody is involved, and the *Ooki DAO* / *CFTC* precedent for unincorporated associations. Independent third parties may build DeFi protocols on Sophis at their own regulatory risk; the core team will publish the SDK and documentation but will not deliver, host, or endorse a DeFi stack.
-- Phase 8 (any future privacy-related extension) — see §10.2.
+- Phase 8 (FHE and any future privacy-related extension) — see §10.2.
 - On-chain devfund in any form — see §5.2.
 - Sophis Foundation or other legal entity bound to the protocol — see §10.4.
 
@@ -683,8 +659,6 @@ Sophis builds on a decade of public research. In particular:
 - **Wasmtime (Bytecode Alliance).** Production-grade WebAssembly runtime.
 - **Dylint, Kani.** Static and model-checking tooling for Rust used by Sophis to enforce invariants.
 
-The decision to ship without a devfund, native privacy, and a cross-chain bridge follows the lessons of LBRY, Telegram (TON), Tornado Cash (Pertsev / Storm), and the Monero / Zcash MiCA delistings, documented in `DECISOES_2026-05-04.md`.
-
 ---
 
 ## 17. Disclaimer
@@ -693,8 +667,6 @@ SPHS is an experimental cryptocurrency. There is no issuer, no foundation, no gu
 
 Holding SPHS does not give the holder a contractual relationship with the core team, the founder, or any other party. The founder operates personally under the constraints described in §5.3 (24 h wait, 5 % lifetime cap, single declared address) but is not, in any legal sense, the issuer of SPHS. SPHS is created by miners performing PoW, block by block, with no central party in between.
 
-This whitepaper is informational. The authoritative specification is the source code at `C:\Projetos\sophis\` and its public Git history.
-
 ---
 
-*End of whitepaper v2.0 — 2026-05-05.*
+*End of whitepaper — 2026-05-05.*
