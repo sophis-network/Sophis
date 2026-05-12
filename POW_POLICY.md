@@ -162,6 +162,5 @@ This document protects that condition.
 - SIP process: `SIPS/SIP-0-process.md`
 - Companion documents: `HARD_FORK_POLICY.md`, `OPERATIONAL_BOUNDARIES.md`,
   `MONETARY_POLICY.md`, `FOUNDER_SELF_RESTRICTION.md`
-- Pivot decision: `DECISOES_2026-05-04.md`
 - Cultural reference: `project_monero_lessons.md` (memory) — Monero
   anti-ASIC history

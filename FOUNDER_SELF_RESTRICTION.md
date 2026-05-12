@@ -225,4 +225,3 @@ formation under whatever process the community chooses.
 - Legal posture: `project_legal_positioning.md` (memory)
 - Sister documents: `MONETARY_POLICY.md`, `OPERATIONAL_BOUNDARIES.md`,
   `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`
-- 2026-05-04 pivot: `DECISOES_2026-05-04.md` (decisions #1, #3, #6, #7)

@@ -132,8 +132,15 @@ impl<const BPS: u64> Bps<BPS> {
         BPS * (15778800 - 259200)
     }
 
+    /// Pre-deflationary phase per-block subsidy (sompi/block).
+    ///
+    /// The legacy 1 BPS value is `370_027_857` sompi/block, which yields a
+    /// per-second emission rate of ~3.70 SPHS/s. At higher BPS the per-block
+    /// subsidy is scaled down so that per-second emission stays constant —
+    /// this preserves total emission (~57.4M SPHS over the ~6-month
+    /// pre-deflationary phase) regardless of the configured BPS.
     pub const fn pre_deflationary_phase_base_subsidy() -> u64 {
-        2_679_512 / BPS
+        370_027_857 / BPS
     }
 }
 

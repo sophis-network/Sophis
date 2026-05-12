@@ -583,24 +583,24 @@ pub const MAINNET_PARAMS: Params = Params {
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
 
-    // deflationary_phase_daa_score is the DAA score after which the pre-deflationary period
-    // switches to the deflationary period. This number is calculated as follows:
-    // We define a year as 365.25 days
-    // Half a year in seconds = 365.25 / 2 * 24 * 60 * 60 = 15778800
-    // The network was down for three days shortly after launch
-    // Three days in seconds = 3 * 24 * 60 * 60 = 259200
-    deflationary_phase_daa_score: 15778800 - 259200,
-    pre_deflationary_phase_base_subsidy: 370_027_857,
+    // Sophis is 10 BPS from genesis (fair launch, no legacy 1 BPS chain).
+    // DAA score grows at ~10/s, so deflationary_phase_daa_score = 10 *
+    // (half-year-seconds - 3-day-allowance) = 10 * (15_778_800 - 259_200) =
+    // 155_196_000, reached at ~180 days of wall-clock time post-genesis.
+    deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
+    pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 225,
     pruning_proof_m: 1000,
 
     blockrate: BlockrateParams::new::<10>(),
 
-    pre_crescendo_target_time_per_block: 1000,
+    pre_crescendo_target_time_per_block: TenBps::target_time_per_block(),
 
-    // Roughly 2025-05-05 1500 UTC
-    crescendo_activation: ForkActivation::new(110_165_000),
+    // Sophis launches at 10 BPS — there is no Crescendo upgrade because there
+    // is no legacy chain to upgrade from. `always()` short-circuits the fork
+    // logic to use the post-Crescendo (10 BPS) regime from DAA 0.
+    crescendo_activation: ForkActivation::always(),
 
     // Alert when red-block rate exceeds 10% over the monitoring window
     orphan_rate_alert_threshold: 0.10,
@@ -642,24 +642,21 @@ pub const TESTNET_PARAMS: Params = Params {
     max_block_mass: 500_000,
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
-    // deflationary_phase_daa_score is the DAA score after which the pre-deflationary period
-    // switches to the deflationary period. This number is calculated as follows:
-    // We define a year as 365.25 days
-    // Half a year in seconds = 365.25 / 2 * 24 * 60 * 60 = 15778800
-    // The network was down for three days shortly after launch
-    // Three days in seconds = 3 * 24 * 60 * 60 = 259200
-    deflationary_phase_daa_score: 15778800 - 259200,
-    pre_deflationary_phase_base_subsidy: 370_027_857,
+    // Testnet mirrors mainnet: 10 BPS from genesis (no legacy 1 BPS phase).
+    // deflationary_phase_daa_score = 10 * (half-year - 3 days) = 155_196_000,
+    // reached at ~180 days of wall-clock time post-genesis.
+    deflationary_phase_daa_score: TenBps::deflationary_phase_daa_score(),
+    pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 250,
     pruning_proof_m: 1000,
 
     blockrate: BlockrateParams::new::<10>(),
 
-    pre_crescendo_target_time_per_block: 1000,
+    pre_crescendo_target_time_per_block: TenBps::target_time_per_block(),
 
-    // 18:30 UTC, March 6, 2025
-    crescendo_activation: ForkActivation::new(88_657_000),
+    // Testnet launches at 10 BPS — same posture as mainnet.
+    crescendo_activation: ForkActivation::always(),
 
     orphan_rate_alert_threshold: 0.10,
 
@@ -738,8 +735,11 @@ pub const DEVNET_PARAMS: Params = Params {
 
     storage_mass_parameter: STORAGE_MASS_PARAMETER,
 
+    // Devnet skips the pre-deflationary phase entirely (score = 0) so the
+    // base-subsidy value is unused; kept as TenBps for consistency with the
+    // 10 BPS posture.
     deflationary_phase_daa_score: 0,
-    pre_deflationary_phase_base_subsidy: 370_027_857,
+    pre_deflationary_phase_base_subsidy: TenBps::pre_deflationary_phase_base_subsidy(),
     skip_proof_of_work: false,
     max_block_level: 250,
     pruning_proof_m: 1000,
@@ -750,7 +750,7 @@ pub const DEVNET_PARAMS: Params = Params {
         p
     },
 
-    pre_crescendo_target_time_per_block: 1000,
+    pre_crescendo_target_time_per_block: TenBps::target_time_per_block(),
 
     crescendo_activation: ForkActivation::always(),
     orphan_rate_alert_threshold: 0.10,

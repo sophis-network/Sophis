@@ -207,4 +207,3 @@ What is **extensible** (SIP-friendly future work):
 - Companion: `docs/MEMPOOL_POLICY.md`, `docs/FEE_PRIORITY.md`,
   `docs/ECOSYSTEM_OVERVIEW.md`
 - Security review (2026-04-29): see `project_svm_wasm.md` (memory)
-- Decision rationale: `DECISOES_2026-05-04.md`

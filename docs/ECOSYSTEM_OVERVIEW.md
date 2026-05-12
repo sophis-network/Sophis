@@ -230,8 +230,7 @@ See `OPERATIONAL_BOUNDARIES.md` for the full statement.
 | Phase 7 — DeFi infrastructure | ❌ **Excluded** — ecosystem builds | (n/a) |
 | Phase 8 — FHE / privacy | ❌ **Removed** 2026-05-04 (out of scope) | (n/a) |
 
-For phase-by-phase commit history and design notes, see `CLAUDE.md`
-and `DECISOES_2026-05-04.md`.
+For phase-by-phase commit history and design notes, see `CLAUDE.md`.
 
 ## 6. Reference documents
 
@@ -251,4 +250,3 @@ and `DECISOES_2026-05-04.md`.
   `docs/archival.md`, `docs/override-params.md`
 - **Audit:** `docs/PRE_MAINNET_AUDIT.md`,
   `docs/deferred-decisions.md`
-- **Pivot decision:** `DECISOES_2026-05-04.md`

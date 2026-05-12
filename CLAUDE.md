@@ -105,7 +105,7 @@ sVM contracts emit structured events via `sophis_emit_event` host fn (`Capabilit
 
 ### Coinbase (`consensus/src/processes/coinbase.rs`)
 
-100% of block subsidy + fees goes to the miner. **No on-chain devfund** — eliminated 2026-05-04 by regulatory pivot (see `G:\Meu Drive\Claude\Sophis\DECISOES_2026-05-04.md`). `params.rs` no longer carries `dev_fund_address`. Do not reintroduce coinbase split, devfund schedule, or compulsory multisig recipient — committed compromise: no hard fork will reintroduce devfund.
+100% of block subsidy + fees goes to the miner. **No on-chain devfund** — eliminated 2026-05-04 by regulatory pivot. `params.rs` no longer carries `dev_fund_address`. Do not reintroduce coinbase split, devfund schedule, or compulsory multisig recipient — committed compromise: no hard fork will reintroduce devfund.
 
 ### Network ports
 

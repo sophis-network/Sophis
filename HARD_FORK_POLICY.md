@@ -135,8 +135,7 @@ identity:
 
 1. **Fixed supply 210M SPHS** (`MONETARY_POLICY.md` §8.1)
 2. **Coinbase 100% to miner** — no splits, no schedules, no
-   compulsory recipient (`MONETARY_POLICY.md` §8.2;
-   `DECISOES_2026-05-04.md` decision #2)
+   compulsory recipient (`MONETARY_POLICY.md` §8.2)
 3. **No retroactive premine** (`MONETARY_POLICY.md` §8.4)
 4. **Dilithium-only signature scheme** — no reintroduction of
    pre-quantum primitives (Schnorr, secp256k1, ECDSA, ed25519
@@ -144,10 +143,9 @@ identity:
    transaction signature path
 5. **No native privacy primitives** — no FHE, no mixers, no ring
    signatures, no confidential transactions, no native shielded
-   pool (`DECISOES_2026-05-04.md` decision #5)
+   pool
 6. **No core-team-operated bridge or treasury**
-   (`DECISOES_2026-05-04.md` decision #4,
-   `OPERATIONAL_BOUNDARIES.md`)
+   (`OPERATIONAL_BOUNDARIES.md`)
 
 A SIP that proposes any of (1)–(6) will be NACKed by the present
 maintainer collective. Such a fork would create a different chain by
@@ -176,4 +174,3 @@ This policy follows from observation of three reference points:
   `OPERATIONAL_BOUNDARIES.md`, `FOUNDER_SELF_RESTRICTION.md`
 - Cultural references: `project_bitcoin_lessons.md`,
   `project_monero_lessons.md` (memory)
-- Pivot decision: `DECISOES_2026-05-04.md`

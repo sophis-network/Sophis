@@ -59,9 +59,8 @@ No legal entity attached to "Sophis". No native privacy primitives
 official cross-chain bridge. No DeFi primitives in the core protocol.
 
 **Why those choices.** See `MONETARY_POLICY.md` (the issuance
-discipline), `OPERATIONAL_BOUNDARIES.md` (what the project does and
-doesn't do), `DECISOES_2026-05-04.md` (the regulatory pivot that
-made these constraints explicit).
+discipline) and `OPERATIONAL_BOUNDARIES.md` (what the project does
+and doesn't do).
 
 **What the project provides:** the protocol, the reference node,
 miner, and SDK. **What the project does not provide:** any hosted

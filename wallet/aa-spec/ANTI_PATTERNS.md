@@ -89,7 +89,7 @@ A factory contract operated by the core team would also create a directory of ac
 
 **What:** An on-chain or off-chain list maintained by the core team of "trusted guardians" (e.g., reputable institutions, identity-verified individuals, KYC'd entities) recommended for use as guardians.
 
-**Why it is rejected:** Same structural reason as the rejected H2 (`category_tag_registry`) — see `project_h2_rejected.md`. Curating a guardian list is functionally identical to curating an NGO list, and reopens the regulatory-facilitation surface that the 2026-05-04 pivot specifically closed (`project_decisoes_2026_05_04.md` Decision 6).
+**Why it is rejected:** Same structural reason as the rejected H2 (`category_tag_registry`) — see `project_h2_rejected.md`. Curating a guardian list is functionally identical to curating an NGO list, and reopens the regulatory-facilitation surface that the 2026-05-04 pivot specifically closed (Decision 6 — Operational Boundaries).
 
 The pressure to curate is inevitable once the registry exists — users will ask "who are the recommended guardians?" — and the only way to refuse the pressure is to not build the registry in the first place.
 
