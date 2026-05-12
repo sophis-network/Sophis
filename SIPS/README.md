@@ -33,6 +33,9 @@ licence (Apache 2.0; see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE)).
 | [10](./SIP-10-MULTICALL.md) | Multicall Pattern (SDK contract template) | Standards | Draft | 2026-05-11 |
 | [11](./SIP-11-PQC-ORACLE.md) | PQC-Native Oracle (Phase 9) | Standards | Draft | 2026-05-11 |
 | [12](./SIP-12-AA.md) | Account Abstraction (AA) for Sophis Wallets | Standards | Draft | 2026-05-12 |
+| [13](./SIP-13-IDL.md) | sVM Contract Interface Definition Language (IDL) | Standards | Draft | 2026-05-12 |
+| [14](./SIP-14-DNS-SEEDER.md) | DNS Seeder Protocol for Sophis Peer Discovery | Standards | Draft | 2026-05-12 |
+| [15](./SIP-15-STRATUM-V2.md) | Stratum V2 Adaptation for Sophis (RandomX + Dilithium Coinbase) | Standards | Draft | 2026-05-12 |
 
 (Index will grow as SIPs are submitted and accepted. Maintainers
 update this table when a SIP changes status.)
