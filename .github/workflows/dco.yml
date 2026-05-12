@@ -1,0 +1,70 @@
+name: DCO check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# CONTRIBUTING.md §DCO requires every commit to carry a
+# `Signed-off-by: Name <email>` trailer (added by `git commit -s`).
+# This workflow enforces it. PRs with unsigned commits fail this check
+# and cannot be merged until amended.
+#
+# See https://developercertificate.org/ for the full DCO v1.1 text.
+
+jobs:
+  dco:
+    name: Verify Developer Certificate of Origin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR commits
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so we can compare against the base branch
+          fetch-depth: 0
+
+      - name: Verify Signed-off-by trailer on every commit
+        run: |
+          set -euo pipefail
+
+          # Determine the commit range to check
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            # On push-to-main, check only the new commits in this push
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
+            # First push to a new branch sends 40 zeros for `before`
+            if [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+              echo "First push to branch detected; skipping DCO check."
+              exit 0
+            fi
+          fi
+
+          echo "Checking commits in range ${BASE_SHA}..${HEAD_SHA}"
+
+          # Walk every commit in the range
+          MISSING=""
+          for commit in $(git rev-list "${BASE_SHA}..${HEAD_SHA}"); do
+            # Extract trailers; look for Signed-off-by
+            signoff=$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "${commit}")
+            if [ -z "${signoff}" ]; then
+              subject=$(git log -1 --format='%s' "${commit}")
+              MISSING="${MISSING}\n  - ${commit:0:8} ${subject}"
+            fi
+          done
+
+          if [ -n "${MISSING}" ]; then
+            echo ""
+            echo "::error::DCO check failed — the following commits lack a Signed-off-by line:"
+            echo -e "${MISSING}"
+            echo ""
+            echo "Fix: add Signed-off-by via 'git commit --amend -s' on the offending commit"
+            echo "(or use 'git rebase -i' + 'git commit --amend -s' for multiple commits)."
+            echo "See CONTRIBUTING.md §DCO and https://developercertificate.org/ for details."
+            exit 1
+          fi
+
+          echo "All commits in range are DCO-signed. ✓"

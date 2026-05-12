@@ -516,7 +516,12 @@ As detailed in §5.2: 100 % of every block's coinbase goes to the miner. There i
 
 ### 10.4 No legal entity bound to the protocol
 
-There is no Sophis Foundation, no LLC, no Stiftung, no Fundación, no DAO LLC, no CNPJ vinculado ao protocolo. The project follows the Bitcoin Core / Monero Project model: code + protocol + community. The founder operates personally as a developer, mitigated by individual measures (open-source license, DCO requirement, trademark registration in personal name, personal succession document, recruited external maintainers).
+There is no Sophis Foundation, no LLC, no Stiftung, no Fundación, no DAO LLC, no CNPJ bound to the protocol. The project follows the Bitcoin Core / Monero Project model: code + protocol + community. The founder operates personally as a developer, with the following individual measures already in place:
+
+- **Permissive open-source license** (Apache 2.0), guaranteeing irrevocable fork-ability of the codebase plus an explicit patent grant and patent-retaliation clause. See `LICENSE` and `NOTICE`.
+- **DCO requirement** (Developer Certificate of Origin v1.1) on every contribution, documented in `CONTRIBUTING.md` and enforced by a GitHub Action check on every Pull Request. Each commit carries a `Signed-off-by:` line; PRs with unsigned commits fail CI before review.
+- **Personal succession document** (`SUCCESSION.md`) published in the repository, covering the procedure to transition the project if the founder becomes unable to continue. Sensitive material (private key locations, recovery codes) lives in a separate private medium described in §3 of that document.
+- **External maintainers are self-declared volunteers via Pull Request** — the founder does not actively recruit. The `MAINTAINERS.md` file documents the open self-volunteer process; the current roster is intentionally minimal at pre-mainnet and tightens automatically as community contributors step forward.
 
 A formal entity may be revisited only if specific external triggers fire: market cap > US$ 50M sustained, tier-1 CEX listing requiring institutional counterpart, significant external grant flow, imminent litigation, personal-safety threat, or a commercial contract that legally requires a juridical counterparty. Aesthetic or community pressure to "professionalize" is explicitly **not** a trigger.
 
