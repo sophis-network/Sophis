@@ -152,6 +152,5 @@ not make that transition.
 
 - Implementation: `consensus/core/src/config/params.rs`,
   `consensus/src/processes/coinbase.rs`
-- Pivot decision: `DECISOES_2026-05-04.md` (decisions #2)
 - Companion documents: `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`
 - Legal positioning: `project_legal_positioning.md` (memory)
