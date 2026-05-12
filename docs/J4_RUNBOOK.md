@@ -159,20 +159,30 @@ The gRPC binding lives at `protowire.GetLogsRequestMessage`. Empty
 has no native Option):
 
 ```python
+# Requires `pip install -e .` from sophis-network/sophis-py and
+# running `./proto/fetch_and_compile.sh` once to generate stubs.
 import grpc
-from rusty_kaspa_grpc import protowire_pb2 as pb, protowire_pb2_grpc
+from sophis_grpc import SophisClient
+from sophis_grpc._generated import messages_pb2 as pb
 
-req = pb.GetLogsRequestMessage(
-    contract_id = b"",                                   # wildcard
-    topics = [pb.RpcEventLogTopicSlot(present=True, topic=topic_signature_bytes)],
-    from_block = "ab12cd...",                            # 32-byte hex-encoded hash
-    to_block   = "ef34gh...",
-    limit = 100,
-)
-resp = stub.GetLogs(req)
-for log in resp.logs:
-    print(log.contract_id.hex(), log.tx_id, log.block_hash, log.daa_score)
+with SophisClient("127.0.0.1:46110") as client:
+    req = pb.GetLogsRequestMessage(
+        contract_id = b"",                                   # wildcard
+        topics = [pb.RpcEventLogTopicSlot(present=True, topic=topic_signature_bytes)],
+        from_block = "ab12cd...",                            # 32-byte hex-encoded hash
+        to_block   = "ef34gh...",
+        limit = 100,
+    )
+    resp = client._stub.GetLogs(req)
+    for log in resp.logs:
+        print(log.contract_id.hex(), log.tx_id, log.block_hash, log.daa_score)
 ```
+
+> The `SophisClient` wrapper exposes most J4 patterns via the higher-level
+> `client.get_contract_events(...)` and `client.subscribe_contract_events(...)`
+> helpers. The raw-proto example above is shown when finer control over the
+> request — e.g., the explicit `RpcEventLogTopicSlot(present=...)` slots — is
+> needed.
 
 ### 5.2 wRPC JSON example (curl)
 

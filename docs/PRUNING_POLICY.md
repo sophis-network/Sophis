@@ -141,14 +141,15 @@ track pruning point advancement rate).
 Example (gRPC):
 
 ```python
-import grpc
-from rusty_kaspa_grpc import protowire_pb2 as pb
+# Requires `pip install -e .` from sophis-network/sophis-py and
+# running `./proto/fetch_and_compile.sh` once to generate stubs.
+from sophis_grpc import SophisClient
 
-req = pb.GetPruningInfoRequestMessage()
-resp = stub.GetPruningInfo(req)
-print(f"pruning_depth={resp.pruning_depth}")
-print(f"current_pruning_point={resp.current_pruning_point}")
-print(f"is_archival={resp.is_archival}")
+with SophisClient("127.0.0.1:46110") as client:
+    info = client.get_pruning_info()
+    print(f"pruning_depth={info.pruning_depth}")
+    print(f"current_pruning_point={info.current_pruning_point}")
+    print(f"is_archival={info.is_archival}")
 ```
 
 Example (wRPC JSON):
