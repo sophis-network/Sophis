@@ -541,7 +541,7 @@ The Sophis core team commits to operating only **non-custodial infrastructure**:
 | Bridge / Wrapped SPHS | **Do not operate** | See §10.1 |
 | Centralized exchange / DEX with custody / wallet custody | **Do not operate** | These are full VASP services; the core team is non-custodial |
 
-The full text of the Operational Boundaries Statement is published at mainnet launch alongside the binaries.
+The Operational Boundaries Statement is published in the repository at `OPERATIONAL_BOUNDARIES.md`; its SHA-256 is anchored alongside the binaries in the T-72h mainnet launch announcement to fix the canonical version at a verifiable point in time.
 
 ---
 
