@@ -36,6 +36,7 @@ licence (Apache 2.0; see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE)).
 | [13](./SIP-13-IDL.md) | sVM Contract Interface Definition Language (IDL) | Standards | Draft | 2026-05-12 |
 | [14](./SIP-14-DNS-SEEDER.md) | DNS Seeder Protocol for Sophis Peer Discovery | Standards | Draft | 2026-05-12 |
 | [15](./SIP-15-STRATUM-V2.md) | Stratum V2 Adaptation for Sophis (RandomX + Dilithium Coinbase) | Standards | Draft | 2026-05-12 |
+| [16](./SIP-16-DA.md) | Self-Hosted Data Availability via V5 Carrier UTXOs (Phase 6) | Standards | Draft | 2026-05-12 |
 
 (Index will grow as SIPs are submitted and accepted. Maintainers
 update this table when a SIP changes status.)
