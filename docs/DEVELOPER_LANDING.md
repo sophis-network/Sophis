@@ -132,8 +132,9 @@ You are building a wallet, key manager, or signing tool.
 
 ## Future work to track
 
-- Account abstraction (Roadmap J1) — Dilithium-aware AA design lives
-  in `wallet/aa-spec/`
+- Account abstraction (Roadmap J1) — Standards-track spec is
+  [`SIPS/SIP-12-AA.md`](../SIPS/SIP-12-AA.md); full design,
+  anti-patterns, and threat model live in `wallet/aa-spec/`
 - PSBS standardization (Roadmap K1) — formal partially-signed format
 - Wallet descriptors (Roadmap K3) — Dilithium-aware descriptor syntax
 

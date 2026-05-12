@@ -36,7 +36,7 @@ SPHS, send transactions.
 - [sophisd/README.md](sophisd/README.md) — node binary, CLI flags, ports
 - [wallet/README.md](wallet/README.md) — wallet workspace overview
 - [wallet/bip39/README.md](wallet/bip39/README.md) — mnemonic generation / restore
-- [docs/WALLET_VERIFICATION.md](docs/WALLET_VERIFICATION.md) — `.well-known/sophis-wallet.json` integrity spec
+- [SIPS/SIP-6-WALLET-VERIFICATION.md](SIPS/SIP-6-WALLET-VERIFICATION.md) — `.well-known/sophis-wallet.json` integrity spec (SIP-6)
 - [docs/archival.md](docs/archival.md) — running an archive node (HDD-optimized RocksDB)
 - [docs/override-params.md](docs/override-params.md) — `--override-params-file` for local testing (mainnet-blocked)
 - [docs/PRUNING_POLICY.md](docs/PRUNING_POLICY.md) — pruning depth + finality window
@@ -57,8 +57,9 @@ the SDK from outside.
 - [docs/MEMPOOL_POLICY.md](docs/MEMPOOL_POLICY.md) — RBF, packages, eviction
 - [wallet/pskt/DESIGN.md](wallet/pskt/DESIGN.md) — partially-signed bundle spec (SIP-1)
 - [wallet/descriptors/DESIGN.md](wallet/descriptors/DESIGN.md) — output script descriptors (SIP-5)
-- [wallet/aa-spec/README.md](wallet/aa-spec/README.md) — account-abstraction spec entry
-- [wallet/aa-spec/SPEC.md](wallet/aa-spec/SPEC.md) — AA protocol body
+- [SIPS/SIP-12-AA.md](SIPS/SIP-12-AA.md) — Account Abstraction Standards-track spec (SIP-12)
+- [wallet/aa-spec/README.md](wallet/aa-spec/README.md) — AA implementation guide entry
+- [wallet/aa-spec/SPEC.md](wallet/aa-spec/SPEC.md) — AA full design specification (companion to SIP-12)
 - [wallet/aa-spec/CONVERGENCE.md](wallet/aa-spec/CONVERGENCE.md) — AA convergence test
 - [wallet/aa-spec/ANTI_PATTERNS.md](wallet/aa-spec/ANTI_PATTERNS.md) — AA anti-patterns (zkLogin, etc.)
 - [wallet/aa-spec/OPERATIONAL_BOUNDARIES_PARAGRAPH.md](wallet/aa-spec/OPERATIONAL_BOUNDARIES_PARAGRAPH.md) — AA section of operator statement

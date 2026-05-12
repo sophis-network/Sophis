@@ -26,11 +26,13 @@ licence (Apache 2.0; see [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE)).
 | [3](./SIP-3-ALT.md) | Address Lookup Tables (ALT) | Standards | Draft | 2026-05-10 |
 | [4](./SIP-4-EVENTS.md) | sVM Event Logs | Standards | Draft | 2026-05-10 |
 | [5](./SIP-5-DESCRIPTORS.md) | Wallet Descriptors (BIP-380-style, Dilithium-aware) | Standards | Draft | 2026-05-11 |
+| [6](./SIP-6-WALLET-VERIFICATION.md) | Domain-to-Wallet Self-Attestation (`.well-known/sophis-wallet.json`) | Standards | Draft | 2026-05-09 |
 | [7](./SIP-7-LIGHT-CLIENT.md) | Light Client SPV Protocol | Standards | Draft | 2026-05-10 |
 | [8](./SIP-8-PRUNING-POLICY.md) | Pruning Policy + getPruningInfo RPC | Standards | Draft | 2026-05-11 |
 | [9](./SIP-9-POSEIDON.md) | Canonical Poseidon Specification (spec-only) | Standards | Draft | 2026-05-11 |
 | [10](./SIP-10-MULTICALL.md) | Multicall Pattern (SDK contract template) | Standards | Draft | 2026-05-11 |
 | [11](./SIP-11-PQC-ORACLE.md) | PQC-Native Oracle (Phase 9) | Standards | Draft | 2026-05-11 |
+| [12](./SIP-12-AA.md) | Account Abstraction (AA) for Sophis Wallets | Standards | Draft | 2026-05-12 |
 
 (Index will grow as SIPs are submitted and accepted. Maintainers
 update this table when a SIP changes status.)

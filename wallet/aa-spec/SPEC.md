@@ -1,6 +1,18 @@
 # Sophis Account Abstraction — Specification
 
-**Status:** Pre-RFC draft. Frozen for publication. Implementation gated on the RFC process described in `README.md`.
+> **The formal Standards-track document for this design is [SIP-12: Account
+> Abstraction (AA) for Sophis Wallets](../../SIPS/SIP-12-AA.md).**
+>
+> This file is preserved as the **full design specification and implementation
+> guide**, complementing the SIP. SIP-12 §3 distills the load-bearing decisions
+> (D1–D8), wire format, and contract interfaces; this file documents the
+> rationale, the threat model, operational notes, and the test-vector plan in
+> full. In case of ambiguity between SIP-12 and this file:
+>
+> - **SIP-12 is canonical** for the standard that other implementations must follow.
+> - **This file is canonical** for implementation detail and design context.
+
+**Status:** Pre-RFC draft. Frozen for publication. Implementation gated on the RFC process described in `README.md`. Promoted to Standards-track SIP-12 on 2026-05-12.
 
 **Author:** Marcelo Delgado <sophis-network@proton.me>
 
