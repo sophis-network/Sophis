@@ -83,18 +83,48 @@ The file is a JSON document with the following schema:
 | `signature.value` | yes | Base64-encoded signature |
 | `signature.covers` | yes | Ordered list of fields that were canonically serialized and signed |
 
-### 3.2 No category enum
+### 3.2 No category enum (core team) — community vocabulary instead
 
-The `categories` field on each address is **deliberately free-form**.
-The Sophis Project does not curate a list of valid categories
-(decision documented in `project_h2_rejected.md`, memory). Operators
-choose their own labels; downstream consumers (community repos,
-dashboards) decide independently which labels they recognize.
+The `categories` field on each address is **deliberately free-form at
+the protocol and spec level**. The Sophis core team does not curate
+a list of valid categories, and there is no on-chain enum (decision
+documented in `project_h2_rejected.md`, memory). Operators choose
+their own labels; downstream consumers (community repos, dashboards)
+decide independently which labels they recognize.
 
 This is a feature, not an oversight. A protocol-level category
 registry would create curation pressure on the core team and would
-require a hard-fork decision to add or remove categories. Free-form
-labels avoid that lock-in.
+require a hard-fork decision to add or remove categories. A
+core-team-maintained off-chain list would create the same curation
+pressure with the same political surface, just without the hard
+fork. Both are avoided on purpose.
+
+**Recommended vocabulary — community-maintained, not authoritative.**
+To reduce label fragmentation ("environmental" vs "Environmental"
+vs "env" vs "ecology") without reopening core-team curation, an
+independent community repository — **`sophis-network/community-labels`**
+— maintains a recommended vocabulary of category labels with an
+explicit `others` fallback. The repo is:
+
+- **Community-governed**, not core-team-curated. PRs to add or remove
+  labels are reviewed by community maintainers with documented
+  criteria. The core team does not adjudicate label disputes and
+  does not have merge authority over that repo.
+- **Off-chain and opt-in**. Operators may follow the recommended
+  vocabulary or use any other label they prefer. Verifiers may
+  recognize the recommended vocabulary, recognize their own subset,
+  or ignore categories entirely.
+- **Non-authoritative**. A label being on or off the recommended
+  list carries no protocol-level meaning. Dashboards and wallets
+  that present the recommended vocabulary should make clear that
+  it is community guidance, not project endorsement of any
+  particular address.
+
+The split — protocol stays free-form, vocabulary lives in a separate
+community-governed repo — preserves the regulatory posture of the
+2026-05-04 pivot (core team does not curate semantic categories at
+any level) while giving the ecosystem a Schelling point to converge
+on without inventing dozens of synonyms.
 
 ## 4. Signature procedure
 
@@ -222,8 +252,14 @@ the format was specifically designed to avoid.
 ## 9. Reference
 
 - Template file: `docs/well-known-sophis-wallet.template.json`
-- Companion: `green-miner-pledge-template/` (external; staged at
-  `G:\Meu Drive\Claude\Sophis\green-miner-pledge-template\`)
+- Recommended label vocabulary (community-maintained):
+  `sophis-network/community-labels` — independent repo, not curated
+  by the core team; consumed opt-in by dashboards and wallets that
+  want a Schelling point for category names. See §3.2.
+- Companion: `sophis-network/green-miner-pledge` — independent
+  community-maintained repository listing miners who declare they use
+  the reference miner's `--donate-to` flag; not maintained by the
+  Sophis core team
 - Related decision: `project_h2_rejected.md` (memory) — why no
   on-chain category registry
 - Related decision: `project_ngo_curation_no_core_team.md` (memory)

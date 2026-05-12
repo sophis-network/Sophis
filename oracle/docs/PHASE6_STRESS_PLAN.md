@@ -130,7 +130,7 @@ A failure on any gate blocks the mainnet ship. Operators triage:
 
 ```bash
 # 1. Ensure no stale data
-cd "G:\Meu Drive\Claude\Sophis\devnet"
+cd <devnet-scripts-dir>
 python orchestrator.py purge
 
 # 2. Start 5 nodes
@@ -156,7 +156,7 @@ In separate terminals:
 # (no extra command — the rollup-node binary kicks in when devnet is up)
 
 # Phase 5 oracle relayer with da_publish=true
-cd C:\Projetos\sophis
+cd <repo-root>
 copy oracle\relayer\stress.toml relayer.toml  # da_publish=true variant
 cargo run --release --features grpc-submit -p sophis-oracle-relayer -- daemon
 

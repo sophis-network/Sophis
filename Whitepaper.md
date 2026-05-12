@@ -281,7 +281,30 @@ Validations run at miner startup, before any RPC connection: the sum of declared
 
 The Sophis core team **does not** maintain, endorse, or recommend any list of donation addresses. There is no official directory of "approved" recipients. The reference miner ships with no default donation list and no preconfigured beneficiary. The team's commitment to operate non-custodially (see §11) extends to not playing intermediary in the choice of recipient.
 
-For donors who wish to verify that a given wallet address belongs to a specific organization before sending value, Sophis recommends the standard `.well-known/sophis-wallet.json` pattern — a JSON document hosted under HTTPS at the organization's domain, containing the wallet address and a Dilithium signature over a challenge string that identifies the organization. The combination of TLS (proves control of the domain) and the Dilithium signature (proves possession of the private key for the claimed wallet) gives a verifiable cryptographic binding between a recognized legal entity and an on-chain address. **Sophis does not host, audit, or endorse any such file; the verification is done by the donor.** Cross-checking the legal name against the appropriate national registry — Receita Federal in Brazil, IRS in the United States, Charity Commission in the United Kingdom, and equivalents elsewhere — is the donor's responsibility.
+For donors who wish to verify that a given wallet address belongs to a specific organization before sending value, Sophis publishes a small open specification — the `.well-known/sophis-wallet.json` pattern — for organizations to self-attest a binding between a public DNS domain and one or more Sophis addresses. The format builds on IETF RFC 8615 (`.well-known/` URI prefix, already used by ACME, OpenID Connect, security.txt and similar standards) and combines two independent proofs: TLS proves that the file was served from the organization's actual domain, and a Dilithium ML-DSA-44 signature inside the file proves possession of the private key controlling the declared wallet.
+
+Two reference artifacts ship with the project to make adoption trivial:
+
+- **Specification:** `docs/WALLET_VERIFICATION.md` — the v1 file format (`version`, `domain`, `issued_at`, `expires_at`, `addresses[]`, `signature`), the canonical signing procedure, mandatory verifier checks, and rotation / revocation semantics.
+- **Template:** `docs/well-known-sophis-wallet.template.json` — a ready-to-use JSON template the operator copies, fills in, signs with their Dilithium key, and hosts.
+
+**Procedure for an organization that wants to be verifiable** (any NGO, software collective, individual maintainer):
+
+1. Copy `docs/well-known-sophis-wallet.template.json` and remove the `_comment` field.
+2. Fill in `domain`, `issued_at`, `expires_at`, and one or more `{address, purpose, label, categories}` entries.
+3. Sign the canonical serialization of the file (excluding the `signature.value` field) using the Dilithium ML-DSA-44 key corresponding to the declared address, via the project's `dilithium-wallet` CLI.
+4. Host the resulting JSON at exactly `https://<your-domain>/.well-known/sophis-wallet.json` over TLS. The verifier MUST refuse plain HTTP and MUST NOT follow HTTPS→HTTP redirects.
+
+**Procedure for a donor who wants to verify before sending**:
+
+1. Fetch the file from `https://<organization-domain>/.well-known/sophis-wallet.json`. The HTTPS certificate, validated by the donor's browser or wallet, is the first proof — it attests that the file was served from the actual domain the donor recognizes.
+2. Parse the JSON, locate the address of interest in `addresses[]`, and check `issued_at` ≤ now ≤ `expires_at`.
+3. Verify the Dilithium signature in `signature` against the canonical serialization of the covered fields, using the `public_key` declared in the same file. A passing signature is the second proof — it attests that whoever published the file controls the private key for the declared address.
+4. If both checks pass, the donor has a cryptographic binding between the recognized domain and the on-chain address.
+
+**Sophis does not host, audit, endorse, or maintain any such file.** The specification and the template are provided as community infrastructure; the publication is done by each organization on its own domain, and the verification is done by each donor on their own terms. Cross-checking the legal name on the domain's WHOIS or on the appropriate national registry — Receita Federal in Brazil, IRS in the United States, Charity Commission in the United Kingdom, and equivalents elsewhere — is also the donor's responsibility, never the project's.
+
+To reduce category-label fragmentation without reopening any core-team curation responsibility, an **independent community-governed repository** — `sophis-network/community-labels` — maintains a recommended vocabulary of category labels with an explicit `others` fallback. The repo is opt-in for publishers, opt-in for verifiers, and non-authoritative: the core team neither curates the list nor adjudicates label disputes; PRs are reviewed by community maintainers with documented criteria. A label being on or off the recommended list carries no protocol-level meaning and does not constitute endorsement of any particular address. The separation — protocol layer stays free-form, vocabulary lives in a community repo — preserves the §11 Operational Boundaries posture while giving the ecosystem a Schelling point to converge on. See `docs/WALLET_VERIFICATION.md` §3.2.
 
 #### 5.6.4 What the protocol provides, and what it does not
 
@@ -300,7 +323,11 @@ The protocol does **not** provide:
 
 #### 5.6.5 Honest framing
 
-This mechanism is not a claim that Proof-of-Work's energy cost is solved. It is a claim that the protocol provides the most direct possible mechanism — a single command-line flag, no intermediary, no fork required — by which an individual miner can act on their own conscience about that cost. Whether and how that mechanism is used is, by design, outside the team's control. The dashboard described elsewhere in this document and in the project's launch checklist will report the aggregate fraction of coinbase publicly redirected to addresses self-declared as `Environmental` (or any other category), so that the actual usage is observable rather than promised.
+This mechanism is not a claim that Proof-of-Work's energy cost is solved. It is a claim that the protocol provides the most direct possible mechanism — a single command-line flag, no intermediary, no fork required — by which an individual miner can act on their own conscience about that cost. Whether and how that mechanism is used is, by design, outside the core team's control, and so is its measurement.
+
+Aggregation and visualization of donation flows are intentionally **not** provided by the Sophis core team. The protocol exposes the necessary on-chain data — every coinbase transaction is public, every multi-output coinbase is an observable donation event, and recipient addresses can opt into identity attestation via the `.well-known/sophis-wallet.json` specification (§5.5 and `docs/WALLET_VERIFICATION.md`) cross-referenced with the community-maintained category vocabulary (§5.5 and the `sophis-network/community-labels` repository). Building dashboards, indexers, and analytic frontends on top of that data is the role of independent third parties, operated under their own governance, at their own discretion, with their own discovery sources and methodology. The Sophis project does not maintain, host, or endorse any particular donation dashboard, just as it does not operate a block explorer, a mining pool, or an exchange listing. A reference architecture specification for community implementers is staged as `donation-dashboard-template/`; the core team does not ship the visualization itself.
+
+The intended outcome is plural visibility rather than authoritative measurement: multiple independent dashboards may exist with different aggregation choices, different discovery sources, and different visualizations, and no single one is canonical. Users compare and choose; the project does not adjudicate.
 
 ---
 

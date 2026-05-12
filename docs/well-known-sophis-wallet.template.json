@@ -1,5 +1,5 @@
 {
-  "_comment": "Template for .well-known/sophis-wallet.json. Copy this file, fill the values, sign with your Dilithium ML-DSA-44 key, and host at https://<your-domain>/.well-known/sophis-wallet.json. See docs/WALLET_VERIFICATION.md for the full spec, signing procedure, and verifier responsibilities. The _comment field MUST be removed before publishing.",
+  "_comment": "Template for .well-known/sophis-wallet.json. Copy this file, fill the values, sign with your Dilithium ML-DSA-44 key, and host at https://<your-domain>/.well-known/sophis-wallet.json. See docs/WALLET_VERIFICATION.md for the full spec, signing procedure, and verifier responsibilities. For 'categories', see the community-maintained recommended vocabulary at sophis-network/community-labels (opt-in, non-authoritative — you may also use any custom label or omit categories entirely). The _comment field MUST be removed before publishing.",
   "version": 1,
   "domain": "example.org",
   "issued_at": "2026-01-01T00:00:00Z",

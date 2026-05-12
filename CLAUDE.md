@@ -31,7 +31,7 @@ cargo clippy --workspace --tests --benches --examples \
 cargo sophis-lint
 ```
 
-**Build environment (Windows):** Code must be at `C:\Projetos\sophis`. Do NOT use paths under Google Drive — Rust hard links are unsupported there and break builds. Use Unix shell syntax (bash) for commands even on Windows.
+**Build environment (Windows):** Build from a local filesystem path. Do NOT build from paths under Google Drive (or any other cloud-sync mount) — Rust hard links are unsupported there and break builds. Use Unix shell syntax (bash) for commands even on Windows.
 
 **Build dependencies:** Rust 1.88+ (workspace MSRV; Lints CI job pins 1.93.0), MSVC toolchain, LLVM/Clang, `protoc`, `cmake` (required by RandomX).
 

@@ -111,9 +111,9 @@ test thoroughly, including devnet test suite.
 
 ### 2.3 Phase 4 ZK-Bridge residuals
 
-CLAUDE.md confirms Phase 4 was extracted to `C:\Projetos\ZKBridge\` on
-2026-05-04. The current Sophis workspace should have **zero**
-references to:
+CLAUDE.md confirms Phase 4 was extracted to a separate, non-deploy
+reference repository on 2026-05-04. The current Sophis workspace
+should have **zero** references to:
 
 - `bridge-eth-node` binary
 - `WSPHS` token

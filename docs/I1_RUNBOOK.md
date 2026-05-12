@@ -32,7 +32,7 @@ restart and re-populate as new blocks arrive.
 ### 2.1 Local sanity test
 
 ```powershell
-cd C:\Projetos\sophis
+cd <repo-root>
 cargo run --release -p sophis-dashboard -- `
     --rpcserver localhost:46110 `
     --listen-addr 0.0.0.0:8080 `
