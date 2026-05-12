@@ -223,7 +223,7 @@ See `OPERATIONAL_BOUNDARIES.md` for the full statement.
 | Phase 1 — DAG consensus + Dilithium E2E | ✅ Complete | `consensus/`, `crypto/`, `mining/` |
 | Phase 2 — sVM + native tokens | ✅ Complete | `svm/`, `examples/contracts/` |
 | Phase 3 — ZK-Rollup internal | ✅ Complete | `rollup/` |
-| Phase 4 — Cross-chain ZK-Bridge | ❌ **Extracted** to standalone repo (out of scope) | (not in this workspace) |
+| Phase 4 — Cross-chain ZK-Bridge | ❌ **Excluded** — ecosystem builds | (n/a) |
 | Phase 5 — ZK-Oracle Aggregator | ⚠️ **Deprecated 2026-05-11** (fallback only; superseded by Phase 9) | `oracle/{core,feeds,host,relayer}` |
 | Phase 9 — PQC-native Oracle | ✅ Complete (production path) | `oracle/pqc-{core,contract,publisher,tests}` |
 | Phase 6 — Self-DA | ✅ Complete | `consensus/core/src/da/`, `oracle/docs/PHASE6_*.md` |
