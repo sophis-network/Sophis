@@ -159,7 +159,12 @@ The reference implementation is staged in [`wallet/aa-spec/`](../wallet/aa-spec/
 - [`OPERATIONAL_BOUNDARIES_PARAGRAPH.md`](../wallet/aa-spec/OPERATIONAL_BOUNDARIES_PARAGRAPH.md) — canonical text to be inserted into `OPERATIONAL_BOUNDARIES.md` once any reference contract from this SIP is published as code
 - `templates/` — contract scaffolds (when shipped; templates are pre-RFC at the time of this SIP's submission)
 
-The reference contracts themselves are not yet implemented in code as of this SIP's submission. The decision to publish a Standards-track SIP before reference code exists is deliberate: it lets wallet implementers, hardware-wallet vendors, and exchange integrators plan against a stable specification rather than against shifting reference code. Reference contract code will follow as part of the post-mainnet roadmap (item J1 in `pending_blockers.md`).
+The reference contracts themselves are not yet implemented in code as of this SIP's submission. Reference contract code is **intentionally deferred to the post-mainnet roadmap (item J1)** for two reasons:
+
+1. **AA is UX-premium functionality, not required for the chain to function.** Users can transact day-zero with direct Dilithium-signed wallets via the `dilithium-wallet` CLI. AA adds guardian recovery, session keys, and batching as quality-of-life improvements, but the chain operates without it.
+2. **AA reference implementations have high iteration risk.** ERC-4337 took roughly four years and eleven-plus revisions to stabilize on Ethereum, surfacing approximately six distinct attack classes along the way. Sophis chooses to wait for the standard to be implemented once, correctly, after community review of this SIP — rather than rushed under launch pressure.
+
+Per SIP-0 §5, this SIP remains in **Draft** status until reference contract code exists and runs. The SIP cannot enter **Review** without the reference implementation; it cannot enter **Final** without the implementation being production-ready and audited. The status progression is the intended forcing function: implementers planning to support AA know the standard is frozen at the level of D1–D8 + wire format + interfaces, while the SIP's lifecycle stage signals where reference code stands.
 
 ## 7. Security Considerations
 
