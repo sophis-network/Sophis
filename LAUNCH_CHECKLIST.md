@@ -38,8 +38,8 @@ the publication to a verifiable timestamp.
 
 **Address:** `sophis:q2sdls98vf40p3v53eyu2ylu3rnfyvjr3cw3gwmuhj8pwnkkgdn5677h7448r`
 
-(Already declared in `mainnet-mining/my-mainnet-address.txt` and in
-§ 1 of `FOUNDER_SELF_RESTRICTION.md`.)
+(Already declared in § 1 of `FOUNDER_SELF_RESTRICTION.md` and § 4 of
+`MONETARY_POLICY.md`.)
 
 **Evidence produced:** the announcement commit hash + tag, both
 publicly verifiable on `sophis-network/Sophis` and reproducible by anyone.
@@ -53,8 +53,8 @@ address) is automatically falsified.
 ### 1.1 Pre-flight checks (do at T-90d)
 
 - [ ] Confirm founder address private key is recoverable (test
-      restore from paper backup in a tempdir; see `mainnet-mining/`
-      day-zero scripts)
+      restore from paper backup in a tempdir using
+      `dilithium-wallet restore`)
 - [ ] Confirm `FOUNDER_SELF_RESTRICTION.md` § 1 still names the same
       address
 - [ ] Confirm `MONETARY_POLICY.md` § 4 still names the same address
@@ -171,7 +171,7 @@ The documented attempt is itself defensive evidence.
 
 ---
 
-## Action 4 — Live-stream / cronograph thread (T-0 → T+24h)
+## Action 4 — Live-stream / chronograph thread (T-0 → T+24h)
 
 **What:** a **contemporaneous public performance** of the 24-hour
 restraint window. Options:
@@ -281,7 +281,7 @@ inspirational.
 
 - Original 5-action specification:
   `project_mainnet_launch_defensive_actions.md` (memory)
-- Address registry: `mainnet-mining/my-mainnet-address.txt`
+- Founder address: declared in `FOUNDER_SELF_RESTRICTION.md` § 1
 - Founder restrictions: `FOUNDER_SELF_RESTRICTION.md`
 - Operational boundaries: `OPERATIONAL_BOUNDARIES.md`
 - Monetary policy: `MONETARY_POLICY.md`

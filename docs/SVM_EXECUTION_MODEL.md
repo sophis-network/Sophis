@@ -47,14 +47,21 @@ backed by a granted capability fails validation at deploy time.
 | `ReadBlockHeight` | Read the current block height |
 | `HashSha3` | Compute a SHA3-384 hash |
 | `VerifyRisc0Proof` | Verify a Risc0 STARK proof (consumed by Phase 3 ZK-Rollup) |
-| `VerifyPlonky3Proof` | Verify a Plonky3 STARK proof (consumed by Phase 5 oracle) |
+| `VerifyPlonky3Proof` | Verify a Plonky3 STARK proof (used by the legacy Phase 5 oracle path during the Phase 9 dual-path window) |
 | `VerifyDataAvailability` | Verify a Phase 6 DA carrier inclusion + commitment |
+| `ResolveAlt` | Resolve an L1 Address Lookup Table reference to its underlying `ScriptPublicKey` (L1) |
+| `EmitEvent` | Emit a structured event log persisted by the consensus commit hook (J4) |
+| `VrfRandomness` | Read 32 bytes of bias-resistant randomness derived from a past selected-chain block hash (J3) |
+
+The canonical list is in `svm/core/src/capability.rs`. Any divergence
+between this table and the code is a documentation bug.
 
 **No** capability for: privacy primitives (FHE, mixers, ring
 signatures); cross-chain bridge proofs (extracted to standalone
-repo); pre-quantum signatures (Schnorr, secp256k1, ed25519 outside
-the oracle context). Adding a capability is a SIP; removal is a hard
-fork.
+repo); pre-quantum signatures (Schnorr, secp256k1; ed25519 appears
+only inside the legacy Phase 5 oracle code path which is deprecated
+as of 2026-05-11 and will be deleted once SIP-11 D11.flip activates).
+Adding a capability is a SIP; removal is a hard fork.
 
 ## 3. Execution model — sequential per-transaction
 

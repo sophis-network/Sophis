@@ -5,8 +5,12 @@
 //! Any change requires a hard fork of the L1.
 //!
 //! A Phase 6 carrier is an unspendable transaction output whose
-//! `ScriptPublicKey` has `version == SCRIPT_VERSION_CARRIER` (= 3) and
-//! whose `script` starts with the magic prefix `b"SPHS-DA1"`.
+//! `ScriptPublicKey` has `version == SCRIPT_VERSION_CARRIER` (= 5) and
+//! whose `script` starts with the magic prefix `b"SPHS-DA1"`. The
+//! carrier was originally drafted as v=3 in the design doc; that
+//! collided with `BRIDGE_VAULT_VERSION` for the Phase 3 internal
+//! rollup, so the constant was re-allocated to 5. See
+//! `consensus/core/src/constants.rs` for the full SPK version map.
 //!
 //! Layout of `script` (see §3.2 of the design doc):
 //! ```text

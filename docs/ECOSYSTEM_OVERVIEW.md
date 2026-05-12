@@ -40,7 +40,7 @@ points you to the right one.
 | Goal | Read |
 |---|---|
 | Run a full node | `sophisd/README.md` (or `bridge/docs/README.md` for in-process miner setup) |
-| Run a CPU miner | `miner/README.md` (if present), `mainnet-mining/DAY-ZERO-GUIDE.md` for first-launch users |
+| Run a CPU miner | `miner/` crate source and `POW_POLICY.md` for the protocol-level RandomX rationale |
 | Mine via stratum | `bridge/docs/README.md` — local-only stratum bridge for ASIC/external miner support |
 | Run a DNS seeder | `sophis-dnsseeder/` crate (operator-curated; the project does not host these) |
 | Run a faucet | `testnet-faucet/` crate (testnet only) |
@@ -50,12 +50,17 @@ points you to the right one.
 
 | Goal | Read |
 |---|---|
-| Generate Dilithium keys | `wallet/keys/`, `dilithium-wallet/` (CLI reference) |
-| HD wallet (BIP-32) | `wallet/bip32/`, `wallet/core/src/derivation.rs` |
-| Sign and submit transactions | `wallet/core/src/tx/`, `wallet/wasm/` (browser-compatible) |
+| Generate Dilithium keys | `dilithium-wallet/` (CLI reference implementation) |
+| BIP-39 mnemonic + seed | `wallet/bip39/` |
 | Partially-signed transactions (PSBS-equivalent) | `wallet/pskt/` — pre-existing PSKT format; PSBS standardization work is tracked as Roadmap K1 (deferred) |
+| Wallet descriptors (BIP-380-style, Dilithium-aware) | `wallet/descriptors/` and SIP-5 |
+| Domain-to-wallet self-attestation | `wallet/` + SIP-6 (`.well-known/sophis-wallet.json`) |
+| Typed signing (EIP-712-equivalent) | `wallet/typed-data/` and SIP-2 |
+| SPV client + compact filters | `wallet/spv/`, `wallet/filters/`, SIPs 7 and 8 |
+| WASM SDK (browser-compatible) | `wasm/` — bindings for Node.js and browsers |
 | Multisig | `wallet/pskt/examples/multisig.rs` |
-| Account abstraction (Dilithium-aware AA) | `wallet/aa-spec/` — design docs (`SPEC.md`, `CONVERGENCE.md`, `ANTI_PATTERNS.md`); production AA is post-mainnet (Roadmap J1) |
+| Multicall pattern | `wallet/multicall-template/` and SIP-10 |
+| Account abstraction (Dilithium-aware AA) | `wallet/aa-spec/` — design docs (`SPEC.md`, `CONVERGENCE.md`, `ANTI_PATTERNS.md`) and SIP-12; production AA is post-mainnet |
 
 ### 2.3 Build a smart contract
 
@@ -63,7 +68,7 @@ points you to the right one.
 |---|---|
 | Write a Sophis contract | `svm/sdk/`, `svm/sdk-macros/`, `examples/contracts/` (token-minting-policy, transfer-policy, time-lock) |
 | Understand the WASM execution model | `svm/runtime/`, `svm/host/`, `docs/SVM_EXECUTION_MODEL.md` |
-| Use the host capability set | `svm/host/src/lib.rs` — capabilities: `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`, `VerifyRisc0Proof`, `VerifyPlonky3Proof`, `VerifyDataAvailability` |
+| Use the host capability set | `svm/core/src/capability.rs` is the canonical enumeration; `docs/SVM_EXECUTION_MODEL.md` §2 has the per-capability purposes. |
 | Lint a contract before deploy | `svm/lint/` (cargo dylint integration) |
 | Verify formal properties | `svm/kani-proofs/` |
 | Sample contracts | `examples/contracts/{token-minting-policy,transfer-policy,time-lock}/` |

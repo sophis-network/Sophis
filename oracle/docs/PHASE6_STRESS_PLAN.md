@@ -17,7 +17,12 @@ end-to-end.
 
 Validate that the V5 DA carrier path holds up under 72 hours of
 sustained 50%-block-mass saturation by carriers, with the Phase 3
-rollup sequencer + Phase 5 oracle relayer concurrently active.
+rollup sequencer + Phase 5 oracle relayer concurrently active. Note
+that Phase 5 was deprecated on 2026-05-11 in favor of Phase 9
+(SIP-11); the Phase 5 relayer is exercised here as a dual-path
+fallback rather than the primary oracle code path. Once SIP-11 D11
+flips, the Phase 5 component drops out and this plan can re-run with
+Phase 9 publishers exclusively.
 
 A pass certifies:
 

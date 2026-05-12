@@ -4,9 +4,7 @@ Thanks for your interest in contributing to Sophis!
 
 We welcome contributions of all sizes and there are many opportunities to contribute at any level — from clarifying documentation and fixing small bugs to implementing full features and reviewing pull requests.
 
-Reach out to `@Node Developers` in Discord in the [#development](https://discord.com/channels/599153230659846165/755890250643144788) channel.
-
-Follow along the R&D Telegram group [@sophisrnd](https://t.me/sophisrnd).
+Discussion happens on GitHub. Open an Issue at [`sophis-network/Sophis`](https://github.com/sophis-network/Sophis/issues) for design questions or use Discussions for open-ended topics. Sophis does not run any chat platform (Discord, Telegram, Slack, etc.) — channels claiming to represent the project are not operated by maintainers.
 
 ## Quick summary
 
@@ -27,10 +25,10 @@ If you can meaningfully review a pull request, please do so even if you have not
 ## How to get started
 
 1. Find an issue (or open one) — good first issues are a great first step.
-2. Fork the repo (See [Installation](https://github.com/sophisnet/rusty-sophis?tab=readme-ov-file#installation) guide) and create a feature branch with a short, descriptive name.
+2. Fork [`sophis-network/Sophis`](https://github.com/sophis-network/Sophis) and create a feature branch with a short, descriptive name.
 3. Implement your change and include tests where appropriate.
 4. Make each commit atomic and focused. Update tests or add new ones in the same commit that changes behaviour.
-5. Push to your fork and open a Pull Request against the `master` branch (or the branch named in the issue).
+5. Push to your fork and open a Pull Request against the `main` branch (or the branch named in the issue).
 
 ## Pull request guidelines
 

@@ -219,7 +219,7 @@ formation under whatever process the community chooses.
 
 ## 10. Reference
 
-- Public address registry: `mainnet-mining/my-mainnet-address.txt`
+- Public address: declared in § 1 above and re-stated in `MONETARY_POLICY.md` § 4
 - Cap monitoring script: `scripts/cap_5pct_monitor.py`
 - Disengagement plan: `project_disengagement_strategy.md` (memory)
 - Legal posture: `project_legal_positioning.md` (memory)

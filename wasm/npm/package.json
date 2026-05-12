@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sophisnet/rusty-sophis.git"
+    "url": "git+https://github.com/sophis-network/Sophis.git"
   },
   "keywords": [
     "sophis",
@@ -16,11 +16,11 @@
     "sdk"
   ],
   "author": "Sophis developers",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/sophisnet/rusty-sophis/issues"
+    "url": "https://github.com/sophis-network/Sophis/issues"
   },
-  "homepage": "https://github.com/sophisnet/rusty-sophis#readme",
+  "homepage": "https://github.com/sophis-network/Sophis#readme",
   "dependencies": {
     "websocket": "1.0.34",
     "sophis-wasm": "0.13.5"

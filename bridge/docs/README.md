@@ -14,9 +14,9 @@
 >
 > Open-source licensed (Apache 2.0). No warranty.
 
-This Stratum Bridge is currently in BETA. Support is available in the Sophis Discord’s [#mining-and-hardware](https://discord.com/channels/599153230659846165/910178666099646584) channel.
+This Stratum Bridge is currently in BETA. Support is via GitHub Issues on [`sophis-network/Sophis`](https://github.com/sophis-network/Sophis/issues) — prefix the title with `[Bridge]`. Sophis does not run a Discord, Telegram, or any other chat platform; channels claiming to represent the project are not operated by maintainers.
 
-For bug reports or feature request, please open an issue at [`sophisnet/rusty-sophis` issues](https://github.com/sophisnet/rusty-sophis/issues) and prefix your issue title with `[Bridge]`.
+For bug reports or feature request, please open an issue at [`sophis-network/Sophis` issues](https://github.com/sophis-network/Sophis/issues) and prefix your issue title with `[Bridge]`.
 
 This repository contains a standalone Stratum bridge binary at:
 

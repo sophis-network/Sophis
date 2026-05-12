@@ -52,7 +52,7 @@ third-party services.
 | **DNS seeders** | Maintained and expanded | Domains TBD; aiming to recruit 2–3 independent operators before mainnet |
 | **`sophis-stratum-bridge`** | Code maintained, no instance operated | README explicit: "local-only use" |
 | **Mining pool** | NOT OPERATED | Sophis Project commits never to run a centralized pool. Community is free to use P2Pool / Stratum V2 / independent third parties |
-| **Bridge / wrapped SPHS / cross-chain** | NOT OPERATED |
+| **Bridge / wrapped SPHS / cross-chain** | NOT OPERATED | Cross-chain interoperability is intentionally out-of-scope for the core team. ZKBridge prototype was extracted to a separate non-deploy reference repository in 2026-05-04. Third parties may build bridges at their own risk; the project endorses none |
 | **Exchange / custody / OTC desk** | NOT OPERATED | Anyone wanting to buy SPHS uses third-party venues |
 | **Stablecoin issuance** | NOT OPERATED | Out of scope for Sophis Project |
 

@@ -30,7 +30,7 @@ codebase but optional to use.
 
 | If you are... | Start here |
 |---|---|
-| A user wanting to mine SPHS | `mainnet-mining/DAY-ZERO-GUIDE.md` and `bridge/docs/README.md` (stratum bridge) |
+| A user wanting to mine SPHS | `POW_POLICY.md` for RandomX rationale; `miner/` crate source; `bridge/docs/README.md` for stratum bridge setup |
 | A wallet developer | [Wallet developer track](#wallet-developer-track) below |
 | A smart-contract developer | [Contract developer track](#contract-developer-track) below |
 | An exchange / custodian integrator | [Exchange integrator track](#exchange-integrator-track) below |
@@ -301,9 +301,10 @@ dashboard for live network state once available.)
 
 ## Mining
 
-If you also mine: see `mainnet-mining/DAY-ZERO-GUIDE.md`. Mining is
-RandomX (CPU-first); ASICs do not exist as of mainnet launch (and
-the project commits to act if they emerge — see `POW_POLICY.md`).
+If you also mine: see `POW_POLICY.md` for the protocol details and the
+`miner/` crate for the reference CPU miner. Mining is RandomX (CPU-first);
+ASICs do not exist as of mainnet launch (and the project commits to act
+if they emerge — see `POW_POLICY.md`).
 
 ---
 
@@ -396,13 +397,11 @@ hashes. Any divergence is a public breach of stated commitment.
 
 ## Crate-level READMEs
 
-- `sophisd/README.md`, `wallet/README.md`, `wallet/bip32/README.md`,
+- `sophisd/README.md`, `wallet/README.md`, `wallet/bip39/README.md`,
   `wasm/README.md`, `bridge/docs/README.md`
 
 ## Historical / transition
 
-- [`docs/crescendo-guide.md`](crescendo-guide.md)
-- [`docs/testnet10-transition.md`](testnet10-transition.md)
 - [`docs/archival.md`](archival.md)
 - [`docs/deferred-decisions.md`](deferred-decisions.md)
 - [`docs/override-params.md`](override-params.md)

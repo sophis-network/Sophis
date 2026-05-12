@@ -2,7 +2,7 @@
 
 ## A Fair-Launch, Post-Quantum Layer-1 BlockDAG
 
-**Version 1.0 — 2026-05-11**
+**Version 1.0 — 2026-05-12**
 **Author:** Marcelo Delgado
 **Status:** Pre-testnet
 
@@ -412,7 +412,7 @@ Four crates compose the sVM:
 
 1. **Bytecode validation.** The validator rejects floats, SIMD instructions, threads, exception handling, and any feature that would make execution non-deterministic across nodes. Memory must declare a `maximum`; the cap is 256 pages = 16 MiB. An undeclared or oversized memory section fails deployment.
 2. **Fuel metering.** Every WASM instruction consumes fuel from a budget set by the transaction's mass; a contract that exceeds its budget is aborted and its transaction invalidated. Fuel is not refundable.
-3. **Capability gating.** A contract declares the host capabilities it requires in its manifest. The runtime registers only those host functions for that contract; unrequested capabilities are not imported, and an attempt to call an unimported function is a link-time error. The current `Capability` enum is exactly: `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`, `VerifyRisc0Proof`, `VerifyPlonky3Proof`, `VerifyDataAvailability`, `VrfRandomness`. No `VerifySchnorr`. No `OP_PRIVACY` capability. The two STARK-verification capabilities (`VerifyRisc0Proof` for Phase 3 rollup batches; `VerifyPlonky3Proof` as a general-purpose primitive used by Phase 5 oracle and reserved for future Phase 9.x aggregation) are independent and may both be enabled by a single contract. `VerifyDataAvailability` is consumed by Phase 6 DA carriers (§14.5). `VrfRandomness` (delivered as roadmap item J3) exposes deterministic randomness derived from RandomX block hashes, with no external beacon. These nine are the entire surface.
+3. **Capability gating.** A contract declares the host capabilities it requires in its manifest. The runtime registers only those host functions for that contract; unrequested capabilities are not imported, and an attempt to call an unimported function is a link-time error. The current `Capability` enum has **eleven** variants: `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`, `VerifyRisc0Proof`, `VerifyPlonky3Proof`, `VerifyDataAvailability`, `ResolveAlt`, `EmitEvent`, `VrfRandomness`. No `VerifySchnorr`. No `OP_PRIVACY` capability. The two STARK-verification capabilities (`VerifyRisc0Proof` for Phase 3 rollup batches; `VerifyPlonky3Proof` as a general-purpose primitive used by the Phase 5 oracle code path during the Phase 9 dual-path window and reserved for future Phase 9.x aggregation) are independent and may both be enabled by a single contract. `VerifyDataAvailability` is consumed by Phase 6 DA carriers (§14.5). `ResolveAlt` lets a contract resolve L1 Address Lookup Table references (L1 ALT, see roadmap item L1). `EmitEvent` lets a contract emit structured event logs (J4). `VrfRandomness` exposes deterministic randomness derived from RandomX block hashes, with no external beacon (J3). The canonical authoritative list lives in `svm/core/src/capability.rs`; any divergence between this prose and the code is a documentation bug to be reported.
 4. **Linear-typed resources.** As described in §7.1, `Resource<T>` enforces that every token amount is explicitly consumed.
 5. **Deterministic crypto host functions.** Every crypto function exposed to a contract is deterministic and side-effect-free: same inputs produce the same output across all nodes.
 6. **Upgrade policy enforcement.** A contract's `UpgradePolicy` is validated at deployment by `validate_contract_deploy()`. For `MultisigTimelock` the rules are: `threshold > 0`, `threshold ≤ keys.len()`, `keys.len() ≤ 16`. Once deployed, the policy is immutable.
@@ -585,7 +585,7 @@ Sophis is organized into the following top-level crates:
 |---|---|
 | Node binary | `sophisd/` |
 | Miner binary | `miner/` (RandomX, light + fast modes, epoch-key-aware) |
-| Wallet (CLI) | `wallet/`, `crypto/wallet-bip32/` |
+| Wallet (CLI) | `dilithium-wallet/` (CLI reference), `wallet/bip39/` (mnemonic), `wallet/descriptors/`, `wallet/pskt/`, `wallet/typed-data/`, `wallet/spv/` |
 | Consensus | `consensus/`, `consensus/core/` |
 | GHOSTDAG | `consensus/src/processes/ghostdag/` |
 | RandomX PoW | `consensus/pow/` |
@@ -594,7 +594,7 @@ Sophis is organized into the following top-level crates:
 | ZK-Rollup | `rollup/core`, `rollup/guest`, `rollup/host`, `rollup/verifier`, `rollup/sequencer`, `rollup/node`, `rollup/bridge/deposit`, `rollup/bridge/withdrawal` |
 | RPC | `rpc/core`, `rpc/grpc`, `rpc/wrpc`, `rpc/service` |
 | Block explorer | external repo (separate from `sophisd`) |
-| Faucet | external repo (separate from `sophisd`) |
+| Faucet | `testnet-faucet/` (testnet only; mainnet has no faucet) |
 
 Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`LIBCLANG_PATH`), `protoc`, and CMake 4.3+ (required by `randomx-rs`). The codebase **must** live outside Google Drive paths — Drive's lack of hard-link support breaks Cargo's incremental cache. 
 
@@ -610,7 +610,7 @@ Build dependencies on Windows: Rust 1.94+, MSVC 2022 C++ toolchain, LLVM 22+ (`L
 - **Phase 5 (deprecated 2026-05-11).** ZK-Oracle aggregator with Pyth + Plonky3 STARK + ed25519 verification AIR + Dilithium relayer was built and tested pre-mainnet, then deprecated in favor of Phase 9 once the operational complexity and ed25519 trust-chain residue were judged structurally inferior to a publisher-direct PQC scheme. Phase 5 crates (`oracle/{core,feeds,host,relayer}`) still build and run as a fallback while indexers transition; they are scheduled for removal after Phase 9 publisher quorum bootstrap per SIP-11 D11.
 - **Phase 6.** Self-hosted Data Availability layer using V5 carrier UTXOs, SHA3-384 Merkle commitments, and `Capability::VerifyDataAvailability`. Built end-to-end pre-mainnet (carrier consensus rules, DA codec, RocksDB store, sequencer integration, RPC, sVM capability, runbook, stress plan, audit, RFC, fuzz tests). See §14.5 for the rationale behind self-hosting versus integrating an external DA network.
 - **Phase 9.** PQC-native oracle. Each publisher signs price attestations directly with Dilithium ML-DSA-44, eliminating the Phase 5 ed25519-STARK trust chain. Open-permissioned publisher set, median aggregation, dual-path Phase 5/Phase 9 dispatch helper (`evaluate_flip`) to support smooth migration. Foundation crate `oracle/pqc-core`, on-chain contract `oracle/pqc-contract`, publisher CLI `oracle/pqc-publisher`, end-to-end integration tests `oracle/pqc-tests`; SIP-11 specifies the wire format. Pre-mainnet operational follow-up: recruit ≥ 3 independent publishers and stand up at least one reference indexer before mainnet (see §14.2).
-- **SIPs formalized.** SIP-0 process spec, SIP-1 PSBS (partially-signed transactions, Dilithium-aware), SIP-2 typed signing, SIP-3 ALT, SIP-4 events, SIP-5 wallet descriptors (BIP-380-style, graduated 2026-05-11), SIP-7 light client, SIP-8 pruning policy, SIP-9 Poseidon, SIP-10 multicall, SIP-11 PQC-native oracle. SIP-5 in particular formalizes a Dilithium-aware descriptor language used by hardware wallets, multisig coordination, and watch-only backup workflows.
+- **SIPs formalized.** Seventeen SIPs published (SIP-0 through SIP-16): SIP-0 process spec, SIP-1 PSBS (partially-signed transactions, Dilithium-aware), SIP-2 typed signing, SIP-3 ALT, SIP-4 events, SIP-5 wallet descriptors (BIP-380-style, graduated 2026-05-11), SIP-6 domain-to-wallet self-attestation (`.well-known/sophis-wallet.json`), SIP-7 light client SPV, SIP-8 pruning policy, SIP-9 Poseidon (spec-only), SIP-10 multicall pattern, SIP-11 PQC-native oracle, SIP-12 account abstraction (spec-only), SIP-13 sVM contract IDL, SIP-14 DNS seeder protocol, SIP-15 Stratum V2 adaptation, SIP-16 self-hosted DA via V5 carrier UTXOs (Phase 6). Six of these are consensus-impacting (SIP-3, SIP-4, SIP-7, SIP-8, SIP-11, SIP-16) and are all baked in pre-genesis; the rest are off-chain, wallet, SDK, or spec-only. The canonical index lives in [`SIPS/README.md`](SIPS/README.md).
 
 ### 14.2 In progress (pre-mainnet)
 
@@ -665,7 +665,7 @@ An earlier roadmap proposed integrating Avail as Sophis's data-availability laye
 
 **Phase 6 Self-DA, as built:**
 
-- **V5 carrier UTXOs** — DA payloads are encoded as `script_public_key.script` data on standard transaction outputs with `ScriptPublicKey.version() == V5_CARRIER_VERSION`. The consensus enforces a maximum payload size, a SHA3-384 Merkle commitment over the carrier set, and a per-block aggregate limit.
+- **V5 carrier UTXOs** — DA payloads are encoded as `script_public_key.script` data on standard transaction outputs with `ScriptPublicKey.version() == SCRIPT_VERSION_CARRIER` (= 5; see `consensus/core/src/constants.rs`). The consensus enforces a maximum payload size, a SHA3-384 Merkle commitment over the carrier set, and a per-block aggregate limit.
 - **SHA3-384 Merkle commitments** — the same hash already used elsewhere in Sophis (Phase 9 attestation `asset_id`, addressing fingerprints, descriptor identity). No new primitive is added.
 - **DA codec** — payload identifier, bundle identifier, and reassembly logic live in `consensus/core/src/da/codec.rs`. NIST SHA3-384 test vectors validated.
 - **`Capability::VerifyDataAvailability`** — on-chain contracts may verify that a given payload was published in a known block.

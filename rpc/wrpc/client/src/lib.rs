@@ -7,7 +7,7 @@
 //! meant to function as an IPC (Inter-Process Communication) mechanism for Rust applications.
 //!
 //! Rust examples on using wRPC client can be found in the
-//! [examples](https://github.com/sophisnet/rusty-sophis/tree/master/rpc/wrpc/examples) folder.
+//! [examples](https://github.com/sophis-network/Sophis/tree/main/rpc/wrpc/examples) folder.
 //!
 //! WASM bindings for wRPC client can be found in the [`sophis-wrpc-wasm`](https://docs.rs/sophis-wrpc-wasm) crate.
 //!

@@ -120,11 +120,17 @@ immutable once accepted; numbered gaps are reserved.
 - [SIPS/SIP-3-ALT.md](SIPS/SIP-3-ALT.md) — Address Lookup Tables
 - [SIPS/SIP-4-EVENTS.md](SIPS/SIP-4-EVENTS.md) — sVM event logs
 - [SIPS/SIP-5-DESCRIPTORS.md](SIPS/SIP-5-DESCRIPTORS.md) — Wallet descriptors (BIP-380-style, Dilithium-aware)
+- [SIPS/SIP-6-WALLET-VERIFICATION.md](SIPS/SIP-6-WALLET-VERIFICATION.md) — Domain-to-wallet self-attestation (`.well-known/sophis-wallet.json`)
 - [SIPS/SIP-7-LIGHT-CLIENT.md](SIPS/SIP-7-LIGHT-CLIENT.md) — Light client SPV
 - [SIPS/SIP-8-PRUNING-POLICY.md](SIPS/SIP-8-PRUNING-POLICY.md) — State pruning policy
 - [SIPS/SIP-9-POSEIDON.md](SIPS/SIP-9-POSEIDON.md) — Poseidon canonical hash (spec-only)
 - [SIPS/SIP-10-MULTICALL.md](SIPS/SIP-10-MULTICALL.md) — Multicall pattern
 - [SIPS/SIP-11-PQC-ORACLE.md](SIPS/SIP-11-PQC-ORACLE.md) — PQC-native oracle
+- [SIPS/SIP-12-AA.md](SIPS/SIP-12-AA.md) — Account abstraction for Sophis wallets (spec-only)
+- [SIPS/SIP-13-IDL.md](SIPS/SIP-13-IDL.md) — sVM contract interface definition language
+- [SIPS/SIP-14-DNS-SEEDER.md](SIPS/SIP-14-DNS-SEEDER.md) — DNS seeder protocol for peer discovery
+- [SIPS/SIP-15-STRATUM-V2.md](SIPS/SIP-15-STRATUM-V2.md) — Stratum V2 adaptation (RandomX + Dilithium coinbase)
+- [SIPS/SIP-16-DA.md](SIPS/SIP-16-DA.md) — Self-hosted data availability via V5 carrier UTXOs (Phase 6)
 
 ---
 

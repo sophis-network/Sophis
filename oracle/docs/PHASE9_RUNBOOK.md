@@ -282,7 +282,7 @@ Operators SHOULD instrument and alert on:
 | Signal | Threshold | Action |
 |---|---|---|
 | Phase 5 last-seen age | > 5 minutes | Investigate Pyth → relayer path |
-| Phase 9 publisher count for active asset | < 3 | Revert feed to Phase 5 + recruit |
+| Phase 9 publisher count for active asset | < 3 | Fall back to Phase 5 (deprecated 2026-05-11; recruit publishers to restore Phase 9 quorum and remove the fallback) |
 | Phase 9 / Phase 5 spread | > 50 bp sustained | Investigate publisher misbehaviour |
 | Indexer registry divergence (peers disagree) | any | Re-run `evaluate_flip` from raw chain state |
 | Publisher submission rate | drops to 0 for > 1 hour | Publisher down — alert publisher operator |

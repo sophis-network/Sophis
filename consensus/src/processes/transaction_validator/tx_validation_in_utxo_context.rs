@@ -302,6 +302,14 @@ pub fn check_scripts_sequential(
         match entry.script_public_key.version() {
             SCRIPT_VERSION_CONTRACT => check_contract_input(svm, tx, i, entry, pov_daa_score)?,
             SCRIPT_VERSION_TOKEN => check_token_utxo_spend(svm, tx, input, i, entry, pov_daa_score, &reused_values, sig_cache)?,
+            // v=0 (standard P2PKH-Dilithium / P2SH-Dilithium) is validated by the script engine.
+            // v=3, v=4 (Phase 3 internal rollup bridge), and v=5 (Phase 6 DA carrier) intentionally
+            // fall through and short-circuit inside `TxScriptEngine::execute()` via the
+            // `version() > MAX_SCRIPT_PUBLIC_KEY_VERSION` guard (engine knows only v=0). Their
+            // semantics are enforced by the rollup bridge logic and the DA module respectively;
+            // v=5 carriers are unspendable by economic design (value == 0). See
+            // `crypto/txscript/src/lib.rs` doc-comment on `MAX_SCRIPT_PUBLIC_KEY_VERSION` for
+            // the full version-dispatch matrix.
             _ => TxScriptEngine::from_transaction_input(tx, input, i, entry, &reused_values, sig_cache)
                 .execute()
                 .map_err(|err| map_script_err(err, input))?,

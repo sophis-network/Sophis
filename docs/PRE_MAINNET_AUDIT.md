@@ -41,14 +41,22 @@ or verification. **No action required**; the doc references serve as
 
 ### 1.3 `ed25519` / `Curve25519` / `BLS12` / `Pasta` / `Groth16` — 60 file matches
 
-| Domain | Disposition |
+> **Status update 2026-05-11.** Phase 5 was deprecated on 2026-05-11 in
+> favor of the PQC-native oracle (Phase 9, SIP-11). The crates and chips
+> below are still present and still build/run as the legacy
+> dual-path fallback, but are now **slated for deletion** once Phase 9
+> publisher quorum bootstraps per SIP-11 D11. The "Justified" disposition
+> is now scoped to the dual-path window only; treat all ed25519 chips as
+> deletion candidates after the flip.
+
+| Domain | Disposition (during dual-path window) |
 |---|---|
-| `oracle/host/src/chips/ed25519/*`, `oracle/host/src/chips/field25519/*`, `oracle/host/src/chips/scalar25519/*` | **Justified** — Phase 5 oracle verifies ed25519 attestations from Pyth (a classical-crypto external feed). The verification AIR is the entire reason for these chips. Cannot be removed without losing oracle functionality |
-| `oracle/host/src/{decompress,scalar_mul,verify_air}_stark*.rs` | **Justified** — STARK plumbing for the ed25519 verification AIR |
-| `oracle/host/src/chips/sha512/mod.rs` | **Justified** — SHA-512 is part of ed25519 signature verification (ed25519 hash-to-scalar) |
-| `oracle/feeds/src/pythnet.rs`, `oracle/feeds/src/rpc.rs`, `oracle/feeds/src/lib.rs` | **Justified** — Pythnet integration |
-| `oracle/relayer/src/{config,pipeline}.rs` | **Justified** — Phase 5 relayer pipeline |
-| `oracle/docs/*.md`, `SIPS/SIP-0-process.md`, `HARD_FORK_POLICY.md`, `docs/deferred-decisions.md` | **Keep** — documentation references |
+| `oracle/host/src/chips/ed25519/*`, `oracle/host/src/chips/field25519/*`, `oracle/host/src/chips/scalar25519/*` | **Justified, deletion-pending** — Phase 5 oracle ed25519 verification AIR. Deletes when SIP-11 D11.flip activates. |
+| `oracle/host/src/{decompress,scalar_mul,verify_air}_stark*.rs` | **Justified, deletion-pending** — STARK plumbing for the ed25519 verification AIR |
+| `oracle/host/src/chips/sha512/mod.rs` | **Justified, deletion-pending** — SHA-512 is part of ed25519 signature verification |
+| `oracle/feeds/src/pythnet.rs`, `oracle/feeds/src/rpc.rs`, `oracle/feeds/src/lib.rs` | **Justified, deletion-pending** — Pythnet integration |
+| `oracle/relayer/src/{config,pipeline}.rs` | **Justified, deletion-pending** — Phase 5 relayer pipeline |
+| `oracle/docs/*.md`, `SIPS/SIP-0-process.md`, `HARD_FORK_POLICY.md`, `docs/deferred-decisions.md` | **Keep** — documentation references stay even after Phase 5 deletion |
 | `oracle/host/src/chips/lookup/range_n.rs` | **Verify** — lookup module is generic; check for incidental ed25519 string |
 | `wallet/aa-spec/ANTI_PATTERNS.md` | **Keep** — documents rejected zkLogin/OAuth pattern that uses ed25519 |
 | `svm/host/src/plonky3.rs`, `svm/host/src/risc0.rs`, `svm/runtime/src/host.rs` | **Verify** — likely module-level mentions, not signature paths |
@@ -103,9 +111,9 @@ test thoroughly, including devnet test suite.
 
 | Item | Files | Disposition |
 |---|---|---|
-| `Kaspa` / `kaspad` / `kaspawallet` strings | docs and historical files | Most are in changelog-style or transition docs (`docs/testnet10-transition.md`, `docs/crescendo-guide.md` — these are historical). Keep as-is unless misleading |
-| `rusty-sophis` repo URL in `Cargo.toml` `repository` field | 1 | **Update to `sophis-network/Sophis`** or whatever the canonical repo URL becomes |
-| `sophisnet/rusty-sophis` issue links in `bridge/docs/README.md` | several | **Update** to `sophis-network/Sophis` |
+| `Kaspa` / `kaspad` / `kaspawallet` strings | docs and historical files | Mostly in code comments attributing upstream commits or in inline historical notes. Keep as-is when factual; remove only when misleading. |
+| `rusty-sophis` repo URL in `Cargo.toml` `repository` field | — | **Fixed.** Workspace `Cargo.toml` now points at `sophis-network/Sophis` (see `Cargo.toml` `repository` field). |
+| `sophisnet/rusty-sophis` issue links in `bridge/docs/README.md` and other public docs | — | **Fixed 2026-05-12** — all five public-facing docs now point at `sophis-network/Sophis` with `main` branch. |
 | Test file names referencing "kaspa" | a few | **Verify and rename** if internal test names leak Kaspa identity |
 | `rothschild` crate | whole crate | **Documented retention** — CLAUDE.md confirms migrated to Dilithium internally. Either complete the rename to a Sophis-themed name or document it in a code comment in `rothschild/src/main.rs` |
 
@@ -156,10 +164,11 @@ pruned in CI.
 
 ### 3.1 Workspace `repository` URL
 
-`Cargo.toml` line 109: `repository = "https://github.com/sophisnet/rusty-sophis"`.
-The canonical public repo is moving to `sophis-network/Sophis` per
-the pseudonym decision (`project_pseudonym_decision.md` in memory).
-**Update before mainnet T-72h.**
+**Closed 2026-05-12.** Workspace `Cargo.toml` now declares
+`repository = "https://github.com/sophis-network/Sophis"`. Same fix
+was propagated to `wasm/npm/package.json`, `bridge/docs/README.md`,
+`wasm/README.md`, `wasm/npm/README.md`, `wasm/src/lib.rs`,
+`rpc/wrpc/client/src/lib.rs`, and `CONTRIBUTING.md`.
 
 ### 3.2 Comment / doc string sweep
 

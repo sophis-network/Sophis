@@ -40,6 +40,22 @@ pub mod prelude {
 use crate::runtime_sig_op_counter::RuntimeSigOpCounter;
 pub use standard::*;
 
+/// Highest ScriptPublicKey version this script engine knows how to validate.
+///
+/// **Not** the same as `sophis_consensus_core::constants::MAX_SCRIPT_PUBLIC_KEY_VERSION`
+/// (which is the highest version consensus *accepts* on-chain — currently 5).
+///
+/// This engine handles v=0 (standard P2PKH-Dilithium / P2SH-Dilithium). Versions
+/// 1 (CONTRACT) and 2 (TOKEN) are dispatched to their own validators in
+/// `consensus/src/processes/transaction_validator/tx_validation_in_utxo_context.rs`
+/// before this engine is invoked. Versions 3 (BRIDGE_VAULT), 4 (BRIDGE_CLAIM),
+/// and 5 (CARRIER) are validated by the Phase 3 rollup bridge logic and the
+/// Phase 6 DA module respectively, or are unspendable by design (carrier);
+/// inputs of those versions that reach this engine fall through the
+/// `version() > MAX_SCRIPT_PUBLIC_KEY_VERSION` guard in `execute()` and return
+/// `Ok(())` — the soft-fork forward-compat pattern inherited from the upstream
+/// script engine. See `script_class.rs` for the P2SH classification rule
+/// that also keys off this constant (P2SH-Dilithium = v=0 in Sophis).
 pub const MAX_SCRIPT_PUBLIC_KEY_VERSION: u16 = 0;
 pub const MAX_STACK_SIZE: usize = 244;
 pub const MAX_SCRIPTS_SIZE: usize = 10_000;

@@ -133,10 +133,10 @@ Independent of any SIP, certain invariants are **never** to be
 relaxed via hard fork without effectively changing the chain's
 identity:
 
-1. **Fixed supply 210M SPHS** (`MONETARY_POLICY.md` §8.1)
+1. **Fixed supply 210M SPHS** (`MONETARY_POLICY.md` § 8, item 1)
 2. **Coinbase 100% to miner** — no splits, no schedules, no
-   compulsory recipient (`MONETARY_POLICY.md` §8.2)
-3. **No retroactive premine** (`MONETARY_POLICY.md` §8.4)
+   compulsory recipient (`MONETARY_POLICY.md` § 8, item 2)
+3. **No retroactive premine** (`MONETARY_POLICY.md` § 8, item 4)
 4. **Dilithium-only signature scheme** — no reintroduction of
    pre-quantum primitives (Schnorr, secp256k1, ECDSA, ed25519
    outside designated oracle contexts) into the user-facing
