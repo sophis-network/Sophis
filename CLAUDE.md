@@ -140,6 +140,32 @@ L2 key derivation: same BIP-39 mnemonic, path `m/44'/111111'/0'/1/0` (distinct f
 
 Active development uses `phase3-stable-v0.X.Y`. Create feature branches from the latest stable branch before committing, not after.
 
+## SIP track (as of 2026-05-12)
+
+17 SIPs published, range 0–16, no gaps. Standards-track formalization of every consensus-impacting subsystem plus off-chain/wallet/SDK conventions. **Zero SIPs force a future hard fork** — every consensus-impacting SIP was baked in pre-mainnet (DAA 0); 3 spec-only or sVM-only SIPs (9 Poseidon, 10 Multicall, 12 AA) have *optional* future-promotion paths gated on separate follow-up SIPs + demand + production data, never on present-day commitment.
+
+| # | SIP file | Subject | Consensus-impacting? |
+|---|---|---|---|
+| 0 | `SIPS/SIP-0-process.md` | Process and template | ❌ |
+| 1 | `SIPS/SIP-1-PSBS.md` | Partially-signed transactions (Dilithium-aware) | ❌ wallet |
+| 2 | `SIPS/SIP-2-TYPED-SIGNING.md` | Typed data signing (J2) | ❌ wallet |
+| 3 | `SIPS/SIP-3-ALT.md` | L1 Address Lookup Tables | ✅ baked pre-genesis |
+| 4 | `SIPS/SIP-4-EVENTS.md` | sVM event logs (J4) | ✅ baked pre-genesis |
+| 5 | `SIPS/SIP-5-DESCRIPTORS.md` | Wallet descriptors (BIP-380-like) | ❌ wallet |
+| 6 | `SIPS/SIP-6-WALLET-VERIFICATION.md` | `.well-known/sophis-wallet.json` | ❌ off-chain |
+| 7 | `SIPS/SIP-7-LIGHT-CLIENT.md` | Light Client SPV (J5) | ✅ baked pre-genesis |
+| 8 | `SIPS/SIP-8-PRUNING-POLICY.md` | Pruning policy + `getPruningInfo` RPC (J8) | ❌ RPC + policy |
+| 9 | `SIPS/SIP-9-POSEIDON.md` | Canonical Poseidon (spec-only, J6) | ❌ today; promotion-gated |
+| 10 | `SIPS/SIP-10-MULTICALL.md` | Multicall SDK contract pattern (J7) | ❌ today; promotion-gated |
+| 11 | `SIPS/SIP-11-PQC-ORACLE.md` | PQC-native oracle (Phase 9) | ✅ baked pre-genesis |
+| 12 | `SIPS/SIP-12-AA.md` | Account abstraction (J1) | ❌ today (sVM); promotion-gated ≥12 months |
+| 13 | `SIPS/SIP-13-IDL.md` | sVM contract IDL | ❌ off-chain JSON |
+| 14 | `SIPS/SIP-14-DNS-SEEDER.md` | DNS seeder protocol | ❌ off-chain DNS |
+| 15 | `SIPS/SIP-15-STRATUM-V2.md` | Stratum V2 for Sophis (RandomX + Dilithium coinbase) | ❌ off-chain pool |
+| 16 | `SIPS/SIP-16-DA.md` | Self-DA via V5 carrier UTXOs (Phase 6) | ✅ baked pre-genesis |
+
+Discipline: ship via implementation pre-mainnet, then formalize via SIP; no SIP gates future activation. Anti-rug invariants in `HARD_FORK_POLICY.md` (210M cap, Dilithium-only, no devfund, no privacy primitives, no team-operated bridge, no foundation) are not modifiable by any SIP — NACK automatic per SIP-0 process.
+
 ## Key invariants
 
 - **No secp256k1/Schnorr/ECDSA.** If you see these imported anywhere, it is a bug.
@@ -152,6 +178,7 @@ Active development uses `phase3-stable-v0.X.Y`. Create feature branches from the
 - **`UpgradePolicy::is_valid()`** is called in `validate_contract_deploy()`. For `MultisigTimelock`: `threshold > 0`, `threshold <= keys.len()`, `keys.len() <= 16`.
 - When adding a new host function: (1) add to `HostCrypto` trait, (2) register in linker in `host.rs`, (3) create matching `Capability`, (4) expose in `Env` in the SDK, (5) add Kani harness.
 - `BRIDGE_VAULT_VERSION=3` and `BRIDGE_CLAIM_VERSION=4` are protocol constants — changing them requires a hard fork.
+- **No SIP currently in the repo forces a future hard fork.** See the SIP track table above. Any change to that statement would be a structural-discipline regression — proposals to promote SIP-9 / 10 / 12 to consensus primitives require a separate follow-up SIP and explicit demand + production-data gates; they do not happen as a side-effect of the existing SIP set.
 
 ## CI invariants (2026-05-08)
 
