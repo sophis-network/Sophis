@@ -18,13 +18,13 @@ Single navigable table of contents for the markdown files in this
 repo, grouped by **audience** rather than by directory. If you don't
 know where to start, scan the section that matches your role.
 
-> Last refreshed: 2026-05-11 (post-Phase 5 deprecation + SIP-5 graduation).
+> Last refreshed: 2026-05-11
 
 ---
 
 ## 📄 Whitepaper — start here
 
-- [Whitepaper.md](Whitepaper.md) — Sophis v2.0 whitepaper (English). Canonical project document: vision, monetary policy, PoW + PQC stack, sVM, ZK-Rollup, oracle, governance boundaries. Read this before any section below.
+- [Whitepaper.md](Whitepaper.md) — Sophis whitepaper (English). Canonical project document: vision, monetary policy, PoW + PQC stack, sVM, ZK-Rollup, oracle, governance boundaries. Read this before any section below.
 
 ---
 
