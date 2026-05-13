@@ -5,10 +5,7 @@ set -e
 # https://github.com/rust-lang/rust/issues/141048
 export RUSTFLAGS=-Ctarget-cpu=mvp
 
-if [ "$1" == "--keygen" ]; then
-    echo "building wasm32-keygen"
-    wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-keygen --features wasm32-keygen
-elif [ "$1" == "--rpc" ]; then
+if [ "$1" == "--rpc" ]; then
     echo "building wasm32-rpc"
     wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-rpc --features wasm32-rpc
 elif [ "$1" == "--core" ]; then
@@ -20,8 +17,6 @@ elif [ "$1" == "--sdk" ]; then
 
 else
 
-    echo "building wasm32-keygen"
-    wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-keygen --features wasm32-keygen
     echo "building wasm32-rpc"
     wasm-pack build --weak-refs --target web --out-name sophis --out-dir web/sophis-rpc --features wasm32-rpc
     echo "building wasm32-core"
