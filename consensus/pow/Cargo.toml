@@ -12,7 +12,7 @@ repository.workspace = true
 [features]
 default = ["randomx"]
 randomx = ["dep:randomx-rs"]
-wasm32-sdk = []
+wasm32-sdk = ["sophis-consensus-client/wasm32-sdk"]
 
 [dependencies]
 js-sys.workspace = true

@@ -152,7 +152,7 @@ pub fn encode_attestation_hex(attestation: &PriceAttestation) -> Result<String, 
 /// Decode a `PriceAttestation` from lowercase hex (no `0x` prefix).
 pub fn decode_attestation_hex(hex: &str) -> Result<PriceAttestation, PublisherError> {
     let trimmed = hex.trim();
-    if trimmed.len() % 2 != 0 {
+    if !trimmed.len().is_multiple_of(2) {
         return Err(PublisherError::InvalidHex);
     }
     let mut bytes = vec![0u8; trimmed.len() / 2];

@@ -9,4 +9,5 @@
 //! pure pipeline composes correctly under all the conditions SIP-11
 //! pins.
 
+#[cfg(test)]
 mod scenarios;
