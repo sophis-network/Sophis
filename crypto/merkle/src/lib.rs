@@ -118,11 +118,7 @@ pub fn build_merkle_proof(tx_ids: &[Hash], position: u32, block_hash: Hash) -> O
     }
 
     // Compute leaf sibling.
-    let leaf_sibling = if pos.is_multiple_of(2) {
-        if pos + 1 < n { tx_ids[pos + 1] } else { ZERO_HASH }
-    } else {
-        tx_ids[pos - 1]
-    };
+    let leaf_sibling = if pos.is_multiple_of(2) { if pos + 1 < n { tx_ids[pos + 1] } else { ZERO_HASH } } else { tx_ids[pos - 1] };
 
     // Build the level-1 nodes (mirrors `calc_merkle_root` lines 17-28).
     let next_pot = n.next_power_of_two();
@@ -182,11 +178,7 @@ pub fn verify_merkle_proof(proof: &TxMerkleProof, expected_root: &MerkleHash) ->
     // Walk up using node_siblings.
     let mut idx = pos >> 1;
     for sibling in &proof.node_siblings {
-        acc = if idx & 1 == 0 {
-            merkle_hash_from_node(acc, *sibling)
-        } else {
-            merkle_hash_from_node(*sibling, acc)
-        };
+        acc = if idx & 1 == 0 { merkle_hash_from_node(acc, *sibling) } else { merkle_hash_from_node(*sibling, acc) };
         idx >>= 1;
     }
     acc == *expected_root

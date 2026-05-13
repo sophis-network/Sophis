@@ -12,15 +12,14 @@ mod types;
 
 pub use error::OraclePqcError;
 pub use sign::{
-    KEY_GENERATION_RANDOMNESS_SIZE, SIGNING_RANDOMNESS_SIZE, generate_keypair,
-    sign_attestation, verify_attestation, verify_attestation_with_domain,
+    KEY_GENERATION_RANDOMNESS_SIZE, SIGNING_RANDOMNESS_SIZE, generate_keypair, sign_attestation, verify_attestation,
+    verify_attestation_with_domain,
 };
 pub use source::{
-    FeedSource, FeedSourceRegistry, FlipDecision, FlipInputs, FlipPolicy,
-    InMemoryFeedSourceRegistry, PriceSample, StayReason, evaluate_flip,
+    FeedSource, FeedSourceRegistry, FlipDecision, FlipInputs, FlipPolicy, InMemoryFeedSourceRegistry, PriceSample, StayReason,
+    evaluate_flip,
 };
 pub use types::{
-    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIG_SIZE, DILITHIUM_SIGNING_KEY_SIZE, DOMAIN_SEPARATOR,
-    MAX_SKEW_SECS, PriceAttestation, PriceAttestationCore, asset_id_from_symbol,
-    compute_signing_hash,
+    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIG_SIZE, DILITHIUM_SIGNING_KEY_SIZE, DOMAIN_SEPARATOR, MAX_SKEW_SECS, PriceAttestation,
+    PriceAttestationCore, asset_id_from_symbol, compute_signing_hash,
 };

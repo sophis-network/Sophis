@@ -32,7 +32,7 @@ pub mod header_chain;
 pub mod scan;
 
 pub use checkpoint::SyncCheckpoint;
-pub use filter_chain::{FilterChain, FilterChainError, FilterChainEntry};
+pub use filter_chain::{FilterChain, FilterChainEntry, FilterChainError};
 pub use header_chain::{HeaderChainError, MinHeader, validate_header_link};
 pub use scan::{ScanResult, WalletScan};
 // Re-exported for convenience: light clients verify per-tx proofs

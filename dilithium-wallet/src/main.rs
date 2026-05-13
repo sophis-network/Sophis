@@ -8,6 +8,7 @@ use libcrux_ml_dsa::{KEY_GENERATION_RANDOMNESS_SIZE, ml_dsa_44};
 use serde::{Deserialize, Serialize};
 use sophis_addresses::{Address, Prefix};
 use sophis_bip39::{Language, Mnemonic, WordCount};
+use sophis_consensus_core::hashing::sighash::SigHashReusedValuesUnsync;
 use sophis_consensus_core::{
     config::params::DEVNET_PARAMS,
     constants::{SCRIPT_VERSION_CARRIER, SOMPI_PER_SOPHIS, TX_VERSION},
@@ -27,7 +28,6 @@ use sophis_rpc_core::{api::rpc::RpcApi, notify::mode::NotificationMode};
 use sophis_txscript::standard::{
     dilithium_address, dilithium_redeem_script, pay_to_address_script, pay_to_script_hash_signature_script,
 };
-use sophis_consensus_core::hashing::sighash::SigHashReusedValuesUnsync;
 use sophis_wallet_pskt::bundle::Bundle;
 use sophis_wallet_pskt::crypto::{DILITHIUM44_SIG_SIZE, DilithiumPubKey, Signature as PsbsSignature};
 use sophis_wallet_pskt::prelude::{Creator, Finalizer, InputBuilder, OutputBuilder, PSKT, SignInputOk, Signer};
@@ -940,7 +940,12 @@ fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf) {
                     let partial_sig = input.partial_sigs.first().ok_or_else(|| format!("Input {} has no partial signature", idx))?;
                     let sig_bytes = partial_sig.1.raw_bytes();
                     if sig_bytes.len() != DILITHIUM44_SIG_SIZE {
-                        return Err(format!("Input {}: signature is {} bytes, expected {}", idx, sig_bytes.len(), DILITHIUM44_SIG_SIZE));
+                        return Err(format!(
+                            "Input {}: signature is {} bytes, expected {}",
+                            idx,
+                            sig_bytes.len(),
+                            DILITHIUM44_SIG_SIZE
+                        ));
                     }
                     let mut sig_with_sighash: Vec<u8> = Vec::with_capacity(DILITHIUM44_SIG_SIZE + 1);
                     sig_with_sighash.extend_from_slice(sig_bytes);
@@ -980,13 +985,7 @@ fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf) {
 /// Reads schema (TypedStruct) and values (Vec<TypedValue>) from JSON
 /// files, computes the typed digest, signs with Dilithium, prints
 /// hex-encoded digest + signature + verification key.
-fn cmd_typed_sign(
-    wallet_path: &PathBuf,
-    domain_name: &str,
-    domain_version: &str,
-    schema_path: &PathBuf,
-    values_path: &PathBuf,
-) {
+fn cmd_typed_sign(wallet_path: &PathBuf, domain_name: &str, domain_version: &str, schema_path: &PathBuf, values_path: &PathBuf) {
     use libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE;
     use sophis_typed_data::{TypedDataDomain, TypedStruct, TypedValue, compute_typed_digest};
 

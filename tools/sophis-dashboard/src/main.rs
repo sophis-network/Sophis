@@ -148,7 +148,6 @@ struct MetricsSnapshot {
     pub founder_wait_window_secs: i64,
 
     // ─── I1.1 — extended metrics ────────────────────────────────────────────
-
     /// Observed blocks-per-second over the rolling 60s window. Reports `0.0`
     /// before the BPS ring buffer is warm (first 60s after dashboard start).
     /// See `docs/I1_DASHBOARD_DESIGN.md` §4.1.
@@ -759,7 +758,14 @@ async fn main() {
 
     // Spawn the poller in the background.
     let poller_state = state.clone();
-    tokio::spawn(poller_task(rpc_server, founder_address, genesis_unix_ms, finality_blue_blocks, top_wallets_window_blocks, poller_state));
+    tokio::spawn(poller_task(
+        rpc_server,
+        founder_address,
+        genesis_unix_ms,
+        finality_blue_blocks,
+        top_wallets_window_blocks,
+        poller_state,
+    ));
 
     let app = Router::new().route("/", get(root)).route("/metrics", get(metrics)).route("/healthz", get(healthz)).with_state(state);
 

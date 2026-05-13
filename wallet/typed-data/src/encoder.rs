@@ -313,10 +313,7 @@ mod tests {
 
     #[test]
     fn type_hash_no_nested_refs() {
-        let s = TypedStruct {
-            name: "Mail".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let s = TypedStruct { name: "Mail".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let h = type_hash(&s, &no_lookup()).unwrap();
         // Sanity: deterministic and 32 bytes.
         assert_eq!(h.len(), 32);
@@ -333,14 +330,8 @@ mod tests {
                 TypedField { name: "a".into(), type_str: "Apple".into() },
             ],
         };
-        let inner = TypedStruct {
-            name: "Inner".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
-        let apple = TypedStruct {
-            name: "Apple".into(),
-            fields: vec![TypedField { name: "y".into(), type_str: "uint8".into() }],
-        };
+        let inner = TypedStruct { name: "Inner".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
+        let apple = TypedStruct { name: "Apple".into(), fields: vec![TypedField { name: "y".into(), type_str: "uint8".into() }] };
         let lookup = |name: &str| -> Option<&TypedStruct> {
             match name {
                 "Inner" => Some(&inner),
@@ -355,20 +346,14 @@ mod tests {
 
     #[test]
     fn struct_hash_arity_mismatch_errors() {
-        let s = TypedStruct {
-            name: "M".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let s = TypedStruct { name: "M".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let err = struct_hash(&s, &[], &no_lookup()).unwrap_err();
         assert_eq!(err, TypedDataError::ArityMismatch { schema_len: 1, value_len: 0 });
     }
 
     #[test]
     fn struct_hash_type_mismatch_errors() {
-        let s = TypedStruct {
-            name: "M".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let s = TypedStruct { name: "M".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let err = struct_hash(&s, &[TypedValue::Bool(true)], &no_lookup()).unwrap_err();
         assert!(matches!(err, TypedDataError::TypeMismatch { .. }));
     }
@@ -457,19 +442,10 @@ mod tests {
 
     #[test]
     fn encode_nested_struct_uses_struct_hash() {
-        let outer = TypedStruct {
-            name: "Outer".into(),
-            fields: vec![TypedField { name: "i".into(), type_str: "Inner".into() }],
-        };
-        let inner = TypedStruct {
-            name: "Inner".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let outer = TypedStruct { name: "Outer".into(), fields: vec![TypedField { name: "i".into(), type_str: "Inner".into() }] };
+        let inner = TypedStruct { name: "Inner".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let lookup = |name: &str| -> Option<&TypedStruct> { (name == "Inner").then_some(&inner) };
-        let outer_values = vec![TypedValue::Struct {
-            schema_name: "Inner".into(),
-            values: vec![TypedValue::Uint(42, 256)],
-        }];
+        let outer_values = vec![TypedValue::Struct { schema_name: "Inner".into(), values: vec![TypedValue::Uint(42, 256)] }];
         let h = struct_hash(&outer, &outer_values, &lookup).unwrap();
         assert_eq!(h.len(), 32);
         // Re-derive Inner's struct_hash and confirm its 32 bytes appear in
@@ -485,20 +461,14 @@ mod tests {
 
     #[test]
     fn schema_field_name_with_comma_rejected() {
-        let s = TypedStruct {
-            name: "Bad".into(),
-            fields: vec![TypedField { name: "a,b".into(), type_str: "uint256".into() }],
-        };
+        let s = TypedStruct { name: "Bad".into(), fields: vec![TypedField { name: "a,b".into(), type_str: "uint256".into() }] };
         let err = type_hash(&s, &no_lookup()).unwrap_err();
         assert!(matches!(err, TypedDataError::FieldNameContainsComma(_)));
     }
 
     #[test]
     fn nested_struct_undefined_rejected() {
-        let s = TypedStruct {
-            name: "X".into(),
-            fields: vec![TypedField { name: "i".into(), type_str: "MissingType".into() }],
-        };
+        let s = TypedStruct { name: "X".into(), fields: vec![TypedField { name: "i".into(), type_str: "MissingType".into() }] };
         let err = type_hash(&s, &no_lookup()).unwrap_err();
         assert!(matches!(err, TypedDataError::NestedStructUndefined(name) if name == "MissingType"));
     }

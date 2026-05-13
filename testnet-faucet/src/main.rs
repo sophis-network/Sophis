@@ -248,17 +248,40 @@ fn now_unix() -> u64 {
 
 // ─── HTTP handlers ────────────────────────────────────────────────────────────
 
+fn fmt_sphs(amount: f64) -> String {
+    if amount == 0.0 {
+        "0".to_string()
+    } else if amount >= 1.0 {
+        format!("{:.4}", amount)
+    } else if amount >= 0.0001 {
+        format!("{:.6}", amount)
+    } else {
+        format!("{:.8}", amount)
+    }
+}
+
 async fn handle_index(State(state): State<AppState>) -> Html<String> {
     let cfg = &state.config;
     let amount_sphs = cfg.amount_sompi as f64 / SOMPI_PER_SOPHIS as f64;
     let cooldown_h = cfg.cooldown_secs / 3600;
     let cooldown_m = (cfg.cooldown_secs % 3600) / 60;
-    let cooldown_str = if cooldown_h > 0 { format!("{}h", cooldown_h) } else { format!("{}m", cooldown_m) };
+    let cooldown_s = cfg.cooldown_secs % 60;
+    let cooldown_str = if cooldown_h > 0 {
+        format!("{}h", cooldown_h)
+    } else if cooldown_m > 0 {
+        format!("{}m", cooldown_m)
+    } else {
+        format!("{}s", cooldown_s)
+    };
 
     let (total_drips, total_sphs) = {
         let inner = state.inner.lock().await;
         (inner.total_drips, inner.total_sompi_sent as f64 / SOMPI_PER_SOPHIS as f64)
     };
+
+    let amount_str = fmt_sphs(amount_sphs);
+    let total_sphs_str = fmt_sphs(total_sphs);
+    let faucet_addr = String::from(&cfg.wallet_address);
 
     Html(format!(
         r#"<!DOCTYPE html>
@@ -266,38 +289,56 @@ async fn handle_index(State(state): State<AppState>) -> Html<String> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sophis Testnet Faucet</title>
+  <title>Sophis {network} Faucet</title>
+  <meta name="description" content="Sophis (SPHS) {network} faucet — post-quantum L1 blockchain. Request testnet SPHS for development.">
+  <meta name="robots" content="index, follow">
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e6f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }}
-    .card {{ background: #131929; border: 1px solid #1e2d4a; border-radius: 16px; padding: 40px; max-width: 520px; width: 100%; }}
-    h1 {{ font-size: 1.8rem; font-weight: 700; color: #4f9ef8; margin-bottom: 8px; }}
-    .subtitle {{ color: #7a8fa6; font-size: 0.95rem; margin-bottom: 28px; }}
-    .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }}
-    .info-box {{ background: #0f1824; border: 1px solid #1e2d4a; border-radius: 10px; padding: 14px; }}
-    .info-label {{ font-size: 0.75rem; color: #4a6280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }}
-    .info-value {{ font-size: 1.1rem; font-weight: 600; color: #4f9ef8; }}
-    input {{ width: 100%; background: #0f1824; border: 1px solid #1e2d4a; border-radius: 8px; padding: 12px 14px; color: #e0e6f0; font-size: 0.9rem; font-family: monospace; margin-bottom: 16px; outline: none; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0e1a; color: #e0e6f0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }}
+    .topbar {{ width: 100%; max-width: 560px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 0.88rem; }}
+    .topbar a {{ color: #7a8fa6; text-decoration: none; }}
+    .topbar a:hover {{ color: #4f9ef8; }}
+    .card {{ background: #131929; border: 1px solid #1e2d4a; border-radius: 16px; padding: 36px; max-width: 560px; width: 100%; }}
+    h1 {{ font-size: 1.7rem; font-weight: 700; color: #e0e6f0; margin-bottom: 6px; letter-spacing: -0.01em; }}
+    h1 .sphs {{ color: #4f9ef8; }}
+    .subtitle {{ color: #7a8fa6; font-size: 0.92rem; margin-bottom: 24px; line-height: 1.5; }}
+    .network-badge {{ display: inline-block; background: #1a2d4a; color: #4f9ef8; border-radius: 20px; padding: 3px 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 18px; text-transform: uppercase; letter-spacing: 0.05em; }}
+    .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }}
+    .info-box {{ background: #0f1824; border: 1px solid #1e2d4a; border-radius: 10px; padding: 12px 14px; }}
+    .info-label {{ font-size: 0.7rem; color: #4a6280; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }}
+    .info-value {{ font-size: 1.05rem; font-weight: 600; color: #4f9ef8; font-variant-numeric: tabular-nums; }}
+    input {{ width: 100%; background: #0f1824; border: 1px solid #1e2d4a; border-radius: 8px; padding: 12px 14px; color: #e0e6f0; font-size: 0.88rem; font-family: 'SF Mono', Consolas, monospace; margin-bottom: 14px; outline: none; transition: border-color 0.15s; }}
     input:focus {{ border-color: #4f9ef8; }}
-    button {{ width: 100%; background: #4f9ef8; color: #0a0e1a; border: none; border-radius: 8px; padding: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }}
+    button {{ width: 100%; background: #4f9ef8; color: #0a0e1a; border: none; border-radius: 8px; padding: 13px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: background 0.15s; }}
     button:hover {{ background: #6ab3ff; }}
     button:disabled {{ background: #1e2d4a; color: #4a6280; cursor: not-allowed; }}
-    .result {{ margin-top: 20px; padding: 14px; border-radius: 8px; font-size: 0.88rem; display: none; }}
+    .help {{ margin-top: 14px; font-size: 0.78rem; color: #4a6280; line-height: 1.5; }}
+    .help code {{ background: #0f1824; padding: 1px 5px; border-radius: 4px; color: #7ab8ff; font-size: 0.78rem; }}
+    .result {{ margin-top: 18px; padding: 13px; border-radius: 8px; font-size: 0.85rem; display: none; }}
     .result.success {{ background: #0d2a1e; border: 1px solid #1a6b3a; color: #4dbe82; }}
     .result.error {{ background: #2a0d0d; border: 1px solid #6b1a1a; color: #e05555; }}
-    .tx-id {{ word-break: break-all; font-family: monospace; font-size: 0.8rem; margin-top: 6px; color: #7ab8ff; }}
-    .network-badge {{ display: inline-block; background: #1a2d4a; color: #4f9ef8; border-radius: 20px; padding: 3px 12px; font-size: 0.8rem; font-weight: 600; margin-bottom: 20px; }}
+    .tx-id {{ word-break: break-all; font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem; margin-top: 6px; color: #7ab8ff; }}
+    .tx-note {{ font-size: 0.72rem; color: #7a8fa6; margin-top: 6px; }}
+    .footer {{ width: 100%; max-width: 560px; margin-top: 24px; font-size: 0.72rem; color: #4a6280; text-align: center; line-height: 1.6; }}
+    .footer a {{ color: #7a8fa6; text-decoration: none; }}
+    .footer a:hover {{ color: #4f9ef8; }}
+    .footer .disclaimer {{ color: #6b1a1a; background: #1a0d0d; border: 1px solid #2a0d0d; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; color: #e05555; font-weight: 500; }}
+    .faucet-addr {{ font-family: 'SF Mono', Consolas, monospace; font-size: 0.68rem; word-break: break-all; color: #4a6280; margin-top: 4px; }}
   </style>
 </head>
 <body>
+  <div class="topbar">
+    <a href="https://sophis.org">← sophis.org</a>
+    <a href="https://github.com/sophis-network/Sophis" target="_blank" rel="noopener">GitHub</a>
+  </div>
   <div class="card">
-    <h1>Sophis Faucet</h1>
     <div class="network-badge">{network}</div>
-    <p class="subtitle">Request {amount_sphs:.2} SPHS for testing. One request per address every {cooldown_str}.</p>
+    <h1>Sophis <span class="sphs">SPHS</span> Faucet</h1>
+    <p class="subtitle">Request {amount_str} SPHS for testing on the Sophis {network}. Post-quantum L1 blockchain — Dilithium ML-DSA-44 signatures from block 0.</p>
     <div class="info-grid">
       <div class="info-box">
         <div class="info-label">Drip Amount</div>
-        <div class="info-value">{amount_sphs:.2} SPHS</div>
+        <div class="info-value">{amount_str} SPHS</div>
       </div>
       <div class="info-box">
         <div class="info-label">Cooldown</div>
@@ -309,19 +350,29 @@ async fn handle_index(State(state): State<AppState>) -> Html<String> {
       </div>
       <div class="info-box">
         <div class="info-label">Total Sent</div>
-        <div class="info-value">{total_sphs:.2} SPHS</div>
+        <div class="info-value">{total_sphs_str} SPHS</div>
       </div>
     </div>
-    <input type="text" id="address" placeholder="{prefix}:q..." />
+    <input type="text" id="address" placeholder="{prefix}:q..." autocomplete="off" spellcheck="false" />
     <button id="btn" onclick="requestDrip()">Request SPHS</button>
+    <div class="help">Don't have a wallet? Generate one with <code>dilithium-wallet keygen --network {network}</code>. One request per address every {cooldown_str}.</div>
     <div class="result" id="result"></div>
+  </div>
+  <div class="footer">
+    <div class="disclaimer">⚠ {network} tokens have no monetary value and exist only for development and testing.</div>
+    <div>Faucet wallet: <span class="faucet-addr">{faucet_addr}</span></div>
+    <div style="margin-top: 10px;">
+      <a href="https://sophis.org/whitepaper.html" target="_blank" rel="noopener">Whitepaper</a> ·
+      <a href="https://sophis.org/docs.html" target="_blank" rel="noopener">Docs</a> ·
+      <a href="https://github.com/sophis-network/Sophis" target="_blank" rel="noopener">Source</a>
+    </div>
   </div>
   <script>
     async function requestDrip() {{
       const address = document.getElementById('address').value.trim();
       const btn = document.getElementById('btn');
       const result = document.getElementById('result');
-      if (!address) {{ result.style.display='block'; result.className='result error'; result.innerHTML='Please enter an address.'; return; }}
+      if (!address) {{ result.style.display='block'; result.className='result error'; result.innerHTML='&#10007; Please enter a {prefix}: address.'; return; }}
       btn.disabled = true;
       btn.textContent = 'Sending…';
       result.style.display = 'none';
@@ -330,7 +381,7 @@ async fn handle_index(State(state): State<AppState>) -> Html<String> {
         const data = await resp.json();
         if (resp.ok) {{
           result.className = 'result success';
-          result.innerHTML = '&#10003; Transaction submitted!<div class="tx-id">TX: ' + data.tx_id + '</div>';
+          result.innerHTML = '&#10003; Transaction submitted! ' + (data.amount_sphs || 0).toFixed(8).replace(/0+$/,'').replace(/\.$/,'') + ' SPHS sent.<div class="tx-id">TX: ' + data.tx_id + '</div><div class="tx-note">Wait a few seconds for the transaction to be mined.</div>';
         }} else {{
           result.className = 'result error';
           result.innerHTML = '&#10007; ' + (data.error || 'Unknown error');
@@ -340,16 +391,18 @@ async fn handle_index(State(state): State<AppState>) -> Html<String> {
       btn.disabled = false;
       btn.textContent = 'Request SPHS';
     }}
+    document.getElementById('address').addEventListener('keydown', function(e) {{ if (e.key === 'Enter') requestDrip(); }});
   </script>
 </body>
 </html>
 "#,
         network = cfg.network,
-        amount_sphs = amount_sphs,
+        amount_str = amount_str,
         cooldown_str = cooldown_str,
         total_drips = total_drips,
-        total_sphs = total_sphs,
+        total_sphs_str = total_sphs_str,
         prefix = cfg.expected_prefix,
+        faucet_addr = faucet_addr,
     ))
 }
 

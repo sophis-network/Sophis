@@ -153,12 +153,8 @@ pub fn parse_emission_payload(payload: &[u8]) -> Result<EventEmissionPayload, Ev
         topics.push(t);
     }
 
-    let data_len = u32::from_le_bytes([
-        payload[topics_end],
-        payload[topics_end + 1],
-        payload[topics_end + 2],
-        payload[topics_end + 3],
-    ]);
+    let data_len =
+        u32::from_le_bytes([payload[topics_end], payload[topics_end + 1], payload[topics_end + 2], payload[topics_end + 3]]);
     if data_len > MAX_EVENT_DATA_BYTES {
         return Err(EventError::DataTooLarge { data_len });
     }
@@ -310,18 +306,12 @@ mod tests {
     #[test]
     fn encoder_rejects_too_many_topics() {
         let topics = vec![[0u8; TOPIC_LEN]; (MAX_TOPICS_PER_EVENT + 1) as usize];
-        assert_eq!(
-            encode_emission_payload(&topics, b""),
-            Err(EventError::TopicCountOutOfRange(MAX_TOPICS_PER_EVENT + 1))
-        );
+        assert_eq!(encode_emission_payload(&topics, b""), Err(EventError::TopicCountOutOfRange(MAX_TOPICS_PER_EVENT + 1)));
     }
 
     #[test]
     fn encoder_rejects_oversized_data() {
         let big = vec![0u8; (MAX_EVENT_DATA_BYTES + 1) as usize];
-        assert_eq!(
-            encode_emission_payload(&[], &big),
-            Err(EventError::DataTooLarge { data_len: MAX_EVENT_DATA_BYTES + 1 })
-        );
+        assert_eq!(encode_emission_payload(&[], &big), Err(EventError::DataTooLarge { data_len: MAX_EVENT_DATA_BYTES + 1 }));
     }
 }

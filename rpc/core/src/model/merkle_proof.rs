@@ -20,8 +20,8 @@ use workflow_serializer::prelude::*;
 pub struct RpcTxMerkleProof {
     pub tx_id: RpcHash,
     pub block_hash: RpcHash,
-    pub leaf_sibling: Vec<u8>,         // 32 bytes
-    pub node_siblings: Vec<Vec<u8>>,   // each 48 bytes
+    pub leaf_sibling: Vec<u8>,       // 32 bytes
+    pub node_siblings: Vec<Vec<u8>>, // each 48 bytes
     pub position: u32,
 }
 

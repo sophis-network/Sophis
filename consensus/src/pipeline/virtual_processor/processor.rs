@@ -16,14 +16,14 @@ use crate::{
         stores::{
             DB,
             acceptance_data::{AcceptanceDataStoreReader, DbAcceptanceDataStore},
-            block_transactions::{BlockTransactionsStoreReader, DbBlockTransactionsStore},
             alt::DbAltStore,
             block_filters::DbBlockFiltersStore,
+            block_transactions::{BlockTransactionsStoreReader, DbBlockTransactionsStore},
             block_window_cache::{BlockWindowCacheStore, BlockWindowCacheWriter},
             da::{CarrierIndex, DbDaStore},
-            events::DbEventStore,
             daa::DbDaaStore,
             depth::{DbDepthStore, DepthStoreReader},
+            events::DbEventStore,
             ghostdag::{DbGhostdagStore, GhostdagData, GhostdagStoreReader},
             headers::{DbHeadersStore, HeaderStoreReader},
             max_chain_work_seen::{DbMaxChainWorkSeenStore, MaxChainWorkSeenStore},
@@ -638,8 +638,7 @@ impl VirtualStateProcessor {
         let mut batch = WriteBatch::default();
         // K2 — extract spent input SPKs BEFORE the diff is moved into the
         // store. The values are needed by `index_filters_in_block` below.
-        let spent_input_spks: Vec<Vec<u8>> =
-            mergeset_diff.remove.values().map(|e| e.script_public_key.script().to_vec()).collect();
+        let spent_input_spks: Vec<Vec<u8>> = mergeset_diff.remove.values().map(|e| e.script_public_key.script().to_vec()).collect();
         self.utxo_diffs_store.insert_batch(&mut batch, current, Arc::new(mergeset_diff)).unwrap();
         self.utxo_multisets_store.insert_batch(&mut batch, current, multiset).unwrap();
         // Phase 6 — index any V5 carrier outputs in the accepted txs of this
@@ -911,22 +910,14 @@ impl VirtualStateProcessor {
         // parent default [0; 32].
         let prev_header: [u8; 32] = match self.selected_chain_store.read().get_by_hash(chain_block_hash) {
             Ok(idx) if idx > 0 => match self.selected_chain_store.read().get_by_index(idx - 1) {
-                Ok(prev_hash) => self
-                    .block_filters_store
-                    .get_filter_header(prev_hash)
-                    .ok()
-                    .flatten()
-                    .map(|h| h.filter_header)
-                    .unwrap_or([0u8; 32]),
+                Ok(prev_hash) => {
+                    self.block_filters_store.get_filter_header(prev_hash).ok().flatten().map(|h| h.filter_header).unwrap_or([0u8; 32])
+                }
                 _ => [0u8; 32],
             },
             _ => [0u8; 32],
         };
-        let header = BlockFilterHeader {
-            prev_header,
-            filter_hash: fh,
-            filter_header: build_filter_header(&prev_header, &fh),
-        };
+        let header = BlockFilterHeader { prev_header, filter_hash: fh, filter_header: build_filter_header(&prev_header, &fh) };
 
         let filter = BlockFilter { filter_bytes, filter_hash: fh };
         self.block_filters_store.index_filter(batch, chain_block_hash, filter, header)
@@ -1709,11 +1700,7 @@ mod j4_index_events_tests {
     }
 
     fn buf_event(contract: u8, topic: u8, data: &[u8]) -> BufferedEvent {
-        BufferedEvent {
-            contract_id: [contract; 32],
-            topics: vec![[topic; 32]],
-            data: data.to_vec(),
-        }
+        BufferedEvent { contract_id: [contract; 32], topics: vec![[topic; 32]], data: data.to_vec() }
     }
 
     fn collector() -> EventsCollector {

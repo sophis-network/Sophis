@@ -9,8 +9,8 @@ use libcrux_ml_dsa::ml_dsa_44::{self, MLDSA44Signature, MLDSA44SigningKey, MLDSA
 
 use crate::error::OraclePqcError;
 use crate::types::{
-    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIG_SIZE, DILITHIUM_SIGNING_KEY_SIZE, DOMAIN_SEPARATOR,
-    PriceAttestation, PriceAttestationCore, compute_signing_hash,
+    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIG_SIZE, DILITHIUM_SIGNING_KEY_SIZE, DOMAIN_SEPARATOR, PriceAttestation, PriceAttestationCore,
+    compute_signing_hash,
 };
 
 /// Bytes of fresh randomness `generate_keypair` needs.
@@ -44,8 +44,7 @@ pub fn sign_attestation(
 ) -> Result<PriceAttestation, OraclePqcError> {
     let signing_hash = compute_signing_hash(DOMAIN_SEPARATOR, &core);
     let sk = MLDSA44SigningKey::new(*signing_key);
-    let sig: MLDSA44Signature = ml_dsa_44::sign(&sk, &signing_hash, b"", randomness)
-        .map_err(|_| OraclePqcError::InvalidSignature)?;
+    let sig: MLDSA44Signature = ml_dsa_44::sign(&sk, &signing_hash, b"", randomness).map_err(|_| OraclePqcError::InvalidSignature)?;
     let sig_bytes: [u8; DILITHIUM_SIG_SIZE] = *sig.as_ref();
     Ok(PriceAttestation { core, publisher_pubkey, signature: Box::new(sig_bytes) })
 }
@@ -66,11 +65,7 @@ pub fn verify_attestation(attestation: &PriceAttestation, now: u64) -> Result<()
 /// separator. Exposed for test coverage of cross-domain replay
 /// rejection; production consumers MUST use [`verify_attestation`]
 /// to pin themselves to the canonical Phase 9 domain.
-pub fn verify_attestation_with_domain(
-    attestation: &PriceAttestation,
-    now: u64,
-    domain: &[u8],
-) -> Result<(), OraclePqcError> {
+pub fn verify_attestation_with_domain(attestation: &PriceAttestation, now: u64, domain: &[u8]) -> Result<(), OraclePqcError> {
     attestation.validate_shape(now)?;
 
     let signing_hash = compute_signing_hash(domain, &attestation.core);
@@ -84,10 +79,7 @@ mod tests {
     use super::*;
     use crate::types::asset_id_from_symbol;
 
-    fn fixed_keypair() -> (
-        [u8; DILITHIUM_PUBKEY_SIZE],
-        [u8; DILITHIUM_SIGNING_KEY_SIZE],
-    ) {
+    fn fixed_keypair() -> ([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]) {
         let randomness = [7u8; KEY_GENERATION_RANDOMNESS_SIZE];
         generate_keypair(randomness)
     }
@@ -142,10 +134,7 @@ mod tests {
         let mut attestation = sign_attestation(core, vk, &sk, randomness).unwrap();
         // Flip a bit in the signature middle (well inside the encoded sig).
         attestation.signature[1000] ^= 0x01;
-        assert_eq!(
-            verify_attestation(&attestation, core.publish_ts).err(),
-            Some(OraclePqcError::InvalidSignature),
-        );
+        assert_eq!(verify_attestation(&attestation, core.publish_ts).err(), Some(OraclePqcError::InvalidSignature),);
     }
 
     #[test]
@@ -156,10 +145,7 @@ mod tests {
         let mut attestation = sign_attestation(core, vk, &sk, randomness).unwrap();
         // Move the price by $1 — the signing-hash no longer matches.
         attestation.core.price_e8 += 100_000_000;
-        assert_eq!(
-            verify_attestation(&attestation, core.publish_ts).err(),
-            Some(OraclePqcError::InvalidSignature),
-        );
+        assert_eq!(verify_attestation(&attestation, core.publish_ts).err(), Some(OraclePqcError::InvalidSignature),);
     }
 
     #[test]
@@ -176,10 +162,7 @@ mod tests {
         // whatever we passed.) Verification under B's pubkey must fail because A
         // produced the signature.
         let _ = &mut attestation;
-        assert_eq!(
-            verify_attestation(&attestation, core.publish_ts).err(),
-            Some(OraclePqcError::InvalidSignature),
-        );
+        assert_eq!(verify_attestation(&attestation, core.publish_ts).err(), Some(OraclePqcError::InvalidSignature),);
     }
 
     #[test]
@@ -224,10 +207,7 @@ mod tests {
         let core = PriceAttestationCore { price_e8: i64::MIN, ..fixed_core() };
         let randomness = [25u8; SIGNING_RANDOMNESS_SIZE];
         let attestation = sign_attestation(core, vk, &sk, randomness).unwrap();
-        assert_eq!(
-            verify_attestation(&attestation, core.publish_ts).err(),
-            Some(OraclePqcError::InvalidPrice),
-        );
+        assert_eq!(verify_attestation(&attestation, core.publish_ts).err(), Some(OraclePqcError::InvalidPrice),);
     }
 
     #[test]
@@ -236,10 +216,7 @@ mod tests {
         let core = PriceAttestationCore { conf_e8: u64::MAX, ..fixed_core() };
         let randomness = [27u8; SIGNING_RANDOMNESS_SIZE];
         let attestation = sign_attestation(core, vk, &sk, randomness).unwrap();
-        assert_eq!(
-            verify_attestation(&attestation, core.publish_ts).err(),
-            Some(OraclePqcError::InvalidConfidence),
-        );
+        assert_eq!(verify_attestation(&attestation, core.publish_ts).err(), Some(OraclePqcError::InvalidConfidence),);
     }
 
     #[test]

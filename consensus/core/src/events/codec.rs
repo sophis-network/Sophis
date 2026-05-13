@@ -64,12 +64,8 @@ pub fn parse_emission_payload(payload: &[u8]) -> Result<super::EventEmissionPayl
     }
 
     // Rule 4 — data length bounds.
-    let data_len = u32::from_le_bytes([
-        payload[topics_end],
-        payload[topics_end + 1],
-        payload[topics_end + 2],
-        payload[topics_end + 3],
-    ]);
+    let data_len =
+        u32::from_le_bytes([payload[topics_end], payload[topics_end + 1], payload[topics_end + 2], payload[topics_end + 3]]);
     if data_len > MAX_EVENT_DATA_BYTES {
         return Err(EventError::DataTooLarge { data_len });
     }

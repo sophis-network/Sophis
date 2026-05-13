@@ -109,12 +109,7 @@ impl DbBlockFiltersStore {
     }
 
     /// Direct (non-batched) variant for tests + ad-hoc reindexing.
-    pub fn index_filter_direct(
-        &self,
-        block_hash: Hash,
-        filter: BlockFilter,
-        header: BlockFilterHeader,
-    ) -> Result<(), StoreError> {
+    pub fn index_filter_direct(&self, block_hash: Hash, filter: BlockFilter, header: BlockFilterHeader) -> Result<(), StoreError> {
         let mut batch = WriteBatch::default();
         self.index_filter(&mut batch, block_hash, filter, header)?;
         self.db.write(batch).map_err(StoreError::DbError)?;

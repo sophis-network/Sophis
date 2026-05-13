@@ -78,8 +78,9 @@ impl Deserializer for RpcBlockCommitment {
         let confirmations = load!(u64, reader)?;
         let is_chain_block = load!(bool, reader)?;
         let commitment_byte: u8 = load!(u8, reader)?;
-        let commitment = RpcCommitmentLevel::from_u8(commitment_byte)
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("invalid commitment level byte {commitment_byte}")))?;
+        let commitment = RpcCommitmentLevel::from_u8(commitment_byte).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("invalid commitment level byte {commitment_byte}"))
+        })?;
         Ok(Self { block_hash, block_blue_score, current_blue_score, confirmations, is_chain_block, commitment })
     }
 }
@@ -160,12 +161,9 @@ mod tests {
 
     #[test]
     fn level_byte_roundtrip_all_variants() {
-        for v in [
-            RpcCommitmentLevel::Pending,
-            RpcCommitmentLevel::Accepted,
-            RpcCommitmentLevel::Confirmed,
-            RpcCommitmentLevel::Finalized,
-        ] {
+        for v in
+            [RpcCommitmentLevel::Pending, RpcCommitmentLevel::Accepted, RpcCommitmentLevel::Confirmed, RpcCommitmentLevel::Finalized]
+        {
             assert_eq!(RpcCommitmentLevel::from_u8(v.as_u8()), Some(v));
         }
     }

@@ -29,7 +29,8 @@ impl Descriptor {
         match self {
             Descriptor::Pkh { key } => match &key.data {
                 KeyData::VkHex(vk_box) => {
-                    let redeem = dilithium_redeem_script(vk_box.as_bytes()).map_err(|e| ResolveError::RedeemScriptError(e.to_string()))?;
+                    let redeem =
+                        dilithium_redeem_script(vk_box.as_bytes()).map_err(|e| ResolveError::RedeemScriptError(e.to_string()))?;
                     let spk = pay_to_script_hash_script(&redeem);
                     Ok(vec![spk])
                 }

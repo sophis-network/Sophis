@@ -491,7 +491,9 @@ impl<'a, T: VerifiableTransaction, Reused: SigHashReusedValues> TxScriptEngine<'
     fn op_check_multisig_disabled(&mut self) -> Result<(), TxScriptError> {
         // Multisig opcodes are disabled in Sophis (PQC-only chain); multisig
         // patterns should be built at the contract layer using Dilithium.
-        Err(TxScriptError::OpcodeDisabled("multisig opcodes are disabled in Sophis (PQC-only; build multisig via contracts with Dilithium)".to_string()))
+        Err(TxScriptError::OpcodeDisabled(
+            "multisig opcodes are disabled in Sophis (PQC-only; build multisig via contracts with Dilithium)".to_string(),
+        ))
     }
 
     // ---------------------------------------------------------------------------

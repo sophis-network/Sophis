@@ -16,12 +16,7 @@ use sophis_svm_core::{
     Capability, ContractManifest, GasConfig, UpgradePolicy,
     events::{MAX_EVENT_DATA_BYTES, MAX_EVENTS_PER_TX, MAX_TOPICS_PER_EVENT, TOPIC_LEN, encode_emission_payload},
 };
-use sophis_svm_runtime::{
-    context::ExecutionContext,
-    engine::SvmEngine,
-    executor::ContractExecutor,
-    host::StubCrypto,
-};
+use sophis_svm_runtime::{context::ExecutionContext, engine::SvmEngine, executor::ContractExecutor, host::StubCrypto};
 use wasmtime::{Linker, Module, Store};
 
 const HEX_ALPHABET: &[u8; 16] = b"0123456789abcdef";
@@ -61,13 +56,9 @@ fn wat_emit_repeated(payload: &[u8], times: u32) -> String {
     let mut body = String::new();
     for i in 0..times {
         if i + 1 == times {
-            body.push_str(&format!(
-                "(call $emit (i32.const 0) (i32.const {len}))",
-            ));
+            body.push_str(&format!("(call $emit (i32.const 0) (i32.const {len}))",));
         } else {
-            body.push_str(&format!(
-                "(drop (call $emit (i32.const 0) (i32.const {len})))",
-            ));
+            body.push_str(&format!("(drop (call $emit (i32.const 0) (i32.const {len})))",));
         }
     }
     format!(
@@ -94,13 +85,8 @@ fn wat_emit_oob() -> String {
 }
 
 fn build_ctx(capabilities: Vec<Capability>, gas_config: GasConfig) -> ExecutionContext {
-    let manifest = ContractManifest::new(
-        Hash::from_slice(&[0u8; 32]),
-        UpgradePolicy::Immutable,
-        capabilities,
-    );
-    ExecutionContext::new(vec![], vec![], 0, manifest, gas_config, Arc::new(StubCrypto))
-        .with_contract_id([0xABu8; 32])
+    let manifest = ContractManifest::new(Hash::from_slice(&[0u8; 32]), UpgradePolicy::Immutable, capabilities);
+    ExecutionContext::new(vec![], vec![], 0, manifest, gas_config, Arc::new(StubCrypto)).with_contract_id([0xABu8; 32])
 }
 
 /// Minimal harness that bypasses the validator (which would reject our
@@ -117,9 +103,7 @@ fn run(wat: &str, ctx: ExecutionContext, fuel: u64) -> (i32, ExecutionContext) {
     let mut linker: Linker<ExecutionContext> = Linker::new(engine.inner());
     sophis_svm_runtime::host::register_host_functions(&mut linker, crypto).expect("register");
     let instance = linker.instantiate(&mut store, &module).expect("instantiate");
-    let v = instance
-        .get_typed_func::<(), i32>(&mut store, "validate")
-        .expect("get validate");
+    let v = instance.get_typed_func::<(), i32>(&mut store, "validate").expect("get validate");
     let status = v.call(&mut store, ()).expect("call validate");
     let ctx_after = store.into_data();
     (status, ctx_after)

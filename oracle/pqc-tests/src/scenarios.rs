@@ -7,18 +7,15 @@
 //! cross-crate composition.
 
 use sophis_oracle_pqc_contract::{
-    EventDataV1, build_event_data, decode_attestation_bytes, decode_event_data,
-    event_id_phase9_attestation, publisher_fingerprint,
+    EventDataV1, build_event_data, decode_attestation_bytes, decode_event_data, event_id_phase9_attestation, publisher_fingerprint,
 };
 use sophis_oracle_pqc_core::{
-    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, FeedSource, FeedSourceRegistry,
-    FlipDecision, FlipInputs, FlipPolicy, InMemoryFeedSourceRegistry,
-    KEY_GENERATION_RANDOMNESS_SIZE, PriceSample, PriceAttestation, SIGNING_RANDOMNESS_SIZE,
-    StayReason, asset_id_from_symbol, evaluate_flip, generate_keypair, sign_attestation,
+    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, FeedSource, FeedSourceRegistry, FlipDecision, FlipInputs, FlipPolicy,
+    InMemoryFeedSourceRegistry, KEY_GENERATION_RANDOMNESS_SIZE, PriceAttestation, PriceSample, SIGNING_RANDOMNESS_SIZE, StayReason,
+    asset_id_from_symbol, evaluate_flip, generate_keypair, sign_attestation,
 };
 use sophis_oracle_publisher::{
-    build_and_sign_attestation, decode_attestation_hex, derive_keypair_from_mnemonic,
-    encode_attestation_hex, verify_attestation_at,
+    build_and_sign_attestation, decode_attestation_hex, derive_keypair_from_mnemonic, encode_attestation_hex, verify_attestation_at,
 };
 
 // ---------------------------------------------------------------------------
@@ -28,8 +25,7 @@ use sophis_oracle_publisher::{
 /// Canonical 24-word BIP-39 test vector ("abandon × 23 + art" — the
 /// `[0u8; 32]`-entropy mnemonic). The publisher path goes through this
 /// in [`scenario_publisher_keypair_derivation_is_canonical`].
-const FIXTURE_MNEMONIC_A: &str =
-    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+const FIXTURE_MNEMONIC_A: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
 
 /// Deterministic-randomness keypair tag. Tests use these tags so two
 /// distinct keypairs ("B" and "C") are reproducible across runs
@@ -42,9 +38,7 @@ fn keypair_c() -> ([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]
     generate_keypair([0xC1; KEY_GENERATION_RANDOMNESS_SIZE])
 }
 
-fn keypair_from_mnemonic(
-    mnemonic: &str,
-) -> ([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]) {
+fn keypair_from_mnemonic(mnemonic: &str) -> ([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]) {
     derive_keypair_from_mnemonic(mnemonic).expect("fixture mnemonic must derive cleanly")
 }
 
@@ -67,8 +61,7 @@ fn sign_for(
         KeySource::Direct(kp) => kp,
     };
     let randomness = [rng_seed; SIGNING_RANDOMNESS_SIZE];
-    build_and_sign_attestation(asset, price_e8, conf_e8, publish_ts, sequence, vk, &sk, randomness)
-        .expect("fixture sign must succeed")
+    build_and_sign_attestation(asset, price_e8, conf_e8, publish_ts, sequence, vk, &sk, randomness).expect("fixture sign must succeed")
 }
 
 // ---------------------------------------------------------------------------
@@ -173,17 +166,11 @@ fn scenario_flip_triggers_after_full_consistency_window() {
     let count = (policy.min_consistency_window_secs / 3600) as usize + 1;
     let step = policy.min_consistency_window_secs / (count as u64 - 1);
     let earliest = now - policy.min_consistency_window_secs;
-    let phase5: Vec<PriceSample> = (0..count)
-        .map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 })
-        .collect();
+    let phase5: Vec<PriceSample> =
+        (0..count).map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 }).collect();
     let phase9 = phase5.clone();
 
-    let inputs = FlipInputs {
-        phase5_history: &phase5,
-        phase9_aggregated_history: &phase9,
-        phase9_publisher_count: 3,
-        now,
-    };
+    let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 3, now };
     let decision = evaluate_flip(inputs, &policy);
     assert_eq!(decision, FlipDecision::Flip);
 
@@ -209,19 +196,12 @@ fn scenario_flip_blocked_by_persistent_spread() {
 
     // Phase 5 tracks 65_000; Phase 9 is consistently 1% higher (650 e8
     // ≈ $650 difference). Default tolerance is 50 bp (0.5%) → fails.
-    let phase5: Vec<PriceSample> = (0..count)
-        .map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 })
-        .collect();
-    let phase9: Vec<PriceSample> = (0..count)
-        .map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_650_00000000 })
-        .collect();
+    let phase5: Vec<PriceSample> =
+        (0..count).map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 }).collect();
+    let phase9: Vec<PriceSample> =
+        (0..count).map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_650_00000000 }).collect();
 
-    let inputs = FlipInputs {
-        phase5_history: &phase5,
-        phase9_aggregated_history: &phase9,
-        phase9_publisher_count: 5,
-        now,
-    };
+    let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 5, now };
     let decision = evaluate_flip(inputs, &policy);
     assert_eq!(decision, FlipDecision::Stay { reason: StayReason::SpreadOutOfBounds });
 }
@@ -238,12 +218,7 @@ fn scenario_stale_phase5_with_low_phase9_quorum_marks_unavailable() {
     // Phase 5 has been silent for 10 minutes; default stale threshold is 5.
     let phase5 = vec![PriceSample { publish_ts: now - 600, price_e8: 65_000_00000000 }];
     let phase9: Vec<PriceSample> = vec![];
-    let inputs = FlipInputs {
-        phase5_history: &phase5,
-        phase9_aggregated_history: &phase9,
-        phase9_publisher_count: 1,
-        now,
-    };
+    let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 1, now };
     let decision = evaluate_flip(inputs, &policy);
     match decision {
         FlipDecision::StaleSource { phase5_last_seen_secs_ago } => assert_eq!(phase5_last_seen_secs_ago, 600),
@@ -401,25 +376,15 @@ fn scenario_full_migration_walkthrough() {
     // Phase 9 has just bootstrapped with 3 publishers but only a few
     // hours of data. Both end recently enough to pass staleness.
     let day = 24u64 * 3600;
-    let phase5_day1: Vec<PriceSample> = (0..25)
-        .map(|h| PriceSample { publish_ts: now - day + h * 3600, price_e8: 65_000_00000000 })
-        .collect();
-    let phase9_day1: Vec<PriceSample> = (0..5)
-        .map(|h| PriceSample { publish_ts: now - 4 * 3600 + h * 3600, price_e8: 65_000_00000000 })
-        .collect();
+    let phase5_day1: Vec<PriceSample> =
+        (0..25).map(|h| PriceSample { publish_ts: now - day + h * 3600, price_e8: 65_000_00000000 }).collect();
+    let phase9_day1: Vec<PriceSample> =
+        (0..5).map(|h| PriceSample { publish_ts: now - 4 * 3600 + h * 3600, price_e8: 65_000_00000000 }).collect();
     let decision_day1 = evaluate_flip(
-        FlipInputs {
-            phase5_history: &phase5_day1,
-            phase9_aggregated_history: &phase9_day1,
-            phase9_publisher_count: 3,
-            now,
-        },
+        FlipInputs { phase5_history: &phase5_day1, phase9_aggregated_history: &phase9_day1, phase9_publisher_count: 3, now },
         &policy,
     );
-    assert_eq!(
-        decision_day1,
-        FlipDecision::Stay { reason: StayReason::ConsistencyWindowNotReached },
-    );
+    assert_eq!(decision_day1, FlipDecision::Stay { reason: StayReason::ConsistencyWindowNotReached },);
     // Registry stays on Phase 5.
 
     // Day 8: both paths have at least 7 days of history and agree.
@@ -427,9 +392,8 @@ fn scenario_full_migration_walkthrough() {
     let count = (policy.min_consistency_window_secs / 3600) as usize + 1;
     let step = policy.min_consistency_window_secs / (count as u64 - 1);
     let earliest = later_now - policy.min_consistency_window_secs;
-    let phase5_day8: Vec<PriceSample> = (0..count)
-        .map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 })
-        .collect();
+    let phase5_day8: Vec<PriceSample> =
+        (0..count).map(|i| PriceSample { publish_ts: earliest + (i as u64) * step, price_e8: 65_000_00000000 }).collect();
     let phase9_day8 = phase5_day8.clone();
     let decision_day8 = evaluate_flip(
         FlipInputs {
@@ -445,10 +409,7 @@ fn scenario_full_migration_walkthrough() {
     // Operator applies the flip in their registry; consumers reading
     // through the registry now route to Phase 9.
     registry.set(asset_id, FeedSource::Phase9 { active_since_ts: later_now });
-    assert!(matches!(
-        registry.get(&asset_id),
-        Some(FeedSource::Phase9 { .. }),
-    ));
+    assert!(matches!(registry.get(&asset_id), Some(FeedSource::Phase9 { .. }),));
 }
 
 // ---------------------------------------------------------------------------

@@ -271,8 +271,12 @@ mod tests {
         let vk1 = DilithiumPubKey::from_bytes([0x01; DILITHIUM44_VK_SIZE]);
         let vk2 = DilithiumPubKey::from_bytes([0x02; DILITHIUM44_VK_SIZE]);
         let vk3 = DilithiumPubKey::from_bytes([0x03; DILITHIUM44_VK_SIZE]);
-        let body =
-            format!("multi-mldsa44(2,{},{},{})", hex::encode(vk1.as_bytes()), hex::encode(vk2.as_bytes()), hex::encode(vk3.as_bytes()));
+        let body = format!(
+            "multi-mldsa44(2,{},{},{})",
+            hex::encode(vk1.as_bytes()),
+            hex::encode(vk2.as_bytes()),
+            hex::encode(vk3.as_bytes())
+        );
         let cs = checksum::create(&body).expect("checksum");
         let input = format!("{}#{}", body, cs);
         let d: Descriptor = input.parse().expect("parse");

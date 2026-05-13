@@ -51,9 +51,9 @@ impl Deserializer for RpcBlockFilter {
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlockFilterHeader {
     pub block_hash: RpcHash,
-    pub prev_header: Vec<u8>,    // 32 bytes
-    pub filter_hash: Vec<u8>,    // 32 bytes
-    pub filter_header: Vec<u8>,  // 32 bytes
+    pub prev_header: Vec<u8>,   // 32 bytes
+    pub filter_hash: Vec<u8>,   // 32 bytes
+    pub filter_header: Vec<u8>, // 32 bytes
 }
 
 impl Serializer for RpcBlockFilterHeader {

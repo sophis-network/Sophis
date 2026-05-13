@@ -198,12 +198,7 @@ impl fmt::Display for AltCreationError {
                 write!(f, "ALT entry {entry} declares spk_len={len} above MAX_ALT_ENTRY_SCRIPT_BYTES={MAX_ALT_ENTRY_SCRIPT_BYTES}")
             }
             Self::HandleMismatch { declared, computed } => {
-                write!(
-                    f,
-                    "ALT-creation handle mismatch: declared={} computed={}",
-                    hex::fmt6(declared),
-                    hex::fmt6(computed),
-                )
+                write!(f, "ALT-creation handle mismatch: declared={} computed={}", hex::fmt6(declared), hex::fmt6(computed),)
             }
         }
     }
@@ -348,10 +343,7 @@ pub fn parse_alt_creation_header(script: &[u8]) -> Result<AltCreationHeader, Alt
     while cursor < entries_section.len() {
         // Need at least 4 bytes for spk_version + spk_len.
         if entries_section.len() - cursor < 4 {
-            return Err(AltCreationError::EntriesLenMismatch {
-                decoded: cursor,
-                expected: payload_len,
-            });
+            return Err(AltCreationError::EntriesLenMismatch { decoded: cursor, expected: payload_len });
         }
         let spk_version = u16::from_le_bytes([entries_section[cursor], entries_section[cursor + 1]]);
         let spk_len = u16::from_le_bytes([entries_section[cursor + 2], entries_section[cursor + 3]]);
@@ -365,10 +357,7 @@ pub fn parse_alt_creation_header(script: &[u8]) -> Result<AltCreationHeader, Alt
         }
         let entry_total = 4usize + spk_len as usize;
         if entries_section.len() - cursor < entry_total {
-            return Err(AltCreationError::EntriesLenMismatch {
-                decoded: cursor,
-                expected: payload_len,
-            });
+            return Err(AltCreationError::EntriesLenMismatch { decoded: cursor, expected: payload_len });
         }
         cursor += entry_total;
         decoded_entries = decoded_entries.saturating_add(1);
@@ -377,10 +366,7 @@ pub fn parse_alt_creation_header(script: &[u8]) -> Result<AltCreationHeader, Alt
     // Rule 9 — exact match required, AND the count of decoded entries must
     // equal the declared `entry_count`.
     if cursor != payload_len as usize || decoded_entries != entry_count {
-        return Err(AltCreationError::EntriesLenMismatch {
-            decoded: cursor,
-            expected: payload_len,
-        });
+        return Err(AltCreationError::EntriesLenMismatch { decoded: cursor, expected: payload_len });
     }
 
     // Rule 12 — handle integrity.

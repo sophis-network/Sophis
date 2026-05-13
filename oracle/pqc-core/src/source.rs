@@ -54,12 +54,7 @@ pub struct FlipPolicy {
 impl Default for FlipPolicy {
     /// Returns the SIP-11 D11 / D5 / D6 default thresholds.
     fn default() -> Self {
-        Self {
-            min_publishers: 3,
-            min_consistency_window_secs: 7 * 24 * 3600,
-            max_spread_bp: 50,
-            stale_after_secs: 300,
-        }
+        Self { min_publishers: 3, min_consistency_window_secs: 7 * 24 * 3600, max_spread_bp: 50, stale_after_secs: 300 }
     }
 }
 
@@ -156,12 +151,7 @@ pub fn evaluate_flip(inputs: FlipInputs<'_>, policy: &FlipPolicy) -> FlipDecisio
     if !phase9_window_satisfied(inputs.phase9_aggregated_history, policy, inputs.now) {
         return FlipDecision::Stay { reason: StayReason::ConsistencyWindowNotReached };
     }
-    if !spread_within_bounds(
-        inputs.phase5_history,
-        inputs.phase9_aggregated_history,
-        policy,
-        inputs.now,
-    ) {
+    if !spread_within_bounds(inputs.phase5_history, inputs.phase9_aggregated_history, policy, inputs.now) {
         return FlipDecision::Stay { reason: StayReason::SpreadOutOfBounds };
     }
     FlipDecision::Flip
@@ -169,11 +159,7 @@ pub fn evaluate_flip(inputs: FlipInputs<'_>, policy: &FlipPolicy) -> FlipDecisio
 
 /// Returns true if the Phase 9 aggregated history covers at least the
 /// consistency window ending at `now`.
-fn phase9_window_satisfied(
-    phase9_history: &[PriceSample],
-    policy: &FlipPolicy,
-    now: u64,
-) -> bool {
+fn phase9_window_satisfied(phase9_history: &[PriceSample], policy: &FlipPolicy, now: u64) -> bool {
     let Some(oldest) = phase9_history.first() else {
         return false;
     };
@@ -191,12 +177,7 @@ fn phase9_window_satisfied(
 /// Returns true if every Phase 9 sample within the consistency window has
 /// a matching-bucket Phase 5 sample within `max_spread_bp` of the Phase 9
 /// price. Conservative: a single out-of-bounds sample fails the check.
-fn spread_within_bounds(
-    phase5_history: &[PriceSample],
-    phase9_history: &[PriceSample],
-    policy: &FlipPolicy,
-    now: u64,
-) -> bool {
+fn spread_within_bounds(phase5_history: &[PriceSample], phase9_history: &[PriceSample], policy: &FlipPolicy, now: u64) -> bool {
     if phase5_history.is_empty() || phase9_history.is_empty() {
         return false;
     }
@@ -384,16 +365,9 @@ mod tests {
         let now = 1_700_000_000;
         // Phase 9 reports 1% higher than Phase 5 → fails 50 bp tolerance.
         let phase5 = dense_samples(SEVEN_DAYS, 168, 65_000_00000000, now);
-        let phase9: Vec<_> = phase5
-            .iter()
-            .map(|s| PriceSample { publish_ts: s.publish_ts, price_e8: s.price_e8 + 650_00000000 })
-            .collect();
-        let inputs = FlipInputs {
-            phase5_history: &phase5,
-            phase9_aggregated_history: &phase9,
-            phase9_publisher_count: 3,
-            now,
-        };
+        let phase9: Vec<_> =
+            phase5.iter().map(|s| PriceSample { publish_ts: s.publish_ts, price_e8: s.price_e8 + 650_00000000 }).collect();
+        let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 3, now };
         let decision = evaluate_flip(inputs, &FlipPolicy::default());
         assert_eq!(decision, FlipDecision::Stay { reason: StayReason::SpreadOutOfBounds });
     }
@@ -403,12 +377,7 @@ mod tests {
         let now = 1_700_000_000;
         let phase5 = dense_samples(SEVEN_DAYS, 168, 65_000_00000000, now);
         let phase9 = dense_samples(SEVEN_DAYS, 168, 65_000_00000000, now);
-        let inputs = FlipInputs {
-            phase5_history: &phase5,
-            phase9_aggregated_history: &phase9,
-            phase9_publisher_count: 5,
-            now,
-        };
+        let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 5, now };
         let decision = evaluate_flip(inputs, &FlipPolicy::default());
         assert_eq!(decision, FlipDecision::Flip);
     }
@@ -419,12 +388,7 @@ mod tests {
         // Phase 5 last sample 10 minutes ago → stale (default window 5 min).
         let phase5 = vec![PriceSample { publish_ts: now - 600, price_e8: 65_000_00000000 }];
         let phase9: Vec<PriceSample> = vec![];
-        let inputs = FlipInputs {
-            phase5_history: &phase5,
-            phase9_aggregated_history: &phase9,
-            phase9_publisher_count: 1,
-            now,
-        };
+        let inputs = FlipInputs { phase5_history: &phase5, phase9_aggregated_history: &phase9, phase9_publisher_count: 1, now };
         let decision = evaluate_flip(inputs, &FlipPolicy::default());
         match decision {
             FlipDecision::StaleSource { phase5_last_seen_secs_ago } => {
@@ -437,12 +401,7 @@ mod tests {
     #[test]
     fn empty_phase5_and_empty_phase9_returns_stale() {
         let now = 1_700_000_000;
-        let inputs = FlipInputs {
-            phase5_history: &[],
-            phase9_aggregated_history: &[],
-            phase9_publisher_count: 0,
-            now,
-        };
+        let inputs = FlipInputs { phase5_history: &[], phase9_aggregated_history: &[], phase9_publisher_count: 0, now };
         let decision = evaluate_flip(inputs, &FlipPolicy::default());
         assert!(matches!(decision, FlipDecision::StaleSource { .. }));
     }
@@ -493,11 +452,7 @@ mod tests {
 
     #[test]
     fn feed_source_borsh_roundtrip() {
-        let cases = [
-            FeedSource::Phase5,
-            FeedSource::Phase9 { active_since_ts: 1_700_000_000 },
-            FeedSource::Unavailable,
-        ];
+        let cases = [FeedSource::Phase5, FeedSource::Phase9 { active_since_ts: 1_700_000_000 }, FeedSource::Unavailable];
         for source in cases {
             let bytes = borsh::to_vec(&source).unwrap();
             let decoded: FeedSource = borsh::from_slice(&bytes).unwrap();

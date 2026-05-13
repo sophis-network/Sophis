@@ -600,11 +600,7 @@ pub trait RpcApi: Sync + Send + AnySync {
     async fn get_logs(&self, request: GetLogsRequest) -> RpcResult<Vec<RpcEventLog>> {
         Ok(self.get_logs_call(None, request).await?.logs)
     }
-    async fn get_logs_call(
-        &self,
-        connection: Option<&DynRpcConnection>,
-        request: GetLogsRequest,
-    ) -> RpcResult<GetLogsResponse>;
+    async fn get_logs_call(&self, connection: Option<&DynRpcConnection>, request: GetLogsRequest) -> RpcResult<GetLogsResponse>;
 
     // ----------------------------------------------------------------
     // L3 — Block commitment levels (sub-fase L3)

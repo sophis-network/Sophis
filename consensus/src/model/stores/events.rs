@@ -384,11 +384,7 @@ mod tests {
         let (_lt, store) = build_store();
         let block = Hash::from_slice(&[6u8; 32]);
         // tx A emits 2 events, tx B emits 1
-        let logs = vec![
-            make_log(7, 1, 0, vec![0xAA], 200),
-            make_log(7, 1, 1, vec![0xAA], 200),
-            make_log(7, 2, 0, vec![0xBB], 200),
-        ];
+        let logs = vec![make_log(7, 1, 0, vec![0xAA], 200), make_log(7, 1, 1, vec![0xAA], 200), make_log(7, 2, 0, vec![0xBB], 200)];
         store.index_events_direct(block, logs).unwrap();
         let tx_a = store.get_logs_by_tx(Hash::from_slice(&[1u8; 32])).unwrap().unwrap();
         assert_eq!(tx_a.logs.len(), 2);

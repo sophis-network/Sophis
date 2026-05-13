@@ -26,11 +26,7 @@ fn serialize_fixed_bytes<S, const N: usize>(bytes: &[u8; N], serializer: S) -> R
 where
     S: Serializer,
 {
-    if serializer.is_human_readable() {
-        serializer.serialize_str(&hex::encode(bytes))
-    } else {
-        serializer.serialize_bytes(bytes)
-    }
+    if serializer.is_human_readable() { serializer.serialize_str(&hex::encode(bytes)) } else { serializer.serialize_bytes(bytes) }
 }
 
 fn deserialize_fixed_bytes<'de, D, const N: usize>(deserializer: D) -> Result<[u8; N], D::Error>

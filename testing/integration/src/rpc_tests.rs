@@ -922,10 +922,7 @@ async fn sanity_test() {
                 let rpc_client = client.clone();
                 tst!(op, {
                     let _response = rpc_client
-                        .get_pruning_info_call(
-                            None,
-                            sophis_rpc_core::model::pruning_info::GetPruningInfoRequest::new(),
-                        )
+                        .get_pruning_info_call(None, sophis_rpc_core::model::pruning_info::GetPruningInfoRequest::new())
                         .await
                         .unwrap();
                 })

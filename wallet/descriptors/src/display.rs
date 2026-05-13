@@ -132,10 +132,7 @@ mod tests {
         let fp = fingerprint(&vk);
         let origin = KeyOrigin {
             fingerprint: fp,
-            derivation_path: vec![
-                DerivationStep { index: 44, hardened: true },
-                DerivationStep { index: 2025, hardened: false },
-            ],
+            derivation_path: vec![DerivationStep { index: 44, hardened: true }, DerivationStep { index: 2025, hardened: false }],
         };
         let original = Descriptor::Pkh { key: DescriptorKey { origin: Some(origin), data: KeyData::VkHex(Box::new(vk)) } };
         let s = original.to_string();

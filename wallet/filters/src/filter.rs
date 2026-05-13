@@ -450,8 +450,7 @@ mod tests {
             assert!(filter_matches(&f, &block(12), it).unwrap());
         }
         // And a known-not-in item is missed (could false-positive 1/M of the time).
-        let fp_count: usize =
-            (1000..1100u32).filter(|&i| filter_matches(&f, &block(12), &i.to_le_bytes()).unwrap()).count();
+        let fp_count: usize = (1000..1100u32).filter(|&i| filter_matches(&f, &block(12), &i.to_le_bytes()).unwrap()).count();
         // Expected 100 * 1/524288 ≈ 0; allow generous slack.
         assert!(fp_count < 5, "too many false positives: {}", fp_count);
     }

@@ -37,9 +37,7 @@ fn polymod_step(chk: u64, value: u64) -> u64 {
 /// Map each character of `body` to its index in `INPUT_CHARSET`. Returns
 /// `Err(ChecksumError::InvalidChar)` on the first character outside the alphabet.
 fn body_to_symbols(body: &str) -> Result<Vec<u8>, ChecksumError> {
-    body.chars()
-        .map(|c| INPUT_CHARSET.find(c).map(|p| p as u8).ok_or(ChecksumError::InvalidChar(c)))
-        .collect()
+    body.chars().map(|c| INPUT_CHARSET.find(c).map(|p| p as u8).ok_or(ChecksumError::InvalidChar(c))).collect()
 }
 
 /// Compute the 8-character checksum for a descriptor body (the part before `#`).
@@ -202,4 +200,3 @@ mod tests {
         );
     }
 }
-

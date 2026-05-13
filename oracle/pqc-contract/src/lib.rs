@@ -61,9 +61,7 @@
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use sha3::{Digest, Sha3_384};
-use sophis_oracle_pqc_core::{
-    DOMAIN_SEPARATOR, OraclePqcError, PriceAttestation, compute_signing_hash,
-};
+use sophis_oracle_pqc_core::{DOMAIN_SEPARATOR, OraclePqcError, PriceAttestation, compute_signing_hash};
 use sophis_sdk::env::EmitEventError;
 use sophis_sdk::prelude::*;
 
@@ -138,11 +136,7 @@ pub fn decode_attestation_bytes(bytes: &[u8]) -> Option<PriceAttestation> {
 /// the capability is unavailable.
 fn verify_signature(env: &Env, attestation: &PriceAttestation) -> bool {
     let signing_hash = compute_signing_hash(DOMAIN_SEPARATOR, &attestation.core);
-    env.verify_dilithium(
-        &attestation.publisher_pubkey,
-        &signing_hash,
-        attestation.signature.as_ref(),
-    )
+    env.verify_dilithium(&attestation.publisher_pubkey, &signing_hash, attestation.signature.as_ref())
 }
 
 /// Computes the canonical event-data payload from the attestation core.
@@ -176,11 +170,7 @@ fn emit_attestation_event(env: &Env, attestation: &PriceAttestation) -> Result<(
     let event_data = build_event_data(attestation);
     let data_bytes = borsh::to_vec(&event_data).map_err(|_| EmitEventError::StructuralError)?;
 
-    let topics = [
-        event_id_phase9_attestation(),
-        attestation.core.asset_id,
-        publisher_fingerprint(&attestation.publisher_pubkey),
-    ];
+    let topics = [event_id_phase9_attestation(), attestation.core.asset_id, publisher_fingerprint(&attestation.publisher_pubkey)];
 
     env.emit_event(&topics, &data_bytes)
 }
@@ -262,13 +252,7 @@ mod tests {
         // an indexer would compute via `asset_id_from_symbol`, otherwise
         // topic[0] and topic[1] could be confused.
         let event_id = event_id_phase9_attestation();
-        let common_assets: &[&[u8]] = &[
-            b"BTC/USD",
-            b"ETH/USD",
-            b"SPHS/USD",
-            b"SOL/USD",
-            b"USDC/USD",
-        ];
+        let common_assets: &[&[u8]] = &[b"BTC/USD", b"ETH/USD", b"SPHS/USD", b"SOL/USD", b"USDC/USD"];
         for symbol in common_assets {
             assert_ne!(event_id, asset_id_from_symbol(symbol));
         }

@@ -27,13 +27,10 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
+use sophis_oracle_pqc_core::{DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, SIGNING_RANDOMNESS_SIZE};
 use sophis_oracle_publisher::{
-    PublisherError, build_and_sign_attestation, decode_attestation_hex,
-    derive_keypair_from_mnemonic, encode_attestation_hex, parse_decimal_e8_signed,
-    parse_decimal_e8_unsigned, verify_attestation_at,
-};
-use sophis_oracle_pqc_core::{
-    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, SIGNING_RANDOMNESS_SIZE,
+    PublisherError, build_and_sign_attestation, decode_attestation_hex, derive_keypair_from_mnemonic, encode_attestation_hex,
+    parse_decimal_e8_signed, parse_decimal_e8_unsigned, verify_attestation_at,
 };
 
 fn main() -> ExitCode {
@@ -97,12 +94,7 @@ fn build_cli() -> Command {
                         .required(true)
                         .help("Asset symbol with `/` separator, e.g. `BTC/USD` (canonical SIP-11 D7)"),
                 )
-                .arg(
-                    Arg::new("price")
-                        .long("price")
-                        .required(true)
-                        .help("Decimal price (up to 8 fractional digits), e.g. `65000.00`"),
-                )
+                .arg(Arg::new("price").long("price").required(true).help("Decimal price (up to 8 fractional digits), e.g. `65000.00`"))
                 .arg(
                     Arg::new("conf")
                         .long("conf")
@@ -133,11 +125,7 @@ fn build_cli() -> Command {
         .subcommand(
             Command::new("verify")
                 .about("Verify a hex-encoded PriceAttestation against the Phase 9 domain")
-                .arg(
-                    Arg::new("hex")
-                        .long("hex")
-                        .help("Hex-encoded attestation. If absent, reads hex from stdin (trimmed)"),
-                )
+                .arg(Arg::new("hex").long("hex").help("Hex-encoded attestation. If absent, reads hex from stdin (trimmed)"))
                 .arg(
                     Arg::new("now")
                         .long("now")
@@ -176,8 +164,8 @@ fn key_source_signing_key_arg() -> Arg {
 
 fn run_keygen(matches: &ArgMatches) -> Result<(), String> {
     let mnemonic_path: &PathBuf = matches.get_one("mnemonic-file").expect("required by clap");
-    let phrase = fs::read_to_string(mnemonic_path)
-        .map_err(|e| format!("cannot read mnemonic file {}: {e}", mnemonic_path.display()))?;
+    let phrase =
+        fs::read_to_string(mnemonic_path).map_err(|e| format!("cannot read mnemonic file {}: {e}", mnemonic_path.display()))?;
     let (vk, sk) = derive_keypair_from_mnemonic(phrase.trim()).map_err(|e| e.to_string())?;
 
     if let Some(path) = matches.get_one::<PathBuf>("output-pubkey") {
@@ -209,29 +197,17 @@ fn run_sign(matches: &ArgMatches) -> Result<(), String> {
     let price_str: &String = matches.get_one("price").expect("required by clap");
     let conf_str: &String = matches.get_one("conf").expect("required by clap");
     let sequence: u64 = *matches.get_one("sequence").expect("required by clap");
-    let publish_ts: u64 = matches
-        .get_one::<u64>("ts")
-        .copied()
-        .unwrap_or_else(unix_now_secs);
+    let publish_ts: u64 = matches.get_one::<u64>("ts").copied().unwrap_or_else(unix_now_secs);
     let output_format: &String = matches.get_one("output").expect("has default");
 
     let price_e8 = parse_decimal_e8_signed(price_str).map_err(|e| e.to_string())?;
     let conf_e8 = parse_decimal_e8_unsigned(conf_str).map_err(|e| e.to_string())?;
 
-    let sign_randomness = fresh_randomness::<SIGNING_RANDOMNESS_SIZE>()
-        .map_err(|e| format!("cannot read OS randomness for signing: {e}"))?;
+    let sign_randomness =
+        fresh_randomness::<SIGNING_RANDOMNESS_SIZE>().map_err(|e| format!("cannot read OS randomness for signing: {e}"))?;
 
-    let attestation = build_and_sign_attestation(
-        asset.as_bytes(),
-        price_e8,
-        conf_e8,
-        publish_ts,
-        sequence,
-        vk,
-        &sk,
-        sign_randomness,
-    )
-    .map_err(|e| e.to_string())?;
+    let attestation = build_and_sign_attestation(asset.as_bytes(), price_e8, conf_e8, publish_ts, sequence, vk, &sk, sign_randomness)
+        .map_err(|e| e.to_string())?;
 
     match output_format.as_str() {
         "hex" => {
@@ -239,12 +215,8 @@ fn run_sign(matches: &ArgMatches) -> Result<(), String> {
             println!("{hex}");
         }
         "raw" => {
-            let bytes = attestation
-                .to_bytes()
-                .map_err(|e| format!("borsh encode failed: {e:?}"))?;
-            std::io::stdout()
-                .write_all(&bytes)
-                .map_err(|e| format!("cannot write raw bytes to stdout: {e}"))?;
+            let bytes = attestation.to_bytes().map_err(|e| format!("borsh encode failed: {e:?}"))?;
+            std::io::stdout().write_all(&bytes).map_err(|e| format!("cannot write raw bytes to stdout: {e}"))?;
         }
         _ => unreachable!("clap restricts --output to hex|raw"),
     }
@@ -260,17 +232,12 @@ fn run_verify(matches: &ArgMatches) -> Result<(), String> {
         Some(h) => h.clone(),
         None => {
             let mut buf = String::new();
-            std::io::stdin()
-                .read_to_string(&mut buf)
-                .map_err(|e| format!("cannot read hex from stdin: {e}"))?;
+            std::io::stdin().read_to_string(&mut buf).map_err(|e| format!("cannot read hex from stdin: {e}"))?;
             buf
         }
     };
     let attestation = decode_attestation_hex(hex_input.trim()).map_err(|e| e.to_string())?;
-    let now: u64 = matches
-        .get_one::<u64>("now")
-        .copied()
-        .unwrap_or_else(unix_now_secs);
+    let now: u64 = matches.get_one::<u64>("now").copied().unwrap_or_else(unix_now_secs);
     let quiet = matches.get_flag("quiet");
 
     match verify_attestation_at(&attestation, now) {
@@ -301,23 +268,15 @@ fn run_verify(matches: &ArgMatches) -> Result<(), String> {
 // helpers
 // ---------------------------------------------------------------------------
 
-fn load_keypair(
-    matches: &ArgMatches,
-) -> Result<([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]), String> {
+fn load_keypair(matches: &ArgMatches) -> Result<([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]), String> {
     if let Some(path) = matches.get_one::<PathBuf>("mnemonic-file") {
-        let phrase = fs::read_to_string(path)
-            .map_err(|e| format!("cannot read mnemonic file {}: {e}", path.display()))?;
+        let phrase = fs::read_to_string(path).map_err(|e| format!("cannot read mnemonic file {}: {e}", path.display()))?;
         return derive_keypair_from_mnemonic(phrase.trim()).map_err(|e| e.to_string());
     }
     if let Some(path) = matches.get_one::<PathBuf>("signing-key-file") {
-        let bytes = fs::read(path)
-            .map_err(|e| format!("cannot read signing-key file {}: {e}", path.display()))?;
+        let bytes = fs::read(path).map_err(|e| format!("cannot read signing-key file {}: {e}", path.display()))?;
         if bytes.len() != DILITHIUM_SIGNING_KEY_SIZE {
-            return Err(format!(
-                "signing-key file is {} bytes, expected {}",
-                bytes.len(),
-                DILITHIUM_SIGNING_KEY_SIZE
-            ));
+            return Err(format!("signing-key file is {} bytes, expected {}", bytes.len(), DILITHIUM_SIGNING_KEY_SIZE));
         }
         let mut sk = [0u8; DILITHIUM_SIGNING_KEY_SIZE];
         sk.copy_from_slice(&bytes);
@@ -336,10 +295,7 @@ fn load_keypair(
 }
 
 fn unix_now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 fn fresh_randomness<const N: usize>() -> Result<[u8; N], getrandom::Error> {

@@ -38,8 +38,7 @@ impl MinerGroupTask {
 
         // Mining address — tests do not sign, so a deterministic 32-byte
         // payload is sufficient for routing coinbase rewards in fixtures.
-        let pay_address =
-            Address::new(network.network_type().into(), sophis_addresses::Version::PubKeyDilithium, &[0u8; 32]);
+        let pay_address = Address::new(network.network_type().into(), sophis_addresses::Version::PubKeyDilithium, &[0u8; 32]);
         debug!("Test mining address {}", pay_address);
 
         // Block template receiver

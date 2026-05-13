@@ -414,8 +414,7 @@ mod tests {
         // Sign a fixed message with kp_a → produce a real Dilithium signature.
         let signing_key = ml_dsa_44::MLDSA44SigningKey::new(*sk_a);
         let randomness = [0xa5u8; libcrux_ml_dsa::SIGNING_RANDOMNESS_SIZE];
-        let signature_bytes = ml_dsa_44::sign(&signing_key, b"PSBS K1.3 test message", b"", randomness)
-            .expect("Dilithium sign");
+        let signature_bytes = ml_dsa_44::sign(&signing_key, b"PSBS K1.3 test message", b"", randomness).expect("Dilithium sign");
 
         // Build a PSKT with one input carrying this partial signature.
         let pubkey = DilithiumPubKey::from_bytes(*vk_a);
@@ -480,7 +479,8 @@ mod tests {
                     is_coinbase: false,
                 })
                 .previous_outpoint(TransactionOutpoint {
-                    transaction_id: TransactionId::from_str("0000000000000000000000000000000000000000000000000000000000000002").unwrap(),
+                    transaction_id: TransactionId::from_str("0000000000000000000000000000000000000000000000000000000000000002")
+                        .unwrap(),
                     index: 0,
                 })
                 .sig_op_count(2)

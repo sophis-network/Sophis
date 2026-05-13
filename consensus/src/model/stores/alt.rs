@@ -98,10 +98,8 @@ impl DbAltStore {
 
             self.entries.write(BatchDbWriter::new(batch), ci.handle, ci.entry.clone())?;
 
-            let resolution = AltResolution {
-                creating_block_hash: ci.entry.creating_block_hash,
-                creating_daa_score: ci.entry.creating_daa_score,
-            };
+            let resolution =
+                AltResolution { creating_block_hash: ci.entry.creating_block_hash, creating_daa_score: ci.entry.creating_daa_score };
             self.resolutions.write(BatchDbWriter::new(batch), ci.handle, resolution)?;
 
             block_handles.push(ci.handle);
@@ -178,7 +176,7 @@ impl AltStoreReader for DbAltStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sophis_consensus_core::alt::{AltEntryRecord, ALT_HANDLE_LEN};
+    use sophis_consensus_core::alt::{ALT_HANDLE_LEN, AltEntryRecord};
     use sophis_database::create_temp_db;
     use sophis_database::prelude::ConnBuilder;
     use sophis_database::utils::DbLifetime;
@@ -252,12 +250,8 @@ mod tests {
         let block = Hash::from_slice(&[4u8; 32]);
         let h1 = AltHandleHash([1u8; ALT_HANDLE_LEN]);
         let h2 = AltHandleHash([2u8; ALT_HANDLE_LEN]);
-        store
-            .index_alt_creations_direct(block, &[AltCreationIndex { handle: h1, entry: make_entry(h1, block, 0, 1) }])
-            .unwrap();
-        store
-            .index_alt_creations_direct(block, &[AltCreationIndex { handle: h2, entry: make_entry(h2, block, 0, 1) }])
-            .unwrap();
+        store.index_alt_creations_direct(block, &[AltCreationIndex { handle: h1, entry: make_entry(h1, block, 0, 1) }]).unwrap();
+        store.index_alt_creations_direct(block, &[AltCreationIndex { handle: h2, entry: make_entry(h2, block, 0, 1) }]).unwrap();
         let bc = store.list_created_in_block(block).unwrap().unwrap();
         assert_eq!(bc.handles.len(), 2);
         assert!(bc.handles.contains(&h1));
@@ -300,9 +294,7 @@ mod tests {
         let (_lt, store) = build_store();
         let block = Hash::from_slice(&[7u8; 32]);
         let h = AltHandleHash([0xAAu8; ALT_HANDLE_LEN]);
-        store
-            .index_alt_creations_direct(block, &[AltCreationIndex { handle: h, entry: make_entry(h, block, 0, 1) }])
-            .unwrap();
+        store.index_alt_creations_direct(block, &[AltCreationIndex { handle: h, entry: make_entry(h, block, 0, 1) }]).unwrap();
         assert!(store.list_created_in_block(block).unwrap().is_some());
 
         let mut batch = WriteBatch::default();
@@ -347,13 +339,9 @@ mod tests {
         let block_b = Hash::from_slice(&[11u8; 32]);
         let h = AltHandleHash([0x55u8; ALT_HANDLE_LEN]);
         // First creation in block A
-        store
-            .index_alt_creations_direct(block_a, &[AltCreationIndex { handle: h, entry: make_entry(h, block_a, 0, 1) }])
-            .unwrap();
+        store.index_alt_creations_direct(block_a, &[AltCreationIndex { handle: h, entry: make_entry(h, block_a, 0, 1) }]).unwrap();
         // Second creation (same handle) in block B — handle already exists, skipped
-        store
-            .index_alt_creations_direct(block_b, &[AltCreationIndex { handle: h, entry: make_entry(h, block_b, 0, 1) }])
-            .unwrap();
+        store.index_alt_creations_direct(block_b, &[AltCreationIndex { handle: h, entry: make_entry(h, block_b, 0, 1) }]).unwrap();
         // Block A has the handle, block B does not (because the second creation was skipped)
         assert_eq!(store.list_created_in_block(block_a).unwrap().unwrap().handles, vec![h]);
         assert!(store.list_created_in_block(block_b).unwrap().is_none());

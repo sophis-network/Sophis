@@ -14,12 +14,7 @@ use std::sync::Arc;
 
 use sophis_hashes::Hash;
 use sophis_svm_core::{Capability, ContractManifest, GasConfig, UpgradePolicy};
-use sophis_svm_runtime::{
-    HostVrf,
-    context::ExecutionContext,
-    engine::SvmEngine,
-    host::StubCrypto,
-};
+use sophis_svm_runtime::{HostVrf, context::ExecutionContext, engine::SvmEngine, host::StubCrypto};
 use wasmtime::{Linker, Module, Store};
 
 /// In-test VRF backend with controllable behaviour.

@@ -1543,14 +1543,8 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
         })))
     }
 
-    async fn get_logs_call(
-        &self,
-        _connection: Option<&DynRpcConnection>,
-        request: GetLogsRequest,
-    ) -> RpcResult<GetLogsResponse> {
-        use sophis_consensus_core::events::{
-            EventLogFilter, EventTopic, MAX_TOPICS_PER_EVENT, TOPIC_LEN,
-        };
+    async fn get_logs_call(&self, _connection: Option<&DynRpcConnection>, request: GetLogsRequest) -> RpcResult<GetLogsResponse> {
+        use sophis_consensus_core::events::{EventLogFilter, EventTopic, MAX_TOPICS_PER_EVENT, TOPIC_LEN};
 
         // Validate topic + contract sizes up front; the stores expect
         // exact-32-byte keys and silently mis-routing a query is the
@@ -1581,10 +1575,7 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
                     topics.push(Some(EventTopic(arr)));
                 }
                 Some(t) => {
-                    return Err(RpcError::General(format!(
-                        "topics[{i}] must be {TOPIC_LEN} bytes (got {})",
-                        t.len()
-                    )));
+                    return Err(RpcError::General(format!("topics[{i}] must be {TOPIC_LEN} bytes (got {})", t.len())));
                 }
                 None => topics.push(None),
             }
@@ -1601,10 +1592,7 @@ NOTE: This error usually indicates an RPC conversion error between the node and 
         }
 
         // Server cap regardless of client `limit`.
-        let limit = request
-            .limit
-            .map(|l| (l as usize).min(MAX_LOGS_PER_RESPONSE as usize))
-            .unwrap_or(MAX_LOGS_PER_RESPONSE as usize);
+        let limit = request.limit.map(|l| (l as usize).min(MAX_LOGS_PER_RESPONSE as usize)).unwrap_or(MAX_LOGS_PER_RESPONSE as usize);
         let filter = EventLogFilter { contract_id, topics, from_block: request.from_block, to_block: request.to_block, limit };
 
         let session = self.consensus_manager.consensus().unguarded_session();

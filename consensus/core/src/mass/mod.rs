@@ -1,7 +1,6 @@
 use crate::{
     alt::{
-        ALT_HEADER_LEN, ALT_STORAGE_MASS_FACTOR, AltScriptKind, BASE_ALT_CREATION_MASS, classify_alt_script,
-        parse_alt_creation_header,
+        ALT_HEADER_LEN, ALT_STORAGE_MASS_FACTOR, AltScriptKind, BASE_ALT_CREATION_MASS, classify_alt_script, parse_alt_creation_header,
     },
     config::params::Params,
     constants::TRANSIENT_BYTE_TO_MASS_FACTOR,
@@ -282,7 +281,8 @@ impl MassCalculator {
                 if classify_alt_script(script) != Some(AltScriptKind::Creation) {
                     return None;
                 }
-                let payload_bytes = parse_alt_creation_header(script).ok().map(|_| (script.len() - ALT_HEADER_LEN) as u64).unwrap_or(0);
+                let payload_bytes =
+                    parse_alt_creation_header(script).ok().map(|_| (script.len() - ALT_HEADER_LEN) as u64).unwrap_or(0);
                 Some(BASE_ALT_CREATION_MASS + payload_bytes.saturating_mul(ALT_STORAGE_MASS_FACTOR))
             })
             .sum();

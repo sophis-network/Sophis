@@ -93,11 +93,7 @@ mod tests {
                 TypedField { name: "contents".into(), type_str: "string".into() },
             ],
         };
-        let values = vec![
-            TypedValue::Address([0xAA; 32]),
-            TypedValue::Address([0xBB; 32]),
-            TypedValue::String("gm".into()),
-        ];
+        let values = vec![TypedValue::Address([0xAA; 32]), TypedValue::Address([0xBB; 32]), TypedValue::String("gm".into())];
         let digest = compute_typed_digest(&domain, &schema, &values, &[]).unwrap();
         assert_eq!(digest.len(), 32);
         // Determinism: two calls produce the same bytes.
@@ -107,10 +103,7 @@ mod tests {
 
     #[test]
     fn digest_changes_with_domain() {
-        let schema = TypedStruct {
-            name: "M".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let schema = TypedStruct { name: "M".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let values = vec![TypedValue::Uint(42, 256)];
         let d1 = TypedDataDomain::new("DApp", "1.0", NETWORK_DEVNET);
         let d2 = TypedDataDomain::new("DApp", "2.0", NETWORK_DEVNET); // version bumped
@@ -122,10 +115,7 @@ mod tests {
     #[test]
     fn digest_changes_with_message_value() {
         let domain = TypedDataDomain::new("DApp", "1.0", NETWORK_DEVNET);
-        let schema = TypedStruct {
-            name: "M".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let schema = TypedStruct { name: "M".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let v1 = vec![TypedValue::Uint(1, 256)];
         let v2 = vec![TypedValue::Uint(2, 256)];
         let d1 = compute_typed_digest(&domain, &schema, &v1, &[]).unwrap();
@@ -138,10 +128,7 @@ mod tests {
         // Compute a digest, then recompute by hand and compare. Catches
         // "we forgot the prefix" bugs.
         let domain = TypedDataDomain::new("X", "1", NETWORK_DEVNET);
-        let schema = TypedStruct {
-            name: "M".into(),
-            fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }],
-        };
+        let schema = TypedStruct { name: "M".into(), fields: vec![TypedField { name: "x".into(), type_str: "uint256".into() }] };
         let values = vec![TypedValue::Uint(7, 256)];
         let actual = compute_typed_digest(&domain, &schema, &values, &[]).unwrap();
 

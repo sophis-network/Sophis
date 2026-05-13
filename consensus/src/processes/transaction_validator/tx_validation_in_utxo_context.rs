@@ -218,8 +218,7 @@ impl TransactionValidator {
             // time; here `parse_alt_reference` is guaranteed to succeed,
             // but we re-enter the parser defensively rather than reach
             // into the byte slice manually.
-            let r = parse_alt_reference(script)
-                .map_err(|e| TxRuleError::AltReferenceMalformed(i, e.to_string()))?;
+            let r = parse_alt_reference(script).map_err(|e| TxRuleError::AltReferenceMalformed(i, e.to_string()))?;
             let handle = AltHandleHash::new(r.handle);
             // Rule 15 — handle must exist in the consensus ALT registry.
             let entry = match alt_store.get_entry(handle) {
@@ -697,7 +696,12 @@ mod tests {
         tx.set_mass(0);
         let populated_tx = PopulatedTransaction::new(
             &tx,
-            vec![UtxoEntry { amount: 1_000, script_public_key: ScriptPublicKey::new(0, SmallVec::new()), block_daa_score: 0, is_coinbase: false }],
+            vec![UtxoEntry {
+                amount: 1_000,
+                script_public_key: ScriptPublicKey::new(0, SmallVec::new()),
+                block_daa_score: 0,
+                is_coinbase: false,
+            }],
         );
         // The validator's check_alt_references is `pub(crate)` indirectly
         // via the impl block; call it through the private module path.

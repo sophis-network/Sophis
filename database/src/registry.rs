@@ -94,21 +94,21 @@ pub enum DatabaseStorePrefixes {
 
     // ---- L1 Address Lookup Tables (sub-fase L1.2) ----
     // See `consensus/src/model/stores/alt.rs` and `docs/L1_ALT_DESIGN.md` §4.
-    AltEntries = 200,           // key = handle (6 B);   value = AltEntry (handle + entries + creating block + DAA score)
-    AltCreatedInBlock = 201,    // key = block_hash;     value = AltBlockHandles (handles created inside the block)
+    AltEntries = 200,        // key = handle (6 B);   value = AltEntry (handle + entries + creating block + DAA score)
+    AltCreatedInBlock = 201, // key = block_hash;     value = AltBlockHandles (handles created inside the block)
     AltHandleResolutions = 202, // key = handle (6 B);   value = AltResolution (creating_block_hash, daa_score)
 
     // ---- J4 sVM Event Logs (sub-fase J4.2) ----
     // See `consensus/src/model/stores/events.rs` and `docs/J4_EVENTS_DESIGN.md` §4.
-    EventsByBlock = 203,    // key = block_hash;                       value = EventLogs (Vec<EventLog> ordered by (tx_index, log_index))
-    EventsByTx = 204,       // key = tx_id;                            value = EventLogs (Vec<EventLog> ordered by log_index)
+    EventsByBlock = 203, // key = block_hash;                       value = EventLogs (Vec<EventLog> ordered by (tx_index, log_index))
+    EventsByTx = 204,    // key = tx_id;                            value = EventLogs (Vec<EventLog> ordered by log_index)
     EventsByContract = 205, // key = (contract_id, daa_bucket_le 8B);  value = EventLogPointers (Vec<(block_hash, log_index)>)
-    EventsByTopic = 206,    // key = (topic, daa_bucket_le 8B);        value = EventLogPointers (Vec<(block_hash, log_index)>)
+    EventsByTopic = 206, // key = (topic, daa_bucket_le 8B);        value = EventLogPointers (Vec<(block_hash, log_index)>)
 
     // ---- K2 Compact Block Filters (sub-fase K2.2) ----
     // See `consensus/src/model/stores/block_filters.rs` and `docs/K2_COMPACT_FILTERS_DESIGN.md` §3.
-    BlockFilters = 207,        // key = block_hash;   value = BlockFilter (raw on-the-wire filter bytes + 32-byte filter_hash)
-    BlockFilterHeaders = 208,  // key = block_hash;   value = BlockFilterHeader (prev_header || filter_hash || filter_header, all 32 B)
+    BlockFilters = 207, // key = block_hash;   value = BlockFilter (raw on-the-wire filter bytes + 32-byte filter_hash)
+    BlockFilterHeaders = 208, // key = block_hash;   value = BlockFilterHeader (prev_header || filter_hash || filter_header, all 32 B)
 
     // ---- Separator ----
     /// Reserved as a separator

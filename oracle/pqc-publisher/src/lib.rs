@@ -7,9 +7,8 @@
 
 use sophis_bip39::{Language, Mnemonic};
 use sophis_oracle_pqc_core::{
-    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, KEY_GENERATION_RANDOMNESS_SIZE,
-    OraclePqcError, PriceAttestation, PriceAttestationCore, SIGNING_RANDOMNESS_SIZE,
-    asset_id_from_symbol, generate_keypair, sign_attestation, verify_attestation,
+    DILITHIUM_PUBKEY_SIZE, DILITHIUM_SIGNING_KEY_SIZE, KEY_GENERATION_RANDOMNESS_SIZE, OraclePqcError, PriceAttestation,
+    PriceAttestationCore, SIGNING_RANDOMNESS_SIZE, asset_id_from_symbol, generate_keypair, sign_attestation, verify_attestation,
 };
 use thiserror::Error;
 
@@ -82,11 +81,7 @@ pub fn parse_decimal_e8_signed(s: &str) -> Result<i64, PublisherError> {
     }
 
     // Compose the e8-scaled value: int_part * 10^8 + frac_part * 10^(8 - len(frac_part))
-    let int_value: i64 = if int_part.is_empty() {
-        0
-    } else {
-        int_part.parse::<i64>().map_err(|_| PublisherError::DecimalOverflow)?
-    };
+    let int_value: i64 = if int_part.is_empty() { 0 } else { int_part.parse::<i64>().map_err(|_| PublisherError::DecimalOverflow)? };
     let scale = 10i64.pow(FIXED_POINT_EXPONENT);
     let int_scaled = int_value.checked_mul(scale).ok_or(PublisherError::DecimalOverflow)?;
 
@@ -95,17 +90,11 @@ pub fn parse_decimal_e8_signed(s: &str) -> Result<i64, PublisherError> {
     } else {
         let frac_value: i64 = frac_part.parse::<i64>().map_err(|_| PublisherError::DecimalOverflow)?;
         let pad = FIXED_POINT_EXPONENT as usize - frac_part.len();
-        frac_value
-            .checked_mul(10i64.pow(pad as u32))
-            .ok_or(PublisherError::DecimalOverflow)?
+        frac_value.checked_mul(10i64.pow(pad as u32)).ok_or(PublisherError::DecimalOverflow)?
     };
 
     let unsigned = int_scaled.checked_add(frac_padded_scaled).ok_or(PublisherError::DecimalOverflow)?;
-    let signed = if negative {
-        unsigned.checked_neg().ok_or(PublisherError::DecimalOverflow)?
-    } else {
-        unsigned
-    };
+    let signed = if negative { unsigned.checked_neg().ok_or(PublisherError::DecimalOverflow)? } else { unsigned };
     Ok(signed)
 }
 
@@ -125,8 +114,7 @@ pub fn parse_decimal_e8_unsigned(s: &str) -> Result<u64, PublisherError> {
 pub fn derive_keypair_from_mnemonic(
     phrase: &str,
 ) -> Result<([u8; DILITHIUM_PUBKEY_SIZE], [u8; DILITHIUM_SIGNING_KEY_SIZE]), PublisherError> {
-    let mnemonic = Mnemonic::new(phrase.trim(), Language::English)
-        .map_err(|e| PublisherError::InvalidMnemonic(e.to_string()))?;
+    let mnemonic = Mnemonic::new(phrase.trim(), Language::English).map_err(|e| PublisherError::InvalidMnemonic(e.to_string()))?;
     let seed = mnemonic.to_seed("");
     let mut randomness = [0u8; KEY_GENERATION_RANDOMNESS_SIZE];
     randomness.copy_from_slice(&seed.as_bytes()[..KEY_GENERATION_RANDOMNESS_SIZE]);
@@ -149,13 +137,7 @@ pub fn build_and_sign_attestation(
     signing_key: &[u8; DILITHIUM_SIGNING_KEY_SIZE],
     sign_randomness: [u8; SIGNING_RANDOMNESS_SIZE],
 ) -> Result<PriceAttestation, PublisherError> {
-    let core = PriceAttestationCore {
-        asset_id: asset_id_from_symbol(symbol),
-        price_e8,
-        conf_e8,
-        publish_ts,
-        sequence,
-    };
+    let core = PriceAttestationCore { asset_id: asset_id_from_symbol(symbol), price_e8, conf_e8, publish_ts, sequence };
     sign_attestation(core, pubkey, signing_key, sign_randomness).map_err(PublisherError::SignFailed)
 }
 
@@ -182,10 +164,7 @@ pub fn decode_attestation_hex(hex: &str) -> Result<PriceAttestation, PublisherEr
 /// separator and a caller-supplied `now`. Thin wrapper over the
 /// `oracle-pqc-core` verifier; surfaces a `PublisherError::VerifyFailed`
 /// so the CLI can report uniformly.
-pub fn verify_attestation_at(
-    attestation: &PriceAttestation,
-    now: u64,
-) -> Result<(), PublisherError> {
+pub fn verify_attestation_at(attestation: &PriceAttestation, now: u64) -> Result<(), PublisherError> {
     verify_attestation(attestation, now).map_err(PublisherError::VerifyFailed)
 }
 
@@ -255,17 +234,8 @@ mod tests {
     fn sign_verify_roundtrip_through_hex() {
         let (vk, sk) = derive_keypair_from_mnemonic(FIXTURE_MNEMONIC).unwrap();
         let sign_randomness = [0x33u8; SIGNING_RANDOMNESS_SIZE];
-        let attestation = build_and_sign_attestation(
-            b"BTC/USD",
-            65_000_00000000,
-            50_00000000,
-            1_700_000_000,
-            42,
-            vk,
-            &sk,
-            sign_randomness,
-        )
-        .unwrap();
+        let attestation =
+            build_and_sign_attestation(b"BTC/USD", 65_000_00000000, 50_00000000, 1_700_000_000, 42, vk, &sk, sign_randomness).unwrap();
 
         let hex = encode_attestation_hex(&attestation).unwrap();
         // SIP-11 § 3.2 frozen size 3796 bytes → 7592 hex chars.
@@ -289,17 +259,8 @@ mod tests {
     fn verify_rejects_tampered_hex() {
         let (vk, sk) = derive_keypair_from_mnemonic(FIXTURE_MNEMONIC).unwrap();
         let sign_randomness = [0x77u8; SIGNING_RANDOMNESS_SIZE];
-        let attestation = build_and_sign_attestation(
-            b"ETH/USD",
-            3_500_00000000,
-            10_00000000,
-            1_700_000_001,
-            7,
-            vk,
-            &sk,
-            sign_randomness,
-        )
-        .unwrap();
+        let attestation =
+            build_and_sign_attestation(b"ETH/USD", 3_500_00000000, 10_00000000, 1_700_000_001, 7, vk, &sk, sign_randomness).unwrap();
 
         let mut hex = encode_attestation_hex(&attestation).unwrap().into_bytes();
         // Mutate one hex character deep inside the signature region.
@@ -308,9 +269,6 @@ mod tests {
         let mutated = String::from_utf8(hex).unwrap();
 
         let decoded = decode_attestation_hex(&mutated).unwrap();
-        assert!(matches!(
-            verify_attestation_at(&decoded, 1_700_000_001),
-            Err(PublisherError::VerifyFailed(_)),
-        ));
+        assert!(matches!(verify_attestation_at(&decoded, 1_700_000_001), Err(PublisherError::VerifyFailed(_)),));
     }
 }

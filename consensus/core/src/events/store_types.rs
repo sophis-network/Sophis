@@ -251,16 +251,7 @@ mod tests {
 
     #[test]
     fn mem_size_includes_topics_and_data() {
-        let log = EventLog::new(
-            [0u8; 32],
-            vec![EventTopic::ZERO; 4],
-            vec![0u8; 1024],
-            Hash::default(),
-            Hash::default(),
-            0,
-            0,
-            0,
-        );
+        let log = EventLog::new([0u8; 32], vec![EventTopic::ZERO; 4], vec![0u8; 1024], Hash::default(), Hash::default(), 0, 0, 0);
         // At least the 4 topics * 32 + 1024 data bytes counted.
         assert!(log.estimate_mem_bytes() >= 4 * TOPIC_LEN + 1024);
     }

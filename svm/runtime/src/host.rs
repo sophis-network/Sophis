@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use wasmtime::{AsContext, AsContextMut, Caller, Linker};
 
-use sophis_svm_core::events::{
-    EventError, MAX_EVENTS_PER_TX, parse_emission_payload,
-};
+use sophis_svm_core::events::{EventError, MAX_EVENTS_PER_TX, parse_emission_payload};
 use sophis_svm_core::{Capability, Gas};
 
 use crate::context::{BufferedEvent, ExecutionContext};
@@ -382,51 +380,43 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, crypto: Ar
     //        (truncated / length mismatch / payload_len < 0)
     //  -6    per-tx event cap reached (= MAX_EVENTS_PER_TX = 32)
     linker
-        .func_wrap(
-            "env",
-            "sophis_emit_event",
-            |mut caller: Caller<ExecutionContext>, payload_ptr: i32, payload_len: i32| -> i32 {
-                if caller.data().check_capability(&Capability::EmitEvent).is_err() {
-                    return -1;
-                }
-                // Per-tx cap is checked before we charge gas so a contract
-                // hitting the cap wastes nothing.
-                if caller.data().events.len() >= MAX_EVENTS_PER_TX {
-                    return -6;
-                }
-                // Reject negative or absurd lengths before touching memory.
-                if payload_len < 0 {
-                    return -5;
-                }
-                // Charge gas based on declared length up-front. The data-byte
-                // share covers worst-case before we know the parsed data_len;
-                // if the parser later rejects the payload the gas is still
-                // burned (matches the convention used by `verify_dilithium`
-                // and friends).
-                let base = caller.data().gas_config.event_emit_base_cost;
-                let per_byte = caller.data().gas_config.event_emit_per_byte_cost;
-                let cost = base.saturating_add(per_byte.saturating_mul(payload_len as u64));
-                if caller.data_mut().charge(Gas(cost)).is_err() {
-                    return -2;
-                }
-                let Some(payload) = read_one(&mut caller, payload_ptr, payload_len) else {
-                    return -5;
-                };
-                let parsed = match parse_emission_payload(&payload) {
-                    Ok(p) => p,
-                    Err(EventError::TopicCountOutOfRange(_)) => return -3,
-                    Err(EventError::DataTooLarge { .. }) => return -4,
-                    Err(EventError::Truncated { .. } | EventError::LengthMismatch { .. }) => return -5,
-                };
-                let contract_id = caller.data().contract_id;
-                caller.data_mut().events.push(BufferedEvent {
-                    contract_id,
-                    topics: parsed.topics,
-                    data: parsed.data,
-                });
-                0
-            },
-        )
+        .func_wrap("env", "sophis_emit_event", |mut caller: Caller<ExecutionContext>, payload_ptr: i32, payload_len: i32| -> i32 {
+            if caller.data().check_capability(&Capability::EmitEvent).is_err() {
+                return -1;
+            }
+            // Per-tx cap is checked before we charge gas so a contract
+            // hitting the cap wastes nothing.
+            if caller.data().events.len() >= MAX_EVENTS_PER_TX {
+                return -6;
+            }
+            // Reject negative or absurd lengths before touching memory.
+            if payload_len < 0 {
+                return -5;
+            }
+            // Charge gas based on declared length up-front. The data-byte
+            // share covers worst-case before we know the parsed data_len;
+            // if the parser later rejects the payload the gas is still
+            // burned (matches the convention used by `verify_dilithium`
+            // and friends).
+            let base = caller.data().gas_config.event_emit_base_cost;
+            let per_byte = caller.data().gas_config.event_emit_per_byte_cost;
+            let cost = base.saturating_add(per_byte.saturating_mul(payload_len as u64));
+            if caller.data_mut().charge(Gas(cost)).is_err() {
+                return -2;
+            }
+            let Some(payload) = read_one(&mut caller, payload_ptr, payload_len) else {
+                return -5;
+            };
+            let parsed = match parse_emission_payload(&payload) {
+                Ok(p) => p,
+                Err(EventError::TopicCountOutOfRange(_)) => return -3,
+                Err(EventError::DataTooLarge { .. }) => return -4,
+                Err(EventError::Truncated { .. } | EventError::LengthMismatch { .. }) => return -5,
+            };
+            let contract_id = caller.data().contract_id;
+            caller.data_mut().events.push(BufferedEvent { contract_id, topics: parsed.topics, data: parsed.data });
+            0
+        })
         .map_err(|e| RuntimeError::InstantiationFailed(e.to_string()))?;
 
     // sophis_vrf_random_at(chain_index, out_ptr) -> i32
@@ -450,37 +440,33 @@ pub fn register_host_functions(linker: &mut Linker<ExecutionContext>, crypto: Ar
     //  -5    out_ptr write would land out of WASM linear memory
     //  -6    chain_index < tip but the store cannot resolve it (pruned / unhealthy node)
     linker
-        .func_wrap(
-            "env",
-            "sophis_vrf_random_at",
-            |mut caller: Caller<ExecutionContext>, chain_index: i64, out_ptr: i32| -> i32 {
-                if caller.data().check_capability(&Capability::VrfRandomness).is_err() {
-                    return -1;
-                }
-                let cost = caller.data().gas_config.vrf_random_cost;
-                if caller.data_mut().charge(Gas(cost)).is_err() {
-                    return -2;
-                }
-                if chain_index < 0 {
-                    return -4;
-                }
-                let chain_index = chain_index as u64;
-                let vrf = Arc::clone(&caller.data().vrf);
-                if chain_index >= vrf.current_tip_index() {
-                    return -3;
-                }
-                let Some(bytes) = vrf.vrf_random_at(chain_index) else {
-                    return -6;
-                };
-                // Use the standard write helper but fix-size: pass -1 for
-                // out_len_ptr since the size is fixed (32 bytes); the helper
-                // skips the length write when the pointer is negative.
-                if write_to_memory(&mut caller, &bytes, out_ptr, -1) == 0 {
-                    return -5;
-                }
-                0
-            },
-        )
+        .func_wrap("env", "sophis_vrf_random_at", |mut caller: Caller<ExecutionContext>, chain_index: i64, out_ptr: i32| -> i32 {
+            if caller.data().check_capability(&Capability::VrfRandomness).is_err() {
+                return -1;
+            }
+            let cost = caller.data().gas_config.vrf_random_cost;
+            if caller.data_mut().charge(Gas(cost)).is_err() {
+                return -2;
+            }
+            if chain_index < 0 {
+                return -4;
+            }
+            let chain_index = chain_index as u64;
+            let vrf = Arc::clone(&caller.data().vrf);
+            if chain_index >= vrf.current_tip_index() {
+                return -3;
+            }
+            let Some(bytes) = vrf.vrf_random_at(chain_index) else {
+                return -6;
+            };
+            // Use the standard write helper but fix-size: pass -1 for
+            // out_len_ptr since the size is fixed (32 bytes); the helper
+            // skips the length write when the pointer is negative.
+            if write_to_memory(&mut caller, &bytes, out_ptr, -1) == 0 {
+                return -5;
+            }
+            0
+        })
         .map_err(|e| RuntimeError::InstantiationFailed(e.to_string()))?;
 
     // sophis_verify_da(ptr_payload_id, _padding, min_confirmations, query_kind) -> i32

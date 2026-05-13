@@ -136,7 +136,10 @@ fn canonical_vector_resolve_matches_dilithium_redeem_script_path() {
     let redeem = dilithium_redeem_script(vk.as_bytes()).expect("redeem");
     let direct_spk = pay_to_script_hash_script(&redeem);
 
-    assert_eq!(descriptor_spk, &direct_spk, "Descriptor resolve MUST match direct dilithium_redeem_script + pay_to_script_hash_script");
+    assert_eq!(
+        descriptor_spk, &direct_spk,
+        "Descriptor resolve MUST match direct dilithium_redeem_script + pay_to_script_hash_script"
+    );
 }
 
 #[test]

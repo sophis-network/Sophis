@@ -447,9 +447,6 @@ jobs:
       - name: Run cargo check of sophis-wrpc-wasm for wasm32 target
         run: cargo clippy -p sophis-wrpc-wasm --target wasm32-unknown-unknown
 
-      - name: Run cargo check of sophis-wallet-cli-wasm for wasm32 target
-        run: cargo clippy -p sophis-wallet-cli-wasm --target wasm32-unknown-unknown
-
       - name: Run cargo check of sophis-wasm for wasm32 target
         run: cargo clippy -p sophis-wasm --target wasm32-unknown-unknown
   
@@ -624,5 +621,5 @@ jobs:
           export RUSTFLAGS="$RUSTFLAGS -C link-arg=-Wl,--allow-multiple-definition"
           
           # Build other binaries first (without the allow-multiple-definition flag)
-          cargo build --bin sophisd --bin rothschild --bin sophis-wallet --bin stratum-bridge --release --target x86_64-unknown-linux-musl
+          cargo build --bin sophisd --bin rothschild --bin dilithium-wallet --bin stratum-bridge --release --target x86_64-unknown-linux-musl
           

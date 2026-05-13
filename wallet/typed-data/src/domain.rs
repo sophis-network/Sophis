@@ -148,8 +148,7 @@ mod tests {
         let d_min = TypedDataDomain::new("X", "1", NETWORK_DEVNET);
         assert_eq!(d_min.synthetic_schema().fields.len(), 3);
 
-        let d_full =
-            TypedDataDomain::new("X", "1", NETWORK_DEVNET).with_verifying_address([0; 32]).with_salt([0; 32]);
+        let d_full = TypedDataDomain::new("X", "1", NETWORK_DEVNET).with_verifying_address([0; 32]).with_salt([0; 32]);
         assert_eq!(d_full.synthetic_schema().fields.len(), 5);
     }
 

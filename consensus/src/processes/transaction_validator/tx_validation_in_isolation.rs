@@ -1008,5 +1008,4 @@ mod tests {
         let tx2 = tx_with_outputs(vec![mid]);
         tv.validate_tx_in_isolation(&tx2).expect("only the FIRST byte of the script triggers ALT classification");
     }
-
 }

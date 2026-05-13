@@ -63,53 +63,52 @@ fn mine_template(state: &State, template_refresh_ms: u64) -> Option<u64> {
 async fn main() {
     sophis_core::log::init_logger(None, "");
 
-    let m = Command::new("sophis-miner")
-        .about("Sophis CPU Miner — devnet/testnet")
-        .arg(
-            Arg::new("rpcserver")
-                .long("rpcserver")
-                .short('s')
-                .default_value("localhost:46610")
-                .help("Endereco gRPC do no (host:porta). Devnet node-0 = localhost:46610"),
-        )
-        .arg(
-            Arg::new("threads")
-                .long("threads")
-                .short('t')
-                .default_value("0")
-                .value_parser(clap::value_parser!(usize))
-                .help("Threads de mineracao (0 = todos os nucleos)"),
-        )
-        .arg(
-            Arg::new("mining-address")
-                .long("mining-address")
-                .short('a')
-                .required(true)
-                .help("Endereco Sophis Dilithium que recebe a recompensa coinbase (obrigatorio — gere com `dilithium-wallet new`)"),
-        )
-        .arg(
-            Arg::new("fast-mode")
-                .long("fast-mode")
-                .action(clap::ArgAction::SetTrue)
-                .help("Ativa RandomX Fast Mode (~2 GB RAM, ~10x hashrate). Requer ~2 min de inicializacao por epoch."),
-        )
-        .arg(Arg::new("donate-to").long("donate-to").value_name("ADDRESS").action(clap::ArgAction::Append).help(
-            "Endereco Sophis que recebe parte da recompensa coinbase (cliente-side, opt-in). \
+    let m =
+        Command::new("sophis-miner")
+            .about("Sophis CPU Miner — devnet/testnet")
+            .arg(
+                Arg::new("rpcserver")
+                    .long("rpcserver")
+                    .short('s')
+                    .default_value("localhost:46610")
+                    .help("Endereco gRPC do no (host:porta). Devnet node-0 = localhost:46610"),
+            )
+            .arg(
+                Arg::new("threads")
+                    .long("threads")
+                    .short('t')
+                    .default_value("0")
+                    .value_parser(clap::value_parser!(usize))
+                    .help("Threads de mineracao (0 = todos os nucleos)"),
+            )
+            .arg(
+                Arg::new("mining-address").long("mining-address").short('a').required(true).help(
+                    "Endereco Sophis Dilithium que recebe a recompensa coinbase (obrigatorio — gere com `dilithium-wallet new`)",
+                ),
+            )
+            .arg(
+                Arg::new("fast-mode")
+                    .long("fast-mode")
+                    .action(clap::ArgAction::SetTrue)
+                    .help("Ativa RandomX Fast Mode (~2 GB RAM, ~10x hashrate). Requer ~2 min de inicializacao por epoch."),
+            )
+            .arg(Arg::new("donate-to").long("donate-to").value_name("ADDRESS").action(clap::ArgAction::Append).help(
+                "Endereco Sophis que recebe parte da recompensa coinbase (cliente-side, opt-in). \
                      Pode ser repetido para split entre varias causas. Requer --donate-percent na mesma ordem. \
                      Sem lista oficial: o operador escolhe livremente.",
-        ))
-        .arg(
-            Arg::new("donate-percent")
-                .long("donate-percent")
-                .value_name("N")
-                .value_parser(clap::value_parser!(u8))
-                .action(clap::ArgAction::Append)
-                .help(
-                    "Percentual da recompensa que vai para a entrada --donate-to correspondente (0-100, inteiro). \
+            ))
+            .arg(
+                Arg::new("donate-percent")
+                    .long("donate-percent")
+                    .value_name("N")
+                    .value_parser(clap::value_parser!(u8))
+                    .action(clap::ArgAction::Append)
+                    .help(
+                        "Percentual da recompensa que vai para a entrada --donate-to correspondente (0-100, inteiro). \
                      A soma deve ser <= 100. Default: nenhum (100% pro minerador).",
-                ),
-        )
-        .get_matches();
+                    ),
+            )
+            .get_matches();
 
     let rpc_server = m.get_one::<String>("rpcserver").unwrap().clone();
     let threads = *m.get_one::<usize>("threads").unwrap();
