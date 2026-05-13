@@ -19,7 +19,7 @@ jobs:
         run: git config --global core.autocrlf false
 
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
@@ -111,7 +111,7 @@ jobs:
     name: Building WASM32 SDK
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
