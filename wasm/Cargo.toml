@@ -36,17 +36,32 @@ workflow-core.workspace = true
 workflow-wasm.workspace = true
 
 [features]
+# wasm32-sdk and wasm32-core re-export the wRPC client + rpc-core message
+# types via `wasm/src/lib.rs`. Those crates only expose those modules
+# under their own `wasm32-sdk` feature, so we must propagate the flag.
+# (wasm32-rpc already did this correctly; sdk and core were stale.)
 wasm32-sdk = [
     "sophis-pow/wasm32-sdk",
     "sophis-txscript/wasm32-sdk",
+    "sophis-consensus-core/wasm32-sdk",
+    "sophis-consensus-wasm/wasm32-sdk",
+    "sophis-rpc-core/wasm32-sdk",
+    "sophis-wrpc-client/wasm32-sdk",
+    "sophis-wrpc-wasm/wasm32-sdk",
 ]
 wasm32-core = [
     "sophis-pow/wasm32-sdk",
     "sophis-txscript/wasm32-sdk",
+    "sophis-consensus-core/wasm32-sdk",
+    "sophis-consensus-wasm/wasm32-sdk",
+    "sophis-rpc-core/wasm32-sdk",
+    "sophis-wrpc-client/wasm32-sdk",
+    "sophis-wrpc-wasm/wasm32-sdk",
 ]
 wasm32-rpc = [
     "sophis-consensus-core/wasm32-sdk",
     "sophis-consensus-wasm/wasm32-sdk",
+    "sophis-rpc-core/wasm32-sdk",
     "sophis-wrpc-client/wasm32-sdk",
     "sophis-wrpc-wasm/wasm32-sdk",
 ]

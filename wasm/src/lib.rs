@@ -145,11 +145,11 @@ For more details, please follow the [**Integrating with Sophis**](https://sophis
 #![allow(unused_imports)]
 
 #[cfg(all(
-    any(feature = "wasm32-sdk", feature = "wasm32-rpc", feature = "wasm32-core", feature = "wasm32-keygen"),
+    any(feature = "wasm32-sdk", feature = "wasm32-rpc", feature = "wasm32-core"),
     not(target_arch = "wasm32")
 ))]
 compile_error!(
-    "`sophis-wasm` crate for WASM32 target must be built with `--features wasm32-sdk|wasm32-rpc|wasm32-core|wasm32-keygen`"
+    "`sophis-wasm` crate for WASM32 target must be built with `--features wasm32-sdk|wasm32-rpc|wasm32-core`"
 );
 
 mod version;
