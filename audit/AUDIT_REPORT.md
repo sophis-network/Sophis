@@ -688,11 +688,30 @@ The CLAUDE.md `mainnet-mining/WALLET-PROCEDURE.md` already documents the canonic
 
 **Recommendation:** Combine 1 + 4 — reject mainnet keygen + expand the warning for testnet/devnet to mention the JSON-vs-mnemonic distinction.
 
-### 3.9 `wallet/{pskt,descriptors,filters,spv}` — to audit
+### 3.9 `wallet/pskt` (cold-storage flow) — Session 3 continuation, 2026-05-14
 
-⏳ pending: PSKT (partially-signed transaction), descriptors (BIP-380-equivalent), compact filters (BIP-157/158-equivalent K2), SPV light client (J5).
+| File | Verdict | Notes |
+|---|---|---|
+| `wallet/pskt/src/pskt.rs` | ✅ STRONG | Dilithium-only PSBS (D3/D4 spec). 6 BIP-174-style roles: `Creator`, `Updater`, `Signer`, `Combiner`, `Finalizer`, `Extractor`. Suporta multi-signer + air-gapped workflow exatamente como precisa para mainnet. **Mas** dilithium-wallet `cmd_keygen` não roteia mainnet pra esse fluxo por default → fonte de F-13. |
 
-### 3.10 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
+### 3.10 `mining/mempool` — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `mining/src/mempool/check_transaction_standard.rs` | ✅ STRONG | (a) tx version in `[min, max]` range; (b) compute_mass + transient_mass ≤ 10,000,000 (`MAXIMUM_STANDARD_TRANSACTION_MASS`); (c) sig script ≤ 4,096B (sized for Dilithium-2 P2SH sig = 2,424 + redeem 1,319 = 3,743); (d) v=3,4 (legacy rollup bridge) and v=5 (Phase 6 DA carrier) treated as protocol payloads — skip dust + non-standard-class checks for opaque borsh bodies. Mass cap protects against CPU-exhaustion DoS. |
+
+### 3.11 `sophisd` startup defaults — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `sophisd/src/args.rs` | ✅ STRONG | `unsafe_rpc: bool` defaults to `false` (line 109). Enables state-affecting RPC commands only when `--unsaferpc` flag or `SOPHISD_UNSAFERPC` env var is set. Correct posture: read-only RPC by default, opt-in for mutations. |
+| `sophisd/src/args.rs:171` | ✅ OK | `p2p_listen_address = ContextualNetAddress::unspecified()` (0.0.0.0) — correct for a node that must accept inbound peer connections. |
+
+### 3.12 `wallet/{descriptors,filters,spv}` + `protocol/flows/v7` — pending
+
+⏳ Not audited this session: wallet descriptors (BIP-380-equivalent), wallet/filters (BIP-157/158-equivalent K2), wallet/spv (J5 light client), full v7 protocol handler walk. The first three are recent roadmap items (#8 K2, #9 J5) with strong existing test counts (per coverage table) — likely ✅ STRONG on quick review, but full audit deferred.
+
+### 3.13 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
 ### 3.8 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
