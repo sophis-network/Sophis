@@ -268,7 +268,44 @@ fn prefix_for(network: &str) -> Prefix {
     }
 }
 
+/// Audit/F-13 (P1 mainnet blocker, fixed 2026-05-14):
+///
+/// The CLI wallet writes `signing_key_hex` + mnemonic to a plaintext JSON
+/// file. That is **safe for devnet/testnet** (throwaway value) but
+/// catastrophic for mainnet, where the canonical workflow is the
+/// air-gapped procedure documented in
+/// `mainnet-mining/WALLET-PROCEDURE.md` (Mnemonic on paper, JSON destroyed
+/// after install). The original `cmd_keygen` happily accepted
+/// `--network mainnet` and wrote the JSON anyway, with an on-screen
+/// warning that only mentioned the mnemonic — not the JSON itself.
+///
+/// This helper rejects mainnet keygen/restore with a clear message
+/// pointing the operator at the canonical procedure. It is called from
+/// `cmd_keygen` and `cmd_restore` because both produce the same plaintext
+/// JSON via `wallet.save(...)`.
+fn reject_mainnet_plaintext(network: &str, op: &str) {
+    if network == "mainnet" {
+        eprintln!();
+        eprintln!("╔══════════════════════════════════════════════════════════════════════╗");
+        eprintln!("║  ERRO — `dilithium-wallet {op}` recusa --network mainnet            ║");
+        eprintln!("║                                                                      ║");
+        eprintln!("║  Este CLI escreve um JSON em texto-claro contendo:                   ║");
+        eprintln!("║    - signing_key_hex (chave privada de 2560 bytes)                   ║");
+        eprintln!("║    - mnemonic (24 palavras BIP-39)                                   ║");
+        eprintln!("║                                                                      ║");
+        eprintln!("║  Para mainnet, o procedimento canonico e air-gapped:                 ║");
+        eprintln!("║    mainnet-mining/WALLET-PROCEDURE.md (9 passos, papel + offline)    ║");
+        eprintln!("║                                                                      ║");
+        eprintln!("║  Para uso testnet/devnet (throwaway), use --network testnet ou       ║");
+        eprintln!("║  --network devnet.                                                   ║");
+        eprintln!("╚══════════════════════════════════════════════════════════════════════╝");
+        eprintln!();
+        std::process::exit(2);
+    }
+}
+
 fn cmd_keygen(wallet_path: &PathBuf, network: &str) {
+    reject_mainnet_plaintext(network, "keygen");
     let prefix = prefix_for(network);
 
     let mnemonic = Mnemonic::random(WordCount::Words24, Language::English).expect("Falha ao gerar mnemônico BIP39");
@@ -287,10 +324,15 @@ fn cmd_keygen(wallet_path: &PathBuf, network: &str) {
     println!("  SK size   : {} bytes", SK_SIZE);
     println!("  Wallet    : {}", wallet_path.display());
     println!();
-    println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║              GUARDE ESTAS 24 PALAVRAS COM SEGURANÇA         ║");
-    println!("║  São a ÚNICA forma de recuperar sua wallet. Anote offline.  ║");
-    println!("╚══════════════════════════════════════════════════════════════╝");
+    println!("╔══════════════════════════════════════════════════════════════════════╗");
+    println!("║   GUARDE ESTAS 24 PALAVRAS COM SEGURANCA — papel, offline           ║");
+    println!("║   Sao a unica forma de recuperar a wallet.                          ║");
+    println!("║                                                                      ║");
+    println!("║   ATENCAO: o arquivo JSON em '{}' tambem contem", wallet_path.display());
+    println!("║   a sua signing_key em texto-claro. NAO sincronizar com cloud,       ║");
+    println!("║   NAO fazer git commit, NAO deixar em maquinas conectadas para uso  ║");
+    println!("║   alem de devnet/testnet (valor descartavel).                       ║");
+    println!("╚══════════════════════════════════════════════════════════════════════╝");
     println!();
     println!("  {}", phrase);
     println!();
@@ -299,6 +341,7 @@ fn cmd_keygen(wallet_path: &PathBuf, network: &str) {
 }
 
 fn cmd_restore(wallet_path: &PathBuf, phrase: &str, network: &str) {
+    reject_mainnet_plaintext(network, "restore");
     let prefix = prefix_for(network);
 
     let (vk, sk) = match derive_dilithium_from_mnemonic(phrase) {
