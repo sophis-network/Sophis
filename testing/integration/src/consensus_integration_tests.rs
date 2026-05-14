@@ -1869,8 +1869,7 @@ async fn validate_pruning_proof_accepts_fresh_node_round_trip() {
     // header we are syncing toward. Use the producer's chain tip.
     let tip_hash = *selected_chain.last().unwrap();
     let tip_header = producer.get_header(tip_hash).expect("F-6: tip header must be present in producer");
-    let metadata =
-        sophis_consensus_core::pruning::PruningProofMetadata::new(tip_header.blue_work);
+    let metadata = sophis_consensus_core::pruning::PruningProofMetadata::new(tip_header.blue_work);
 
     // ---- Stage 3: spin up a fresh "validator" consensus with the same
     // params and genesis, but no DAG state. This mirrors the IBD entry
@@ -1881,10 +1880,7 @@ async fn validate_pruning_proof_accepts_fresh_node_round_trip() {
 
     // ---- Stage 4: the assertion — the validator accepts the proof.
     let result = validator.validate_pruning_proof(proof.as_ref(), &metadata);
-    assert!(
-        result.is_ok(),
-        "F-6: validator must accept a proof produced under matching params + genesis; got {result:?}"
-    );
+    assert!(result.is_ok(), "F-6: validator must accept a proof produced under matching params + genesis; got {result:?}");
 
     producer.shutdown(producer_handles);
     validator.shutdown(validator_handles);
@@ -1925,24 +1921,19 @@ async fn validate_pruning_proof_rejects_truncated_proof() {
     // Get the proof, then mutate: drop the topmost block-level layer.
     let proof = producer.get_pruning_point_proof();
     assert!(proof.len() >= 2, "F-6 negative: proof must have at least 2 levels for truncation to be meaningful, got {}", proof.len());
-    let mut truncated: sophis_consensus_core::pruning::PruningPointProof =
-        proof.as_ref().clone();
+    let mut truncated: sophis_consensus_core::pruning::PruningPointProof = proof.as_ref().clone();
     truncated.pop(); // drop the topmost level
 
     let tip_hash = *selected_chain.last().unwrap();
     let tip_header = producer.get_header(tip_hash).expect("F-6 negative: tip header");
-    let metadata =
-        sophis_consensus_core::pruning::PruningProofMetadata::new(tip_header.blue_work);
+    let metadata = sophis_consensus_core::pruning::PruningProofMetadata::new(tip_header.blue_work);
 
     let validator_cfg = pruning_proof_test_config();
     let validator = TestConsensus::new(&validator_cfg);
     let validator_handles = validator.init();
 
     let result = validator.validate_pruning_proof(&truncated, &metadata);
-    assert!(
-        result.is_err(),
-        "F-6 negative: validator must reject a truncated proof; got {result:?}"
-    );
+    assert!(result.is_err(), "F-6 negative: validator must reject a truncated proof; got {result:?}");
 
     producer.shutdown(producer_handles);
     validator.shutdown(validator_handles);
@@ -2008,9 +1999,7 @@ async fn apply_pruning_proof_accepts_validated_proof() {
     let proof = producer.get_pruning_point_proof();
 
     // Assemble the trusted set from the producer's anticone data.
-    let trusted_data = producer
-        .get_pruning_point_anticone_and_trusted_data()
-        .expect("F-7: producer must yield trusted data");
+    let trusted_data = producer.get_pruning_point_anticone_and_trusted_data().expect("F-7: producer must yield trusted data");
     let mut trusted_set: Vec<sophis_consensus_core::trusted::TrustedBlock> = Vec::with_capacity(trusted_data.anticone.len());
     for &h in trusted_data.anticone.iter() {
         let block = producer.get_block(h).expect("F-7: block in anticone must be present in producer");

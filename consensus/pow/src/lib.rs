@@ -21,11 +21,7 @@
 // wasm32-unknown-unknown`) needs both exemptions: it does not enable the
 // `wasm32-sdk` feature on sophis-pow, but it does build for wasm32, so the
 // `target_arch` exemption is what unblocks it.
-#[cfg(all(
-    not(feature = "randomx"),
-    not(feature = "wasm32-sdk"),
-    not(target_arch = "wasm32"),
-))]
+#[cfg(all(not(feature = "randomx"), not(feature = "wasm32-sdk"), not(target_arch = "wasm32"),))]
 compile_error!(
     "sophis-pow requires either the 'randomx' feature (mainnet/testnet — default) \
      or the 'wasm32-sdk' feature (browser display) on native targets. Building \

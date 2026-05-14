@@ -108,8 +108,12 @@ mod tests {
             0,
             vec![],
         );
-        let utxos =
-            vec![UtxoEntry { amount: 2_000, script_public_key: ScriptPublicKey::new(0, smallvec::SmallVec::new()), block_daa_score: 0, is_coinbase: false }];
+        let utxos = vec![UtxoEntry {
+            amount: 2_000,
+            script_public_key: ScriptPublicKey::new(0, smallvec::SmallVec::new()),
+            block_daa_score: 0,
+            is_coinbase: false,
+        }];
         (tx, utxos)
     }
 
