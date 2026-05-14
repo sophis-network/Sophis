@@ -523,9 +523,78 @@ These are end-user CLI binaries. Integration / smoke tests on devnet implicitly 
 
 ## 3. Tier 1 — Operational security (Sessions 6-7)
 
-> ⏳ Pending.
+### 3.1 `svm/*` — sVM stack audit (Session 3 continuation, 2026-05-14)
 
-### 3.1 `svm/*`
+Audited files: `svm/host/src/lib.rs`, `svm/runtime/src/{validator,host,context}.rs`, `svm/lint/src/*`, `consensus/src/processes/transaction_validator/tx_validation_in_isolation.rs::validate_contract_deploy`.
+
+**Verdict per file:**
+
+| File | Verdict | Notes |
+|---|---|---|
+| `svm/host/src/lib.rs` | ✅ STRONG | All 4 host crypto methods (`verify_dilithium`, `sha3_384`, `verify_risc0_proof`, `verify_plonky3_proof`) correctly wired. `cfg(not(feature = "risc0"))` and `cfg(not(feature = "plonky3"))` branches explicitly *log + panic* rather than return `false` — prevents silent consensus fork between feature-on and feature-off nodes. Documented rationale in lines 38-58 and 65-82. |
+| `svm/runtime/src/validator.rs` | ✅ STRONG | 7 security layers confirmed: float scalar (f32/f64), float SIMD (F32x4/F64x2 NaN payload divergence), atomics/threads, shared-memory imports, unbounded memory, memory > 256 pages (16 MiB), bytecode size limit. Single entry point `validate_bytecode`; 16 unit tests per coverage data. |
+| `svm/runtime/src/host.rs` | ✅ STRONG | All 11 host fns gated with `check_capability(&Capability::X)` at function entry, returning a specific error code on missing capability: 0 for read paths, -1 for VRF/Alt/Event, -2 for DA. Coverage: see F-10 below for the residual "return-vs-trap" doc drift. |
+| `svm/runtime/src/context.rs` | ✅ STRONG | `check_capability` is a direct delegate to `manifest.has_capability(cap)`; correct.`ExecutionContext::new` defaults backends to safe stubs (`StubDa`, `StubAlt`, `StubVrf`) that are replaced by real backends only when consensus transaction validator wires them. |
+| `svm/lint/src/*` | ⚠️ GAP (see F-10) | Only 3 lints: `no_float`, `no_unchecked_arith`, `no_unsafe`. No lint enforces that the contract's `required_capabilities` matches the host fns it imports from `env::*`. |
+| `consensus/.../validate_contract_deploy` | ⚠️ GAP (see F-10) | Validates WASM bytecode (calls `validate_bytecode`), `contract_id == hash(wasm)`, and `upgrade_policy.is_valid()`. **Does not** post-validate that the contract's WASM `ImportSection` (from the `"env"` module) is consistent with the manifest's `required_capabilities`. |
+
+#### F-10 — Manifest / WASM-imports consistency not enforced at deploy time (P2)
+
+**Severity:** P2 — defense-in-depth gap, not a unilateral vulnerability.
+**Found:** Session 3 continuation, 2026-05-14.
+**Status:** open.
+
+**Description.** A contract declares `required_capabilities` in its `ContractManifest`. The runtime calls `check_capability` at every host-fn entry and returns a specific error code (0 / -1 / -2) if the capability is missing. The runtime does **not** trap, despite CLAUDE.md saying *"Wasmtime traps immediately if the contract calls a host function not listed in its ContractManifest.required_capabilities."* (`C:\Projetos\sophis\CLAUDE.md` original line.) Behavior is correct (graceful error) but diverges from doc.
+
+The deeper concern is that **no layer enforces consistency between the WASM's `(import "env" "verify_dilithium")` (et al.) and the manifest's `required_capabilities` array**:
+- `svm/lint/src/*` has rules for floats / unchecked arith / unsafe but not for imports-vs-capabilities.
+- `validate_contract_deploy` checks WASM bytecode + contract_id + upgrade_policy but not imports-vs-manifest.
+- Runtime `check_capability` is the only line of defense, returning an error code.
+
+**Attack model.** Self-harm only — a contract author who declares `required_capabilities = []` and then writes `let ok = env::verify_dilithium(...); /* ignore */ release_funds(...)` has shot their own foot, but only their own. **No cross-contract / cross-tx attack** is enabled because the runtime check still fires and the host fn still returns 0. There is no privilege escalation.
+
+The real-world risk is third-party contract libraries that internally call `env::*` host fns: if a library is imported into a parent contract that doesn't declare the necessary capability, the parent silently gets a failure return without any deploy-time signal.
+
+**Recommended mitigation (any of, P2 priority):**
+1. **Deploy-time check:** in `validate_contract_deploy`, walk the WASM `ImportSection` for `"env"` namespace, map each imported fn to its `Capability` (the registration in `host.rs` is the canonical map), and reject the deploy if any imported host fn maps to a `Capability` not in `manifest.required_capabilities`. Strongest mitigation.
+2. **Static lint:** add an `svm-lint` rule that inspects the contract's `#[sophis_contract]` macro expansion and confirms the manifest enumerates every capability used at the source level. Catches it at `cargo dylint` time.
+3. **Doc fix only:** update CLAUDE.md to say "returns an error code (graceful) rather than traps". Acceptable as a near-term placeholder, but does not eliminate the silent-failure third-party-library risk.
+
+**Why P2 not P1:** there is no cross-contract attack and no consensus-fork risk. The capability check is enforced; the gap is operator-side / library-side. Acceptable for testnet (which has no production-grade third-party WASM ecosystem yet); should be fixed before mainnet enables a contract-developer flywheel.
+
+### 3.2 `svm/sdk` + `svm/sdk-macros` (Session 3 continuation, 2026-05-14)
+
+**Verdict per file:**
+
+| File | Verdict | Notes |
+|---|---|---|
+| `svm/sdk-macros/src/lib.rs` | ✅ STRONG | `#[sophis_contract]` attribute macro walks the AST and rejects (a) `unsafe fn` on the outer signature, (b) `unsafe` blocks, (c) `unsafe fn` declarations inside, (d) float literals, (e) unchecked arithmetic operators (`+ - * / %`). Generates the `extern "C" fn validate() -> i32` entry point with the user's fn renamed to `__sophis_inner_<name>`. **The macro does *not* generate `ContractManifest::required_capabilities`** — that's separately declared by the deployer in the deploy tx payload. This is the structural origin of F-10. |
+| `svm/sdk/src/env.rs` | ⚠️ GAP (see F-11) | Declares 9 of the 11 host functions actually registered by `svm/runtime/src/host.rs`. **Missing from the SDK surface:** `sophis_alt_lookup` (Capability::ResolveAlt) and `sophis_verify_da` (Capability::VerifyDataAvailability). |
+
+#### F-11 — SDK surface incomplete: ALT and DA host fns not exposed (P2)
+
+**Severity:** P2 — ergonomics gap, not a security vulnerability.
+**Found:** Session 3 continuation, 2026-05-14.
+**Status:** open.
+
+**Description.** `svm/sdk/src/env.rs` declares the extern "C" shims that contract authors call via `env.verify_dilithium(...)`, `env.sha3_384(...)`, etc. The grep for `sophis_alt_lookup` and `sophis_verify_da` (or `alt_lookup` / `verify_da`) in the file returns **zero matches**, yet both are real host functions registered in `svm/runtime/src/host.rs` and have corresponding `Capability::ResolveAlt` and `Capability::VerifyDataAvailability` variants.
+
+Contracts that need to resolve L1 ALT references (e.g., a multisig contract spending v=1 transactions) or check Phase 6 DA presence (e.g., the rollup withdrawal contract, oracle aggregator) must therefore:
+1. Declare their own `extern "C" { fn sophis_alt_lookup(...) -> i32; }` block.
+2. Write their own unsafe FFI shim.
+3. Wire the call manually.
+
+**Why P2 not P1:** the runtime side is fully functional (host fns work). The capability check still fires (Capability::ResolveAlt / VerifyDataAvailability would still be in the manifest). The only impact is contract-author ergonomics + a higher barrier for third-party contract development.
+
+**Recommended fix.** Add to `svm/sdk/src/env.rs`:
+- `pub fn alt_lookup(&self, handle: &[u8; 6], index: u8) -> Option<Vec<u8>>` calling `sophis_alt_lookup`.
+- `pub fn verify_da(&self, hash: &[u8; 48], min_confirmations: u32, query_kind: u8) -> Result<DaPresence, DaError>` calling `sophis_verify_da`.
+
+Mirror the existing `verify_dilithium` / `emit_event` shim style. Update `svm/sdk` semantic version to signal new SDK surface to downstream consumers.
+
+### 3.3 `dilithium-wallet` + `wallet/*`
+
+### 3.3 `dilithium-wallet` + `wallet/*`
 ### 3.2 `dilithium-wallet` + `wallet/*`
 ### 3.3 `rpc/*`
 ### 3.4 `mining` + `miner` (incl. donate flag)
