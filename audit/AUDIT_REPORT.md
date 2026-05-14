@@ -707,9 +707,49 @@ The CLAUDE.md `mainnet-mining/WALLET-PROCEDURE.md` already documents the canonic
 | `sophisd/src/args.rs` | ✅ STRONG | `unsafe_rpc: bool` defaults to `false` (line 109). Enables state-affecting RPC commands only when `--unsaferpc` flag or `SOPHISD_UNSAFERPC` env var is set. Correct posture: read-only RPC by default, opt-in for mutations. |
 | `sophisd/src/args.rs:171` | ✅ OK | `p2p_listen_address = ContextualNetAddress::unspecified()` (0.0.0.0) — correct for a node that must accept inbound peer connections. |
 
-### 3.12 `wallet/{descriptors,filters,spv}` + `protocol/flows/v7` — pending
+### 3.12 `wallet/{descriptors,filters,spv}` — Session 3 continuation, 2026-05-14
 
-⏳ Not audited this session: wallet descriptors (BIP-380-equivalent), wallet/filters (BIP-157/158-equivalent K2), wallet/spv (J5 light client), full v7 protocol handler walk. The first three are recent roadmap items (#8 K2, #9 J5) with strong existing test counts (per coverage table) — likely ✅ STRONG on quick review, but full audit deferred.
+| File | Verdict | Notes |
+|---|---|---|
+| `wallet/descriptors/src/parse.rs` | ✅ STRONG | Checksum validation **before** body parsing (fail-fast on typos). Each error path returns a specific `ParseError` variant. Single-pass recursive-descent parser; no external parser-combinator dependency surface. `VK_HEX_LEN = 2624` (Dilithium-2 VK hex). |
+| `wallet/spv/src/header_chain.rs` (J5) | ✅ STRONG | Pure function `validate_header_link(prev, next)`: 3 explicit checks — (a) `next.selected_parent_hash == prev.hash`, (b) `next.blue_score > prev.blue_score` (strict monotonic), (c) `next.daa_score >= prev.daa_score` (non-decreasing, equality allowed for GHOSTDAG mergeset edge cases). PoW verification delegated to caller (correct separation of concerns). Tests in `#[cfg(test)]` mod. |
+| `wallet/filters/src/filter.rs` (K2) | ✅ STRONG | BIP-158 *shape* with Sophis-canonical primitives: SHA3-384 (not SipHash-2-4), `DOMAIN_SEPARATOR = b"sophis-cf-v1\0"` (ABI-frozen 14-byte separator matching the `sophis-{subsystem}-v1\0` pattern), `GOLOMB_RICE_P = 19` / `M = 524_288` ABI-frozen. `map_to_range` uses the widening-multiply unbiased range mapping `((raw as u128) * range) >> 64` — explicit defense against the modulo-bias pitfall. |
+
+### 3.13 `mining/mempool` config + validation pipeline — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `mining/src/mempool/config.rs` | ✅ STRONG | All caps bounded: 1M tx count, 1GB mempool size, 500 orphans, 100KB orphan mass, 5 block-template attempts, 1000-sompi/kg min relay fee. `apply_ram_scale` only scales **down** (`ram_scale.min(1.0)`) — operator cannot accidentally inflate limits via runtime flag. Expire intervals tuned per `target_milliseconds_per_block` so the cleanup cadence tracks the BPS rate. |
+| `mining/src/mempool/validate_and_insert_transaction.rs` | ✅ STRONG | Two-phase pipeline `pre_validate_and_populate_transaction` + `post_validate_and_insert_transaction` with defense-in-depth duplicate-check + unacceptance re-check before insertion. Missing-outpoint failures routed to orphan pool (bounded by `maximum_orphan_transaction_count`). RBF (replace-by-fee) feerate gate enforced separately. |
+
+### 3.14 `sophisd` daemon startup — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `sophisd/src/daemon.rs:552-558` | ✅ STRONG | `p2p_server_addr = args.listen.unwrap_or(ContextualNetAddress::unspecified())` — defaults p2p to all interfaces (correct for inbound peer accept). `grpc_server_addr = args.rpclisten.unwrap_or(ContextualNetAddress::loopback())` — **gRPC defaults to 127.0.0.1**, matching the wRPC default at the service layer. No way to accidentally expose RPC remotely without explicit operator action. |
+| `sophisd/src/args.rs:62, 115` | ✅ STRONG | `rpc_max_clients: 128` default. `main.rs:42` deducts `rpc_max_clients + inbound_limit + outbound_target` from the process fd budget — file-descriptor accounting is explicit; runaway RPC clients cannot starve consensus or block-relay sockets. |
+
+### 3.15 Tier 1 — overall verdict (Session 3 closure)
+
+**Audit coverage achieved:** 17 critical-perimeter areas. Verdicts: **15 ✅ STRONG + 4 ⚠️ GAP**:
+
+```
+✅ svm/host, svm/runtime/{validator, host, context}, svm/sdk-macros
+⚠️ svm/sdk env.rs (F-11), svm/lint + validate_contract_deploy (F-10)
+✅ mining/{donate, check_transaction_standard, mempool config, validate pipeline}
+✅ wallet/{typed-data/digest, bip39/{seed,phrase}, pskt, descriptors, filters, spv}
+✅ dilithium-wallet derive + helpers
+⚠️ dilithium-wallet cmd_keygen (F-13)
+✅ rpc/wrpc bind defaults
+✅ sophisd args + daemon startup (loopback RPC, fd budget)
+✅ protocol/flows IBD disconnect + banned_address_store
+⚠️ protocol/flows banning strategy (F-12)
+```
+
+**Tier 1 segments deferred** (not blocking testnet, but worth a pass before mainnet flywheel):
+- `mining/manager.rs` + `block_template/` selectors — heavy on combinatorics, well-tested per coverage data; skim verdict pending
+- `protocol/flows/v7/*` message handlers in detail (F-8 documents the 0% coverage cluster; the disconnect-on-misbehavior pattern verified above is the load-bearing safety)
+- `wallet/pskt/src/{bundle,crypto,input,output,global}.rs` (helpers around the audited `pskt.rs` core)
 
 ### 3.13 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
