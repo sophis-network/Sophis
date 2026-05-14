@@ -1,0 +1,40 @@
+# ─── Dockerfile.kani ────────────────────────────────────────────────────────
+# Pre-testnet audit — Kani formal verification on Linux.
+#
+# Kani 0.67+ on Windows fails to compile (`Command::arg0` is gated on
+# `std::os::unix::process::CommandExt`). Inside Linux Docker the install
+# completes and `cargo kani` is fully functional. This image installs
+# Kani on top of the existing audit toolchain so the existing source
+# COPY layer is reused.
+#
+# Usage (from repo root):
+#   docker build -f docker/Dockerfile.kani -t sophis-kani-proofs .
+#   docker run --rm sophis-kani-proofs cat /tmp/kani-proofs.log
+# ────────────────────────────────────────────────────────────────────────────
+
+FROM rust:1.94-bookworm AS kani
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake clang libclang-dev protobuf-compiler pkg-config libssl-dev \
+      build-essential curl python3 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LIBCLANG_PATH=/usr/lib/llvm-14/lib
+
+# Kani 0.67 — installs cargo-kani + cargo-kani-driver. `cargo kani setup`
+# then downloads the CBMC + kani-compiler dependencies (~hundreds of MB).
+RUN cargo install --locked kani-verifier
+RUN cargo kani setup
+
+WORKDIR /app
+COPY . .
+
+# Run all Kani proofs in sophis-kani-proofs. `|| true` keeps the image
+# build green even if any proof fails (we surface the result via the
+# log) so a developer can `docker run sophis-kani-proofs cat ...` to
+# inspect.
+RUN cargo kani --package sophis-kani-proofs 2>&1 \
+    | tee /tmp/kani-proofs.log \
+    || true
+
+CMD [ "cat", "/tmp/kani-proofs.log" ]

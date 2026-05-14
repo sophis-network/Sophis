@@ -655,11 +655,15 @@ This is a Bitcoin Core-style policy; the Kaspa upstream may have had a partial i
 | `dilithium-wallet/src/main.rs` derivation + crypto helpers | ✅ STRONG | `derive_dilithium_from_mnemonic` zeroizes the 32-byte randomness slice after use (line 104). Calls `Mnemonic::new` for validation. ML-DSA-44 key generation via `libcrux_ml_dsa::ml_dsa_44::generate_key_pair`. Integer arithmetic everywhere in fee / mass calculations (`saturating_sub`, `div_ceil`). |
 | `dilithium-wallet/src/main.rs::cmd_keygen` + `wallet.save` | ⚠️ **F-13 (P1)** | Generates and writes **plaintext** JSON wallet file containing `signing_key_hex` and `mnemonic` when invoked with `--network mainnet`. The on-screen warning (lines 290-294) tells the user "guarde estas 24 palavras offline" but does **not** warn that the JSON file also embeds the signing key. See F-13. |
 
-#### F-13 — `dilithium-wallet --network mainnet` writes plaintext signing key to disk (P1)
+#### F-13 — `dilithium-wallet --network mainnet` writes plaintext signing key to disk (P1) ✅ FIXED
 
 **Severity:** P1 — must fix before mainnet launch.
 **Found:** Session 3 continuation, 2026-05-14.
-**Status:** open.
+**Status:** ✅ **fixed in commit `7b5231c` (Session 5, 2026-05-14)**. Added `reject_mainnet_plaintext(network, op)` helper invoked from `cmd_keygen` AND `cmd_restore` BEFORE any cryptographic material is generated or any file is touched. When `network == "mainnet"`, prints a clear error box pointing the operator at `mainnet-mining/WALLET-PROCEDURE.md` (the canonical air-gapped 9-step procedure) and exits with code 2. For testnet/devnet, the on-screen warning was expanded to explicitly call out that the JSON itself contains the signing key in plaintext.
+
+Runtime smoke verified on Windows:
+- `dilithium-wallet keygen --network mainnet` → exit 2, **no file created** ✅
+- `dilithium-wallet keygen --network testnet` → exit 0, address printed ✅ (with new expanded warning visible)
 
 **Description.** `dilithium-wallet/src/main.rs` is declared at line 1 as "CLI PQC Wallet para Devnet/Testnet Sophis" — devnet/testnet only. But the `--network` CLI argument (line 1088) accepts `["devnet", "testnet", "mainnet"]` with no guard, and `prefix_for("mainnet")` (line 266) returns `Prefix::Mainnet`, fully wiring mainnet support into the CLI.
 
@@ -753,6 +757,84 @@ The CLAUDE.md `mainnet-mining/WALLET-PROCEDURE.md` already documents the canonic
 
 ### 3.13 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
+---
+
+## 3.14 New findings from Session 5 (impeccable-tests pipeline, 2026-05-14)
+
+#### F-14 — Phase 6 adversarial test runner: 3 stale filter paths (test-runner bug) ✅ FIXED
+
+**Severity:** test infrastructure (not production code).
+**Found:** Session 5, 2026-05-14, during `python devnet/test_phase6_da_attacks.py` first run.
+**Status:** ✅ **fixed in script `G:\Meu Drive\Claude\Sophis\devnet\test_phase6_da_attacks.py` (Session 5, 2026-05-14)**. Script lives in `G:\` (Google Drive), not in the git repo; the fix is on the operator's machine.
+
+**Description.** The adversarial runner invokes `cargo test --lib -p <PKG> <FILTER> -- --exact`. The `--exact` flag requires the filter to match the full test path including all parent modules. Three filters in `THREATS[T5, T9, T11]` omitted the `processes::transaction_validator::` module prefix, so cargo found 0 matching tests and the runner reported `[FAIL] (cargo exit=0, passed=0, failed=0)` for them:
+
+- `tx_validation_in_isolation::tests::carrier_rule_13_too_many_in_single_tx`
+- `tx_validation_in_isolation::tests::carrier_happy_path_multiple_within_cap`
+- `tx_validation_in_isolation::tests::carrier_parse_error_lifts_to_carrier_malformed`
+
+All three tests **do exist** (manually verified: `processes::transaction_validator::tx_validation_in_isolation::tests::carrier_rule_13_too_many_in_single_tx` ran exit 0 / 1 passed on its own). The defenses behind T5 (per-tx cap rule 13), T9 (rule 13 + malformed parse), and T11 (storage griefing) are intact. **Only the test-runner output was misleading.**
+
+**Fix.** Prepended `processes::transaction_validator::` to the three filter strings. Re-run: **all 13 threats green in 164.3 s**.
+
+#### F-15 — Math fuzz targets don't compile (P1)
+
+**Severity:** P1 — pre-mainnet (fuzz coverage missing on BlueWork / chain-work arithmetic).
+**Found:** Session 5, 2026-05-14, during `docker build -f docker/Dockerfile.fuzz`.
+**Status:** open.
+
+**Description.** `math/fuzz/fuzz_targets/{u128,u192,u256}.rs` each invoke `construct_uint!(UintN, N)` from `sophis-math::uint`. The macro expands to include `#[wasm_bindgen]` annotations and `js_sys::*` references for the WASM target surface. The main `sophis-math` crate has `wasm_bindgen` and `js_sys` as dependencies, but the `math/fuzz` crate's `Cargo.toml` does NOT. Compilation fails:
+
+```
+error[E0433]: cannot find module or crate `wasm_bindgen` in this scope
+  --> fuzz_targets/u128.rs:10:1
+   |
+10 | construct_uint!(Uint128, 2);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `wasm_bindgen`
+```
+
+Reproduced for u128, u192, u256.
+
+**Impact.** The 3 math fuzz targets have never run since the WASM bindings landed in `construct_uint!`. BlueWork (`Uint256`) feeds into `min_chain_work` + `max_chain_work_seen` (anti-long-range-attack) and into PoW target checks — a regression there would be silent. **Coverage-guided fuzzing on this arithmetic was effectively zero** for the duration of the regression.
+
+**Recommended fix (any of):**
+1. Add `wasm-bindgen` and `js-sys` as `[dev-dependencies]` in `math/fuzz/Cargo.toml` (smallest patch; lets the macro expansion resolve to deps that fuzz target binary will simply not link against on Linux).
+2. Feature-gate the `#[wasm_bindgen]` annotations inside `construct_uint!` to a `wasm32-sdk` feature; require the macro caller to opt in.
+3. Provide a `construct_uint_minimal!` variant for non-WASM consumers (fuzz, kani-proofs, tests) that omits the WASM annotations.
+
+Recommendation (1) is the smallest change to unblock fuzzing. (2) is the cleanest long-term but requires editing every call site.
+
+#### F-16 — `devnet/rothschild_wallet.json` was a pre-Dilithium-migration secp256k1 keypair (test-data, not code)
+
+**Severity:** test-data drift (not production code).
+**Found:** Session 5, 2026-05-14, after `sophis-miner -a <old_rothschild_address>` panicked with `InvalidVersion(0)`.
+**Status:** open — guidance only; no code change required.
+
+**Description.** The `devnet/rothschild_wallet.json` file on the audit machine was dated 18/04/2026, **before** the 2026-05-04 PQC pivot and the corresponding rothschild migration to Dilithium-internal signing. The schema was the legacy two-field shape:
+
+```json
+{ "private_key": "5508760d...82e6", "address": "sophisdev:qp7t6ent0..." }
+```
+
+`private_key` is 32 bytes hex (64 chars) — the size of a secp256k1 private key, not the 2560-byte Dilithium-2 signing key. Result: the address it encodes is a v=0 secp256k1 P2PKH-style address; the current `sophis-miner` parser correctly rejects it as `InvalidVersion(0)`.
+
+The CURRENT rothschild binary's auto-keygen produces the correct Dilithium-format wallet (32-byte ML-DSA-44 randomness seed + Dilithium address starting with `qfur2...`).
+
+**Impact.** Throughput-test plumbing (`devnet/throughput_test.py`) failed on this audit machine because (a) the old wallet was loaded by default, and (b) the script's regex for the new keygen output didn't extract the address cleanly. **No production code is affected** — the miner correctly rejects the legacy address.
+
+**Recommendation:** delete the stale `devnet/rothschild_wallet.json` and let the throughput test regenerate it; also fix `devnet/throughput_test.py`'s output parser to match the current rothschild output line shape (`[INFO ] Generated seed <hex> and address <addr>`). Audit-machine-only; not a code finding.
+
+### 3.15 Pipeline runs completed in Session 5
+
+| Run | Tool | Result | Duration |
+|---|---|---|---|
+| Phase 6 adversarial (post-F-14 fix) | `python devnet/test_phase6_da_attacks.py` | ✅ **13/13 threats PASS** | 164.3 s |
+| Kani formal proofs (Linux Docker) | `docker run sophis-kani-proofs` | ✅ **19/19 harnesses VERIFIED** | one-shot |
+| Math fuzz (Linux Docker, all 3 targets) | `docker run sophis-fuzz` | ❌ **compile error — F-15** | failed at build |
+| F-13 runtime smoke (Windows) | `dilithium-wallet keygen --network mainnet` | ✅ exit 2, no file | < 1 s |
+| F-13 runtime smoke (Windows) | `dilithium-wallet keygen --network testnet` | ✅ exit 0, file + warning | < 1 s |
+| Throughput test (Windows) | `python devnet/throughput_test.py run --tps N` | ⏳ deferred — coordination gap (F-16) | — |
+
 ### 3.8 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
 ---
@@ -791,6 +873,45 @@ Phase 5 ZK-Oracle (legacy `ed25519` STARK trust chain) is marked deprecated 2026
 `consensus/core/src/da/` (codec + types) audited at Tier 0 (constants ABI-frozen, tests in place). `consensus/src/model/stores/da.rs` (RocksDB store) exercised in Tier 2 here via the full test suite. `Capability::VerifyDataAvailability` dispatch confirmed wired in `svm/runtime/src/host.rs` (Tier 1 §3.1). No code findings.
 
 ### 4.4 Phase 9 PQC oracle ✅ STRONG
+
+### 4.5 Phase 6 adversarial test matrix — Session 5 (impeccable tests pipeline, 2026-05-14)
+
+Ran `devnet/test_phase6_da_attacks.py` (sub-fase 6.7 adversarial runner mapping the 13 threats from `oracle/docs/PHASE6_DA_DESIGN.md` §9 to cargo test filters).
+
+**Result (after F-14 fix):** ✅ **PASS in 164.3 s** — 100% of expected rejections fire, zero spurious accepts, zero panics.
+
+- 8 covered threats (T1, T2, T5, T7, T9, T10, T11, T13) — all cargo test filters green
+- 2 skipped threats (T6 censorship, T8 reorgs) — multi-node Byzantine simulation out of unit-test scope
+- 3 doc-only threats (T3 hash collision, T4 quantum preimage, T12 CRQC vs ML-DSA-44) — captured by cryptographic-assumption choice (SHA3-384, ML-DSA)
+
+**Initial run found 3 stale test-filter paths** — see F-14 below.
+
+### 4.6 Kani formal verification — Session 5 (impeccable tests pipeline, 2026-05-14)
+
+Built `docker/Dockerfile.kani` (rust:1.94-bookworm + `cargo install --locked kani-verifier` + `cargo kani setup`). Ran `cargo kani --package sophis-kani-proofs` inside Linux container.
+
+**Result:** ✅ **19 / 19 harnesses verified** (Manual Harness Summary: "Complete - 19 successfully verified harnesses, 0 failures, 19 total"). CBMC 6.8.0 / CaDiCaL 2.0.0 backend.
+
+Proofs cover:
+- `Gas::saturating_add` totality + monotonicity (no panic, result ≥ each operand)
+- `GasConfig::storage_deposit` totality (≥ `STORAGE_BASE_DEPOSIT` for all `datum_bytes`)
+- `GasConfig::default()` invariants (positive costs, `risc0 > dilithium`, `plonky3 > dilithium`, `risc0 > plonky3`)
+- `Capability::VerifyRisc0Proof` distinct from all other variants
+- `Capability::VerifyPlonky3Proof` distinct from all other variants
+- `UpgradePolicy::Immutable` always valid
+- `UpgradePolicy::OwnerTimelock` valid iff `min_blocks ≥ UPGRADE_MIN_BLOCKS`
+- `UpgradePolicy::MultisigTimelock` validity edge cases (empty keys, zero threshold, threshold > keys.len(), boundary)
+- Boundary at `UPGRADE_MIN_BLOCKS - 1` (invalid) vs `UPGRADE_MIN_BLOCKS` (valid)
+
+The `any_capability()` symbolic enumerator was updated to cover all **11** Capability variants (commit `ed88a4d`) so future uniqueness-style proofs exhaust the variant space.
+
+### 4.7 Math fuzz — Session 5
+
+**Result:** ❌ **F-15 discovered** — see findings below.
+
+`math/fuzz/fuzz_targets/{u128,u192,u256}.rs` call `construct_uint!` macro from `sophis-math::uint`, which expands to references of `wasm_bindgen` and `js_sys` — neither of which is in `math/fuzz/Cargo.toml`. Three fuzz targets fail at compile time with `error[E0433]: cannot find module or crate 'wasm_bindgen'`. The targets have never actually exercised the BlueWork / chain-work arithmetic since the WASM bindings were added to `construct_uint`.
+
+`docker/Dockerfile.fuzz` was authored to run `cargo +nightly fuzz run u{128,192,256} -- -max_total_time=60` and is preserved for re-use after the fix; it reproduces the compile error inside the container so the failure is captured deterministically.
 
 `oracle/pqc-{core,contract,publisher,tests}` all pass. `pqc-core/src/sign.rs::sign_journal` + `verify_signed_bundle` exercise Dilithium ML-DSA-44 directly (no STARK trust chain — replaces Phase 5 ed25519). The integration scenarios in `oracle/pqc-tests/src/scenarios.rs` (13 tests per coverage data) cover the publisher → relayer → aggregator pipeline end-to-end. **Verdict:** the PQC-native oracle that replaces Phase 5 (per SIP-11) is production-ready.
 

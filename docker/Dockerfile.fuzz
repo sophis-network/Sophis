@@ -1,0 +1,57 @@
+# ─── Dockerfile.fuzz ────────────────────────────────────────────────────────
+# Pre-testnet audit — coverage-guided fuzzing of `math/fuzz/` targets.
+#
+# cargo-fuzz requires nightly Rust + libFuzzer (Linux/macOS). Inside this
+# image we install rustup + nightly + cargo-fuzz, then run the 3 math
+# fuzz targets (u128, u192, u256) each for a bounded duration so the
+# image build completes in a reasonable amount of time.
+#
+# Usage (from repo root):
+#   docker build -f docker/Dockerfile.fuzz -t sophis-fuzz .
+#   docker run --rm sophis-fuzz cat /tmp/fuzz-results.log
+# ────────────────────────────────────────────────────────────────────────────
+
+FROM rust:1.94-bookworm AS fuzz
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake clang libclang-dev protobuf-compiler pkg-config libssl-dev \
+      build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LIBCLANG_PATH=/usr/lib/llvm-14/lib
+
+# Install nightly toolchain so cargo-fuzz can compile with libFuzzer.
+RUN rustup toolchain install nightly
+RUN cargo install --locked cargo-fuzz
+
+WORKDIR /app
+COPY . .
+
+# Run each math fuzz target for a bounded duration. The targets here
+# (u128, u192, u256) cover the limb-arithmetic surface of the BlueWork
+# / chain-work types used in consensus rules; a regression here would
+# show as a panic / overflow within seconds. `-max_total_time=60`
+# bounds each run to 60 seconds so the image build stays finite.
+# `|| true` keeps the image build green even if fuzzer reports a crash;
+# the log preserves the result.
+WORKDIR /app/math/fuzz
+
+# u128 — common cases
+RUN cargo +nightly fuzz run u128 -- -max_total_time=60 2>&1 \
+    | tee /tmp/fuzz-u128.log || true
+
+# u192 — wider integers (used in Uint256 inner storage)
+RUN cargo +nightly fuzz run u192 -- -max_total_time=60 2>&1 \
+    | tee /tmp/fuzz-u192.log || true
+
+# u256 — BlueWork / chain-work type
+RUN cargo +nightly fuzz run u256 -- -max_total_time=60 2>&1 \
+    | tee /tmp/fuzz-u256.log || true
+
+# Consolidated summary file
+RUN { echo "=== u128 ==="; tail -20 /tmp/fuzz-u128.log; \
+      echo ""; echo "=== u192 ==="; tail -20 /tmp/fuzz-u192.log; \
+      echo ""; echo "=== u256 ==="; tail -20 /tmp/fuzz-u256.log; } \
+    > /tmp/fuzz-results.log
+
+CMD [ "cat", "/tmp/fuzz-results.log" ]
