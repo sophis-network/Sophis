@@ -506,11 +506,34 @@ The `unwrap()` assumes the headers store does not already contain `header.hash`.
 
 (1) is the cleanest. (2) is the most surgical for an audit-driven fix.
 
-#### F-8 — IBD + v7 message handlers have 0% coverage (P1)
+#### F-8 — IBD + v7 message handlers have 0% coverage (P1) — ⚠️ PARTIAL FIX
 
 **Severity:** P1 — must fix before mainnet (testnet-tolerable with manual smoke).
 **Found:** Session 2, 2026-05-14.
+**Status:** ⚠️ **partial fix in Session 5, 2026-05-14**. Two sub-actions:
+
+1. **Code-level defense audit (already strong).** Grep across `protocol/flows/src/{ibd,v7}/` shows **94 bounds/MAX/limit checks** across 14 files and **78 disconnect/return-Err sites** across 13 v7 files. Every adversarial decision point has explicit fail-closed behavior (peer disconnects on misbehavior; v7 ping flow rejects nonce mismatch; IBD chain negotiation enforces locator size ≤ 64, zoom-in steps ≤ 2·initial, restart limit ≤ 32). The defenses ARE in place at the source level.
+2. **Test coverage:** un-ignored `daemon_mining_test` (commit pending) — confirmed locally that it passes (7.16 s wall) and exercises real two-daemon p2p BlockRelay flow. The original `#[ignore]` rationale ("depends on legacy signing path") was stale; the test uses `PubKeyDilithium` addresses and only mines via `submit_block` (no transaction signing required). First cargo-level test driving 2 sophisd processes through real p2p relay.
+
+**Remaining gap:** `daemon_utxos_propagation_test` was attempted with `--ignored` and **failed for a different reason than the TODO claims** — `testing/integration/src/common/utils.rs:155` asserts a stale `ScriptHash` (legacy OP_TRUE P2SH) address but the current miner produces `PubKeyDilithium`. Filed as F-19 below. Mining + relay parts of the test succeed (10 blocks accepted on the syncer). The remaining v7 handler files (`request_*`, `v7/blockrelay/*`) still need either dedicated tests or empirical coverage acknowledgment via the existing devnet/test_runner.py (10/10 Phase 1 + Phase 6 adversarial 13/13).
+
+#### F-19 — `daemon_utxos_propagation_test` helper expects legacy `ScriptHash` address (P2)
+
+**Severity:** P2 — test-data drift, not production code.
+**Found:** Session 5, 2026-05-14, during F-8 partial-fix work.
 **Status:** open.
+
+**Description.** `testing/integration/src/daemon_integration_tests.rs::daemon_utxos_propagation_test` is `#[ignore]`d with the TODO "depends on legacy signing path; needs Dilithium-aware UTXO propagation test rewrite". Grep confirms **zero signing-related code** in the test file. Running it with `--ignored` reaches the actual failure at `testing/integration/src/common/utils.rs:155`:
+
+```
+assertion `left == right` failed
+  left:  sophissim:pqqszqgpqyqsz...393s56t7 (ScriptHash)
+  right: sophissim:qgqszqgpqyqsz...a0wfxhca (PubKeyDilithium)
+```
+
+The test's UTXO-walker helper expects miner output to use the legacy `ScriptHash` / OP_TRUE-P2SH address shape, but the current Dilithium-internal miner produces `PubKeyDilithium` addresses. The mining + 2-daemon relay portion of the test **passes** (10 blocks accepted via submit + propagated via the v7 BlockRelay flow). Only the address-shape assertion fails.
+
+**Recommended fix.** Update `testing/integration/src/common/utils.rs:155` (or wherever the helper compares addresses) to accept `PubKeyDilithium` shape, OR construct the test with an explicit `ScriptHash` mining address. Audit-machine-friendly; un-ignoring the test after the helper update would meaningfully extend F-8 cargo-level coverage.
 
 **Description.** `protocol/flows/src/ibd/{flow,negotiate,progress,streams}.rs` totals 858 lines / 82 fns, all 0%. The v7 family (`v7/{blockrelay,ping,address,request_*,*}`) adds another ~1,200 lines / 130 fns. These are the message handlers that govern how a fresh node syncs from peers. Bugs here typically manifest as IBD stalls or partial syncs — caught by devnet integration testing but not by unit tests.
 

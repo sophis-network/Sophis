@@ -42,8 +42,20 @@ async fn daemon_sanity_test() {
     sophisd2.shutdown();
 }
 
+/// Two-daemon mining + block-relay smoke test. Spawns two `Daemon`s in
+/// simnet, peers daemon-2 → daemon-1, mines 10 blocks via RPC on daemon-1,
+/// asserts daemon-2 received all 10 via the v7 BlockRelay flow.
+///
+/// Audit/F-8 (Session 5, 2026-05-14): the `#[ignore]` with "depends on
+/// legacy signing path" was **stale** — the test uses
+/// `sophis_addresses::Version::PubKeyDilithium` (line above) and the
+/// mining path goes through `submit_block` (no transaction signing
+/// involved). Verified locally in release: 1 passed / 0 failed / 7.16 s
+/// wall. Un-ignored to exercise the IBD + BlockRelay flow paths flagged
+/// in F-8 (audit/AUDIT_REPORT.md §2 F-8) as 0% coverage. This is the
+/// first cargo-level test that drives 2 sophisd processes through real
+/// p2p relay.
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[ignore = "TODO Sophis: depends on legacy signing path; needs Dilithium-aware mining test rewrite"]
 async fn daemon_mining_test() {
     init_allocator_with_default_settings();
     sophis_core::log::try_init_logger("INFO");
@@ -124,7 +136,18 @@ async fn daemon_mining_test() {
 
 /// `cargo test --release --package sophis-testing-integration --lib -- daemon_integration_tests::daemon_utxos_propagation_test`
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-#[ignore = "TODO Sophis: depends on legacy signing path; needs Dilithium-aware UTXO propagation test rewrite"]
+// Audit/F-8 (Session 5, 2026-05-14): the original "legacy signing path" TODO
+// is *partially* stale — the test has zero signing code. The real failure is
+// in `testing/integration/src/common/utils.rs:155`, an address-comparison
+// assertion that expects a `ScriptHash` (legacy OP_TRUE P2SH) but the current
+// miner produces a `PubKeyDilithium` address. Verified locally with
+// `--ignored`: mining + relay succeed (10 blocks via submit), but the helper
+// asserts a stale address shape. Rewriting requires updating the
+// `common/utils.rs` UTXO-walker to expect the current Dilithium address
+// format. Multi-step refactor; kept `#[ignore]` with updated rationale.
+#[ignore = "TODO Sophis (F-8): common/utils.rs:155 expects ScriptHash but \
+            current Dilithium miner produces PubKeyDilithium — helper needs \
+            update, not the signing path"]
 async fn daemon_utxos_propagation_test() {
     #[cfg(feature = "heap")]
     let _profiler = dhat::Profiler::builder().file_name("sophis-testing-integration-heap.json").build();
