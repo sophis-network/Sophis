@@ -1,24 +1,38 @@
-// Audit guard (Session 1, finding F-1 — 2026-05-14):
-// A non-WASM build of `sophis-pow` without the `randomx` feature would compile
-// the legacy `Matrix::heavy_hash` + `PowHash` fallback path. That path predates
+// Audit guard (Session 1 finding F-1, 2026-05-14; condition refined Session 5
+// after CI revealed a regression on the WASM32 build job):
+//
+// A *native* build of `sophis-pow` without the `randomx` feature compiles the
+// legacy `Matrix::heavy_hash` + `PowHash` fallback path. That path predates
 // Sophis's switch to RandomX (PoW = RandomX only, per CLAUDE.md invariants) and
 // is consensus-incompatible with the mainnet/testnet protocol: a node built
-// without RandomX would reject every block produced by the network. The default
-// feature in this crate's manifest is `randomx`, and every downstream consumer
-// (`consensus`, `miner`, `bridge`, `testing/integration`) explicitly requests
-// `features = ["randomx"]`. This `compile_error!` closes the door for anyone
-// building with `--no-default-features` (or pulling `sophis-pow` from an
-// out-of-tree workspace that forgets to set the feature). The WASM build path
-// (`wasm32-sdk` feature) intentionally retains kHeavyHash for browser miners
-// that connect to a real pool via Stratum — those builds set `wasm32-sdk` and
-// are exempt from this guard.
-#[cfg(all(not(feature = "randomx"), not(feature = "wasm32-sdk")))]
+// without RandomX would reject every block produced by the network.
+//
+// Exemptions to the guard:
+//   1. `feature = "wasm32-sdk"` — explicit browser-miner build that
+//      ships kHeavyHash for display + connects to a real miner via Stratum.
+//   2. `target_arch = "wasm32"` — any wasm32 target (WASM SDK, web bindings,
+//      compact-filters JS bridge). `randomx-rs` does not compile to wasm32
+//      anyway; the workspace exposes WASM crates that pull `sophis-pow`
+//      transitively for type definitions, not for hashing. Forcing the
+//      `randomx` feature on a wasm32 build would break every downstream
+//      wasm32 consumer.
+//
+// The CI WASM32 job (`cargo clippy -p sophis-wasm --target
+// wasm32-unknown-unknown`) needs both exemptions: it does not enable the
+// `wasm32-sdk` feature on sophis-pow, but it does build for wasm32, so the
+// `target_arch` exemption is what unblocks it.
+#[cfg(all(
+    not(feature = "randomx"),
+    not(feature = "wasm32-sdk"),
+    not(target_arch = "wasm32"),
+))]
 compile_error!(
     "sophis-pow requires either the 'randomx' feature (mainnet/testnet — default) \
-     or the 'wasm32-sdk' feature (browser display). Building without RandomX on a \
-     native target compiles the legacy kHeavyHash fallback, which is incompatible \
-     with the network's PoW consensus rules. Either remove `--no-default-features` \
-     or add `--features randomx`."
+     or the 'wasm32-sdk' feature (browser display) on native targets. Building \
+     without RandomX on a native target compiles the legacy kHeavyHash fallback, \
+     which is incompatible with the network's PoW consensus rules. Either remove \
+     `--no-default-features` or add `--features randomx`. wasm32 targets are \
+     exempt — randomx-rs does not build on wasm32."
 );
 
 // public for benchmarks
