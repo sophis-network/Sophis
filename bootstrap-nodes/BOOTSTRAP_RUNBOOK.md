@@ -67,21 +67,32 @@ sudo systemctl is-active sophisd-mainnet sophisd-testnet faucet
 
 Incremental rebuilds take 5–10 minutes on Ampere A1.
 
-### Add a new peer to `--connect`
+### Add a new peer with `--addpeer`
 
-If you want bootstraps to deterministically peer with a specific node:
+If you want bootstraps to deterministically peer with a specific node
+(use case: pre-DNS-seeder rollout, or pinning a known-good peer for
+debugging), use `--addpeer`:
 
 ```bash
-ssh ubuntu@bootstrap1.sophis.org
-sudo sed -i "s|--utxoindex|--utxoindex --connect=<peer-ip>:46111|" \
+ssh root@bootstrap1.sophis.org
+sudo sed -i "s|--utxoindex|--utxoindex --addpeer=<peer-ip>:46111|" \
     /etc/systemd/system/sophisd-mainnet.service
 sudo systemctl daemon-reload
 sudo systemctl restart sophisd-mainnet
 ```
 
-The cloud-init does NOT pre-wire `--connect` between the two bootstraps —
-peer discovery handles it. Use this only for debugging or to add organic
-peers as the network grows.
+> ⚠️ **Do NOT use `--connect=` for this.** `--connect` (inherited from
+> the Kaspa CLI) puts sophisd in **client-only mode**: outbound connection
+> to the named peer only, no inbound listener, no peer discovery.
+> `systemctl is-active` will report `active` but `ss -tlnp` will show no
+> LISTEN on the P2P port — external monitors will see it as DOWN.
+> `--addpeer` pins the peer to the contact list AND keeps the listener
+> + discovery alive — that's what you want for a public bootstrap.
+
+This was used at first launch (2026-05-14) to pin node 2 → node 1
+because no DNS seeders were live yet. Once roadmap item #2 (DNS
+seeders) deploys, the `--addpeer` lines can be removed and peer
+discovery becomes automatic.
 
 ### Reset a node's data (nuclear — keep the SSH keys, lose the chain)
 

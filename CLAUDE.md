@@ -116,6 +116,36 @@ sVM contracts emit structured events via `sophis_emit_event` host fn (`Capabilit
 | Borsh RPC | 47110 |
 | JSON RPC | 48110 |
 
+Testnet ports add 100 (P2P 46211, gRPC 46210, etc.).
+
+### Production bootstrap infrastructure (deployed 2026-05-14)
+
+Two Hetzner Cloud VMs running `sophisd-mainnet` + `sophisd-testnet`,
+cloud-init defined in `bootstrap-nodes/cloud-init/`:
+
+| Role | Location | IP | Plan | Services |
+|------|----------|------|------|----------|
+| `sophis-bootstrap1` | Hillsboro, OR | `5.78.211.57` | CPX11 (2 GB) | sophisd-mainnet/testnet, faucet, nginx, fail2ban |
+| `sophis-bootstrap2` | Nuremberg, DE | `178.105.175.220` | CX23 (~4 GB) | sophisd-mainnet/testnet, fail2ban |
+
+Both pinned in two continents (US ↔ EU) for jurisdictional + backbone
+diversity. Node 2 is pinned to node 1 with `--addpeer=5.78.211.57:46111`
+(and `:46211` for testnet). **Do NOT use `--connect=`** — that flag
+puts sophisd into client-only mode (no inbound listener, no discovery),
+silently breaking external peering even though `systemctl is-active`
+reports `active`.
+
+Manual peer pinning is the pre-mainnet fallback; once DNS seeders ship
+(roadmap item #2), peer discovery becomes automatic and the `--addpeer`
+lines can be dropped.
+
+UptimeRobot monitors the 4 P2P ports + the faucet HTTPS endpoint
+(5 monitors, 5-min interval, email alerts).
+
+Full deploy notes + 8-bug post-mortem in
+`bootstrap-nodes/HETZNER_SETUP_GUIDE.md` and
+`bootstrap-nodes/BOOTSTRAP_RUNBOOK.md`.
+
 ### ZK-Rollup L2 (`rollup/`)
 
 Phase 3 complete. Seven crates:
