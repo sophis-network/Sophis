@@ -118,15 +118,15 @@ sVM contracts emit structured events via `sophis_emit_event` host fn (`Capabilit
 
 Testnet ports add 100 (P2P 46211, gRPC 46210, etc.).
 
-### Production bootstrap infrastructure (deployed 2026-05-14)
+### Production testnet infrastructure (deployed 2026-05-14)
 
 Two Hetzner Cloud VMs running `sophisd-mainnet` + `sophisd-testnet`,
 cloud-init defined in `bootstrap-nodes/cloud-init/`:
 
 | Role | Location | IP | Plan | Services |
 |------|----------|------|------|----------|
-| `sophis-bootstrap1` | Hillsboro, OR | `5.78.211.57` | CPX11 (2 GB) | sophisd-mainnet/testnet, faucet, nginx, fail2ban |
-| `sophis-bootstrap2` | Nuremberg, DE | `178.105.175.220` | CX23 (~4 GB) | sophisd-mainnet/testnet, fail2ban |
+| `sophis-bootstrap1` | Hillsboro, OR | `5.78.211.57` | CPX11 (2 GB) | sophisd-mainnet/testnet, faucet, nginx, fail2ban, dnsseeder-testnet |
+| `sophis-bootstrap2` | Nuremberg, DE | `178.105.175.220` | CX23 (~4 GB) | sophisd-mainnet/testnet, fail2ban, dnsseeder-testnet |
 
 Both pinned in two continents (US ↔ EU) for jurisdictional + backbone
 diversity. Node 2 is pinned to node 1 with `--addpeer=5.78.211.57:46111`
@@ -135,16 +135,74 @@ puts sophisd into client-only mode (no inbound listener, no discovery),
 silently breaking external peering even though `systemctl is-active`
 reports `active`.
 
-Manual peer pinning is the pre-mainnet fallback; once DNS seeders ship
-(roadmap item #2), peer discovery becomes automatic and the `--addpeer`
-lines can be dropped.
+#### DNS seeders
 
-UptimeRobot monitors the 4 P2P ports + the faucet HTTPS endpoint
-(5 monitors, 5-min interval, email alerts).
+Each host also runs `sophis-dnsseeder` on UDP/53 to publish a rolling
+list of reachable peer IPs as DNS A records. Cloudflare delegates
+`testnet-seed.sophis.org` to `ns1.sophis.org` + `ns2.sophis.org`
+(A-records to the two bootstraps), so `nslookup -type=A
+testnet-seed.sophis.org` returns reachable testnet peers.
+`TESTNET_PARAMS.dns_seeders` in `consensus/core/src/config/params.rs`
+points at this hostname so fresh testnet nodes bootstrap automatically.
+
+Gotcha for fresh installs: Ubuntu 24.04 ships `systemd-resolved` with
+a stub listener that squats UDP/53. Drop in
+`bootstrap-nodes/systemd/resolved-no-stub.conf` (also commits the
+`/etc/resolv.conf` symlink fix) before starting the dnsseeder unit.
+
+Mainnet seeder unit is committed at
+`bootstrap-nodes/systemd/sophis-dnsseeder-mainnet.service` but **not
+enabled** — both seeders cannot coexist on the same host (single
+UDP/53). Activates when mainnet ships.
+
+#### Faucet HTTPS
+
+`https://faucet.sophis.org/` runs on bootstrap1 via the
+`testnet-faucet` Rust crate behind nginx with Let's Encrypt cert
+(auto-renew every 60 days). Cloudflare A-record is currently
+`DNS only` (gray cloud) — proxy can be flipped on later if traffic
+or DDoS pressure justifies, but ACME renewals need a Page Rule
+bypass for `/.well-known/acme-challenge/*` in that case.
+
+The faucet wallet is at `/var/lib/sophis-faucet/wallet.json` on
+bootstrap1. Address visible via
+`sudo jq -r .address /var/lib/sophis-faucet/wallet.json`. Needs to
+be funded before `/drip` will dispense.
+
+Pitfall hit during first deploy: running `certbot --nginx --redirect`
+on the cloud-init's pre-baked vhost (with `listen 443 ssl` lines
+commented out so nginx could come up before any cert existed) causes
+certbot to inject a parallel `:443` server block whose only directive
+is the HTTPS-to-HTTPS redirect — endless loop. Documented fix is in
+`bootstrap-nodes/BOOTSTRAP_RUNBOOK.md` under "Faucet HTTPS — certbot
++ nginx pitfall"; the cleaner path for the next operator is
+`certbot certonly --webroot` + manual sed-uncomment of the SSL lines.
+
+#### Monitoring
+
+UptimeRobot watches 4 P2P ports + the faucet HTTPS endpoint
+(5 monitors total, 5-minute interval, email alerts). The DNS
+seeders are reachable via UDP/53 — UptimeRobot's free tier does
+TCP probes only, so they're not on the monitor list directly;
+operationally they're covered by the sophisd-testnet monitors
+(if the host's down, the seeder's down too).
 
 Full deploy notes + 8-bug post-mortem in
 `bootstrap-nodes/HETZNER_SETUP_GUIDE.md` and
 `bootstrap-nodes/BOOTSTRAP_RUNBOOK.md`.
+
+### Public-facing endpoints (live as of 2026-05-14)
+
+| URL | Served by | Purpose |
+|-----|-----------|---------|
+| `https://sophis.org/` | Cloudflare Pages (repo `sophis-network/Sophis.eth`) | Institutional site, 18 pages EN/PT/ES |
+| `https://sophis.org/Whitepaper.pdf` | Cloudflare Pages | Whitepaper v1.0, 27 pp (canonical source: `Whitepaper.md` in this repo) |
+| `https://faucet.sophis.org/` | nginx on bootstrap1 | Testnet faucet UI |
+| `https://faucet.sophis.org/status` | nginx → testnet-faucet | Wallet balance JSON |
+| `https://faucet.sophis.org/drip` | nginx → testnet-faucet | POST endpoint, rate-limited |
+| `testnet-seed.sophis.org` (UDP/53) | sophis-dnsseeder on both bootstraps | Testnet peer discovery |
+| `5.78.211.57:46111` / `178.105.175.220:46111` | sophisd-mainnet | P2P (mainnet) |
+| `5.78.211.57:46211` / `178.105.175.220:46211` | sophisd-testnet | P2P (testnet) |
 
 ### ZK-Rollup L2 (`rollup/`)
 
