@@ -592,13 +592,60 @@ Contracts that need to resolve L1 ALT references (e.g., a multisig contract spen
 
 Mirror the existing `verify_dilithium` / `emit_event` shim style. Update `svm/sdk` semantic version to signal new SDK surface to downstream consumers.
 
-### 3.3 `dilithium-wallet` + `wallet/*`
+### 3.3 `mining` + `miner` (donate flag) — Session 3 continuation, 2026-05-14
 
-### 3.3 `dilithium-wallet` + `wallet/*`
-### 3.2 `dilithium-wallet` + `wallet/*`
-### 3.3 `rpc/*`
-### 3.4 `mining` + `miner` (incl. donate flag)
-### 3.5 Anti-long-range-attack (`max_chain_work_seen` + `min_chain_work`)
+| File | Verdict | Notes |
+|---|---|---|
+| `miner/src/donate.rs` | ✅ STRONG | `MAX_DONATION_OUTPUTS = 8` cap; `parse_donations` enforces length match + cap + percent sum ≤ 100 (u32 to safely catch overflow) + prefix match across all entries; `compute_split` uses u128 arithmetic to prevent overflow during `total_value * pct / 100`, `saturating_sub` prevents underflow, rounding remainder always accrues to miner; `rewrite_coinbase_outputs` preserves miner output at index 0 (tooling compatibility); 18 unit tests per coverage map. **Aligned with Operational Boundaries Statement** — no core-team curated NGO list, opt-in client-side. |
+
+### 3.4 `wallet/typed-data` (J2 typed signing) — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `wallet/typed-data/src/digest.rs` | ✅ STRONG | `TYPED_SIGNING_PREFIX = [0x73, 0x01]` ABI-frozen with explicit test (`prefix_bytes_are_frozen_abi`); `compute_typed_digest = SHA3-384(prefix \|\| domain_separator \|\| struct_hash)` truncated to 32 bytes; deterministic schema lookup. Mirrors EIP-712 structure with Sophis-native primitives. 35 tests per CLAUDE.md. |
+
+### 3.5 RPC stack (auth + bind defaults) — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `rpc/wrpc/server/src/service.rs` | ✅ STRONG | Default `listen_address: "127.0.0.1:47110"` — localhost-only by default, matches Bitcoin/Ethereum RPC security posture. `MAX_WRPC_MESSAGE_SIZE = 128 MB` caps incoming WS frames. **Minor:** lines 73-80 contain a commented-out `handshake::greeting(...)` block marked `TODO - discuss and implement handshake` — dead-code TODO since the operational posture is "no auth at RPC layer; operator runs reverse proxy with TLS/auth if exposing remotely". Recommend deleting the dead block (not a security issue, just clutter). |
+| `sophisd/src/args.rs:171` | ✅ OK | `config.p2p_listen_address = ContextualNetAddress::unspecified()` defaults p2p to all interfaces (0.0.0.0), which is correct — a p2p node must accept incoming peer connections. |
+
+### 3.6 Protocol flows + peer banning (F-8 area) — Session 3 continuation, 2026-05-14
+
+| File | Verdict | Notes |
+|---|---|---|
+| `protocol/flows/src/ibd/flow.rs` | ⚠️ TODO-noisy | The IBD flow correctly disconnects peers on misbehavior at 8+ call sites (`streams.rs:166`, `flow.rs:293/308/418/582/640/725/896`). But line 79 carries the bare TODO *"define a peer banning strategy"* and lines 293, 308, 418 say *"consider performing additional actions on finality conflicts in addition to disconnecting from the peer (e.g., banning, rpc notification)"*. **The mechanism exists** (`components/addressmanager/src/stores/banned_address_store.rs` implements `BannedAddressesStore` with `set/get/remove` keyed by IPv6-mapped address and a `ConnectionBanTimestamp`). What's missing is the *policy* — how a misbehaving peer transitions from "disconnect once" to "added to the ban store". See F-12 below. |
+| `components/addressmanager/src/stores/banned_address_store.rs` | ✅ STRONG | Store implementation is clean: IPv4→IPv6-mapped key (16 bytes), per-IP ConnectionBanTimestamp, `set/get/remove` semantics. Ready for callers. |
+
+#### F-12 — Peer banning strategy not defined (P2)
+
+**Severity:** P2 — testnet-tolerable; pre-mainnet hardening recommended.
+**Found:** Session 3 continuation, 2026-05-14.
+**Status:** open.
+
+**Description.** The peer-banning *mechanism* is fully implemented. The IBD + p2p flows correctly *disconnect* misbehaving peers at every adversarial decision point. **What's missing** is the *strategy* that promotes "disconnected" to "banned" — i.e., the per-IP score that tracks repeated misbehavior across reconnections and writes to the ban store after a threshold.
+
+Without this strategy, a malicious peer:
+1. Connects to a node.
+2. Submits invalid IBD message → gets disconnected.
+3. Immediately reconnects.
+4. Repeats.
+
+Each individual disconnect is correct, but the aggregate behavior is "infinite retries with no cost". CPU/memory cost per disconnect is small, but it's a DoS-amplification surface.
+
+**Recommended mitigation.** Define a peer-score policy at the `protocol/flows` or `protocol/p2p` layer:
+- Per-IP score, decay with time, increment on disconnect cause.
+- Threshold → write to `BannedAddressesStore` with a ban duration (e.g., 24h initial, exponential backoff on repeat).
+- Connection accept hook reads the store before handshake; reject banned IPs.
+
+This is a Bitcoin Core-style policy; the Kaspa upstream may have had a partial implementation that the Sophis fork preserved but did not finish wiring.
+
+### 3.7 `dilithium-wallet` + `wallet/{bip39,pskt,descriptors,filters,spv}` — to audit
+
+⏳ pending: wallet CLI binary (1,142 lines main.rs, F-9), BIP-39 mnemonic, PSKT (partially-signed transaction), descriptors (BIP-380-equivalent), compact filters, SPV light client.
+
+### 3.8 Anti-long-range-attack confirmed Session 1 §1.6 — no further action.
 
 ---
 
