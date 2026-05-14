@@ -1,0 +1,58 @@
+# ─── Dockerfile.audit ───────────────────────────────────────────────────────
+# Pre-testnet audit Tier 2 — runs `cargo test --workspace --features svm-zk`
+# inside a clean Linux container so the risc0 host code path (Phase 3
+# rollup verifier + Phase 9 PQC oracle + Phase 6 DA self-DA verifier +
+# Phase 5 legacy oracle) is exercised end-to-end.
+#
+# Mirrors Dockerfile.sophisd's builder stage 1:1 for environment parity;
+# the only difference is the RUN at the bottom — we run tests instead of
+# building the production binary.
+#
+# Usage (from repo root):
+#   docker build -f docker/Dockerfile.audit -t sophis-audit-tier2 .
+# After the build completes (with `|| true` to keep the image even if
+# tests fail), the captured `cargo test` output lives at
+# `/tmp/tier2-test.log` inside the image:
+#   docker run --rm sophis-audit-tier2 cat /tmp/tier2-test.log
+# ────────────────────────────────────────────────────────────────────────────
+
+FROM rust:1.94-bookworm AS audit
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      cmake \
+      clang \
+      libclang-dev \
+      protobuf-compiler \
+      pkg-config \
+      libssl-dev \
+      build-essential \
+      curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LIBCLANG_PATH=/usr/lib/llvm-14/lib
+
+# risc0 toolchain (registers the "risc0" rustup toolchain + cpp toolchain
+# needed for guest cross-compile + STARK kernel C++ shims).
+RUN curl -fsSL https://risczero.com/install | bash
+ENV PATH="/root/.risc0/bin:${PATH}"
+RUN rzup install rust && rzup install cpp
+
+WORKDIR /app
+
+# Copy the workspace. `.dockerignore` excludes target/ and .git so this
+# brings only source + Cargo.toml + Cargo.lock + manifest assets.
+COPY . .
+
+# Run the workspace test suite with svm-zk feature. `|| true` keeps the
+# image build green even if individual tests fail, so we can inspect
+# results via `docker run sophis-audit-tier2 cat /tmp/tier2-test.log`.
+# `--no-fail-fast` reports every failing test instead of stopping at the
+# first one — important for surfacing all Tier 2 surface issues in a
+# single pass.
+RUN cargo test --workspace --features svm-zk --no-fail-fast 2>&1 \
+    | tee /tmp/tier2-test.log \
+    || true
+
+# Default command pages through the captured log so the developer can run
+# the image without extra flags.
+CMD [ "cat", "/tmp/tier2-test.log" ]
