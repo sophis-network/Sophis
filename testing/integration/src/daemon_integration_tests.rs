@@ -136,18 +136,23 @@ async fn daemon_mining_test() {
 
 /// `cargo test --release --package sophis-testing-integration --lib -- daemon_integration_tests::daemon_utxos_propagation_test`
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-// Audit/F-8 (Session 5, 2026-05-14): the original "legacy signing path" TODO
-// is *partially* stale — the test has zero signing code. The real failure is
-// in `testing/integration/src/common/utils.rs:155`, an address-comparison
-// assertion that expects a `ScriptHash` (legacy OP_TRUE P2SH) but the current
-// miner produces a `PubKeyDilithium` address. Verified locally with
-// `--ignored`: mining + relay succeed (10 blocks via submit), but the helper
-// asserts a stale address shape. Rewriting requires updating the
-// `common/utils.rs` UTXO-walker to expect the current Dilithium address
-// format. Multi-step refactor; kept `#[ignore]` with updated rationale.
-#[ignore = "TODO Sophis (F-8): common/utils.rs:155 expects ScriptHash but \
-            current Dilithium miner produces PubKeyDilithium — helper needs \
-            update, not the signing path"]
+/// Two-daemon UTXO propagation smoke test. Mirrors `daemon_mining_test` but
+/// goes further: after the syncer receives all coinbase blocks, the test
+/// constructs a transaction, broadcasts it, and verifies UTXO/notification
+/// propagation across both nodes via the v7 BlockRelay + UtxosChanged flows.
+///
+/// Audit/F-8 + F-19 (Session 5, 2026-05-14): the original "legacy signing
+/// path" TODO was stale. F-19 (helper drift in `common/utils.rs:155`,
+/// fixed in this commit) was the first blocker — script-space equivalence
+/// now bridges the `PubKeyDilithium` vs canonicalized `ScriptHash` shape
+/// gap. With that fix, the test progresses further (line 155 → line 121),
+/// but a second wait_for in the propagation phase times out, suggesting a
+/// downstream notification or relay issue not captured by F-19. Kept
+/// `#[ignore]` with updated rationale; follow-up issue tracked as F-20.
+#[ignore = "TODO Sophis (F-20): after F-19 fix the test reaches a wait_for \
+            timeout at common/utils.rs:121 in the propagation phase — needs \
+            investigation of which assertion fires and whether it is a real \
+            relay / notification regression or just another stale assertion"]
 async fn daemon_utxos_propagation_test() {
     #[cfg(feature = "heap")]
     let _profiler = dhat::Profiler::builder().file_name("sophis-testing-integration-heap.json").build();

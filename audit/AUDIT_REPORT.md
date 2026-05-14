@@ -517,11 +517,13 @@ The `unwrap()` assumes the headers store does not already contain `header.hash`.
 
 **Remaining gap:** `daemon_utxos_propagation_test` was attempted with `--ignored` and **failed for a different reason than the TODO claims** — `testing/integration/src/common/utils.rs:155` asserts a stale `ScriptHash` (legacy OP_TRUE P2SH) address but the current miner produces `PubKeyDilithium`. Filed as F-19 below. Mining + relay parts of the test succeed (10 blocks accepted on the syncer). The remaining v7 handler files (`request_*`, `v7/blockrelay/*`) still need either dedicated tests or empirical coverage acknowledgment via the existing devnet/test_runner.py (10/10 Phase 1 + Phase 6 adversarial 13/13).
 
-#### F-19 — `daemon_utxos_propagation_test` helper expects legacy `ScriptHash` address (P2)
+#### F-19 — `daemon_utxos_propagation_test` helper expects legacy `ScriptHash` address (P2) ✅ FIXED
 
 **Severity:** P2 — test-data drift, not production code.
 **Found:** Session 5, 2026-05-14, during F-8 partial-fix work.
-**Status:** open.
+**Status:** ✅ **fixed in Session 5, 2026-05-14**. `testing/integration/src/common/utils.rs::fetch_spendable_utxos` now compares the queried address and the indexer-returned address **in script-space** (via `pay_to_address_script`), bridging the `PubKeyDilithium` (caller) vs canonicalized `ScriptHash` (indexer) shape gap. The downstream test assertion still verifies the UTXO's `script_public_key` matches the expected miner script — that check is unaffected.
+
+Verified: `daemon_utxos_propagation_test --release --ignored` now progresses past line 155 of utils.rs and reaches line 121 (a different `wait_for` timeout in the propagation phase). The new failure is filed as **F-20**.
 
 **Description.** `testing/integration/src/daemon_integration_tests.rs::daemon_utxos_propagation_test` is `#[ignore]`d with the TODO "depends on legacy signing path; needs Dilithium-aware UTXO propagation test rewrite". Grep confirms **zero signing-related code** in the test file. Running it with `--ignored` reaches the actual failure at `testing/integration/src/common/utils.rs:155`:
 
@@ -534,6 +536,26 @@ assertion `left == right` failed
 The test's UTXO-walker helper expects miner output to use the legacy `ScriptHash` / OP_TRUE-P2SH address shape, but the current Dilithium-internal miner produces `PubKeyDilithium` addresses. The mining + 2-daemon relay portion of the test **passes** (10 blocks accepted via submit + propagated via the v7 BlockRelay flow). Only the address-shape assertion fails.
 
 **Recommended fix.** Update `testing/integration/src/common/utils.rs:155` (or wherever the helper compares addresses) to accept `PubKeyDilithium` shape, OR construct the test with an explicit `ScriptHash` mining address. Audit-machine-friendly; un-ignoring the test after the helper update would meaningfully extend F-8 cargo-level coverage.
+
+#### F-20 — `daemon_utxos_propagation_test` second wait_for times out in propagation phase (P2)
+
+**Severity:** P2 — test-data drift, not production code.
+**Found:** Session 5, 2026-05-14, after F-19 fix unblocked further progress.
+**Status:** open.
+
+**Description.** After F-19 fixed the `common/utils.rs:155` address-shape assertion, `daemon_utxos_propagation_test --ignored` progressed from line 155 to **line 121** of the same file — the generic `wait_for` helper's "max_iterations reached" panic. The panic_message is one of the `wait_for` calls in `daemon_utxos_propagation_test`; the exact one wasn't captured in the bounded log tail. Total runtime jumped from ~2 s (line 155 failure) to ~25 s (line 121 failure), indicating the test now reaches deeper into the test body.
+
+The remaining wait_for sites in the propagation phase are:
+- "the nodes did not add and relay all the initial blocks" (line 233-244)
+- Several UTXO / balance / notification polling loops further down
+
+Without a deeper investigation, two hypotheses:
+1. A real timing or notification regression in the v7 BlockRelay or UtxosChanged flows.
+2. Another stale assertion expecting legacy data shape (e.g., balance amount calculation diverging from the Dilithium-aware coinbase subsidy table).
+
+**Recommended fix (post-testnet).** Re-run with `--nocapture` and search for the specific panic_message; trace which wait_for is timing out; verify whether it's a real bug or another stale shape. This is the next step to fully close F-8.
+
+**Why P2 (and not blocking):** the production code paths are exercised end-to-end by `devnet/test_runner.py` (10/10 Phase 1 + Phase 6 adversarial 13/13). The cargo-level `daemon_mining_test` (now un-ignored) covers 2-node BlockRelay. F-20 is "broader cargo-level coverage of UtxosChanged + relay", not a load-bearing pre-mainnet check.
 
 **Description.** `protocol/flows/src/ibd/{flow,negotiate,progress,streams}.rs` totals 858 lines / 82 fns, all 0%. The v7 family (`v7/{blockrelay,ping,address,request_*,*}`) adds another ~1,200 lines / 130 fns. These are the message handlers that govern how a fresh node syncs from peers. Bugs here typically manifest as IBD stalls or partial syncs — caught by devnet integration testing but not by unit tests.
 

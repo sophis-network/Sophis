@@ -148,11 +148,25 @@ pub async fn fetch_spendable_utxos(
     let resp = client.get_utxos_by_addresses(vec![address.clone()]).await.unwrap();
     let virtual_daa_score = client.get_server_info().await.unwrap().virtual_daa_score;
     let mut utxos = Vec::with_capacity(resp.len());
+    // Audit/F-19 (Session 5, 2026-05-14): script-space equivalence — `address`
+    // and `resp_entry.address` may have *different version shapes* (e.g., caller
+    // passed `Version::PubKeyDilithium` but the indexer stores the canonical
+    // `Version::ScriptHash` representation of the same pay_to_address_script).
+    // The downstream caller's invariant is that the UTXO's `script_public_key`
+    // matches what the address would produce, not that the address strings
+    // serialize identically. Compare via `pay_to_address_script` to bridge the
+    // shape gap.
+    let expected_spk = sophis_txscript::standard::pay_to_address_script(&address);
     for resp_entry in
         resp.into_iter().filter(|resp_entry| is_utxo_spendable(&resp_entry.utxo_entry, virtual_daa_score, coinbase_maturity))
     {
         assert!(resp_entry.address.is_some());
-        assert_eq!(*resp_entry.address.as_ref().unwrap(), address);
+        let returned_addr = resp_entry.address.as_ref().unwrap();
+        let returned_spk = sophis_txscript::standard::pay_to_address_script(returned_addr);
+        assert_eq!(
+            returned_spk, expected_spk,
+            "F-19: indexer returned an address whose pay_to_address_script differs from the queried address — returned={returned_addr:?}, queried={address:?}"
+        );
         utxos.push((TransactionOutpoint::from(resp_entry.outpoint), UtxoEntry::from(resp_entry.utxo_entry)));
     }
     utxos.sort_by(|a, b| b.1.amount.cmp(&a.1.amount));
