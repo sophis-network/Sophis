@@ -468,18 +468,21 @@ Steps 2-3 are an integration-test scale of work. Existing helpers exist (`TestCo
 
 A scaffold `#[ignore]`d test has not been added to the codebase to avoid lying-about-coverage; this finding is the authoritative record. Estimate revised to **4-8 hours / dedicated session**, not the originally stated 2-3h.
 
-#### F-7 — `pruning_proof/apply.rs` has 0% test coverage (P1) — ⚠️ PARTIAL FIX
+#### F-7 — `pruning_proof/apply.rs` has 0% test coverage (P1) ✅ FIXED
 
 **Severity:** P1 — must fix before mainnet (testnet-tolerable).
 **Found:** Session 2, 2026-05-14.
-**Status:** ⚠️ **partial fix in Session 5, 2026-05-14**. Added `apply_pruning_proof_accepts_validated_proof` integration test alongside the F-6 round-trip and truncated tests in `testing/integration/src/consensus_integration_tests.rs`, but **marked `#[ignore]`** with a clear TODO documenting the missing piece (see F-18 below).
+**Status:** ✅ **fixed in Session 5, 2026-05-14**. The `apply_pruning_proof_accepts_validated_proof` integration test now uses the full `ConsensusFactory` + `ConsensusManager` + `new_staging_consensus()` pipeline so the apply path runs on a pristine DB — mirroring production IBD (`protocol/flows/src/ibd/flow.rs:160 → 469`).
 
-The proof-and-trusted_set assembly logic is in place and reusable:
-- Producer builds 200-block DAG, waits for pruning.
-- Calls `producer.get_pruning_point_anticone_and_trusted_data()` to get the anticone hashes + their ghostdag.
-- Iterates anticone, calls `producer.get_block(h)` to fetch each block body, finds the matching `TrustedGhostdagData` by hash, assembles `Vec<TrustedBlock>`.
+Test recipe (mirrors `staging_consensus_test` at line 1097):
+1. **Producer:** regular `TestConsensus` with the F-6 `pruning_proof_test_config()`; mine 200 blocks; wait for pruning to fire on block #2.
+2. **Proof + trusted_set assembly:** `producer.get_pruning_point_proof()` + iterate `get_pruning_point_anticone_and_trusted_data().anticone`, fetch each block body via `producer.get_block(h)`, pair it with the matching `TrustedGhostdagData` to build `Vec<TrustedBlock>`.
+3. **Staging infra:** stand up a separate `ConsensusFactory` with its own temp DB (`get_sophis_tempdir()`) and the same `producer_cfg`, wrap in `ConsensusManager`, bind to a `Core`.
+4. **Apply:** `staging.clone().unguarded_session().spawn_blocking(move |c| c.apply_pruning_proof(proof, &trusted_set)).await`. The `spawn_blocking` form is the canonical sync-consensus-from-async-test pattern (lifted from `flow.rs:467`).
+5. **Assert** the result is `Ok(())`.
+6. **Cleanup:** shutdown producer + staging core.
 
-The remaining piece — running `apply_pruning_proof` against a pristine `StagingConsensus` instead of a `TestConsensus` — needs the full `ConsensusFactory` + `ConsensusManager` plumbing (see `staging_consensus_test` at line 1097 of the same file for the recipe). Mechanically straightforward, ~50 lines of additional setup; deferred to a focused follow-up commit.
+Run: `cargo test -p sophis-testing-integration apply_pruning_proof` → **1 passed / 0 failed / 8.25 s wall**. Cumulative pruning_proof tests (F-6 + F-7): **3 passed, 0 failed, 0 ignored** at this commit.
 
 #### F-18 — `apply_proof` panics via `.unwrap()` on `HashAlreadyExists` when called on a non-pristine DB (P2 — precondition-only)
 

@@ -1963,32 +1963,24 @@ async fn validate_pruning_proof_rejects_truncated_proof() {
 // the block body and matching it to the ghostdag entry returned in
 // `PruningPointTrustedData`.
 
-/// **F-7 positive vector** — apply a validated proof and assert it
-/// commits without error. Sister to F-6.
+/// **F-7 positive vector** — apply a validated proof to a pristine
+/// `StagingConsensus` and assert it commits without error. Sister to
+/// F-6.
 ///
-/// `#[ignore]`d 2026-05-14: production IBD calls `apply_pruning_proof`
-/// on a `StagingConsensus` (see `protocol/flows/src/ibd/flow.rs:160`,
-/// `new_staging_consensus()` → `apply_pruning_proof` at flow.rs:469).
-/// A staging consensus has a pristine DB — no genesis pre-seeded —
-/// which is required because `apply.rs:172` does
-/// `self.headers_store.insert(header.hash, header.clone(), block_level).unwrap()`
-/// for every header in the proof. The proof includes the genesis
-/// header at the lowest BlockLevel, so when called against a regular
-/// `TestConsensus` (which seeds genesis at construction time), the
-/// re-insert fails with `HashAlreadyExists(genesis_hash)` and the
-/// `.unwrap()` panics. See F-18.
-///
-/// **TODO (post-testnet)** — rewrite this test using the full
-/// `ConsensusFactory` + `ConsensusManager` + `new_staging_consensus()`
-/// pattern from `staging_consensus_test` (line 1097 in this file) so
-/// the `apply_pruning_proof` call runs against a pristine DB. The
-/// proof-and-trusted_set assembly code below is reusable as-is.
+/// `apply_pruning_proof` cannot run against a regular `TestConsensus`
+/// because its headers store is pre-seeded with the genesis header at
+/// construction time, and `apply.rs:172` does an unconditional
+/// `headers_store.insert(...).unwrap()` for every proof header
+/// (including genesis) — this is F-18. Production IBD avoids the
+/// collision by always using `ConsensusManager::new_staging_consensus()`
+/// (`protocol/flows/src/ibd/flow.rs:160 + 469`). This test mirrors
+/// that pattern.
 #[tokio::test]
-#[ignore]
 async fn apply_pruning_proof_accepts_validated_proof() {
     init_allocator_with_default_settings();
 
-    // Producer build + 200-block DAG + wait for pruning. (Same recipe.)
+    // ---- Stage 1: producer build + 200-block DAG + wait for pruning.
+    // Same recipe as F-6 round-trip.
     let producer_cfg = pruning_proof_test_config();
     let producer = TestConsensus::new(&producer_cfg);
     let producer_handles = producer.init();
@@ -2014,10 +2006,6 @@ async fn apply_pruning_proof_accepts_validated_proof() {
     }
 
     let proof = producer.get_pruning_point_proof();
-    let tip_hash = *selected_chain.last().unwrap();
-    let tip_header = producer.get_header(tip_hash).expect("F-7: tip header must be present");
-    let metadata =
-        sophis_consensus_core::pruning::PruningProofMetadata::new(tip_header.blue_work);
 
     // Assemble the trusted set from the producer's anticone data.
     let trusted_data = producer
@@ -2026,8 +2014,6 @@ async fn apply_pruning_proof_accepts_validated_proof() {
     let mut trusted_set: Vec<sophis_consensus_core::trusted::TrustedBlock> = Vec::with_capacity(trusted_data.anticone.len());
     for &h in trusted_data.anticone.iter() {
         let block = producer.get_block(h).expect("F-7: block in anticone must be present in producer");
-        // Find the matching ghostdag entry — every anticone block has
-        // one in `ghostdag_blocks`.
         let ghostdag = trusted_data
             .ghostdag_blocks
             .iter()
@@ -2038,27 +2024,62 @@ async fn apply_pruning_proof_accepts_validated_proof() {
         trusted_set.push(sophis_consensus_core::trusted::TrustedBlock { block, ghostdag });
     }
 
-    // Fresh validator. NOTE: do NOT call `.init()` here — that
-    // pre-populates the headers store with genesis, which then collides
-    // with the genesis header re-inserted by `apply_pruning_proof`
-    // (apply.rs:172 unconditionally `unwrap()`s the insert). In
-    // production IBD this scenario is avoided by running apply on a
-    // `StagingConsensus` whose DB is pristine. For unit-test purposes,
-    // skipping `init()` reproduces the pristine-DB precondition.
-    let validator_cfg = pruning_proof_test_config();
-    let validator = TestConsensus::new(&validator_cfg);
+    // ---- Stage 2: stand up a separate ConsensusFactory + Manager so
+    // we can request a pristine StagingConsensus (mirrors flow.rs:160).
+    // Pattern lifted from `staging_consensus_test` at line 1097.
+    let staging_db_tempdir = get_sophis_tempdir();
+    let staging_db_path = staging_db_tempdir.path().to_owned();
+    let staging_meta_db = sophis_database::prelude::ConnBuilder::default()
+        .with_db_path(staging_db_path.join("meta"))
+        .with_files_limit(5)
+        .build()
+        .unwrap();
 
-    assert!(
-        validator.validate_pruning_proof(proof.as_ref(), &metadata).is_ok(),
-        "F-7: precondition — validator must accept the proof before apply",
-    );
+    let (staging_notification_send, _staging_notification_recv) = unbounded();
+    let staging_notification_root = Arc::new(ConsensusNotificationRoot::new(staging_notification_send));
+    let staging_counters = Arc::new(ProcessingCounters::default());
+    let staging_tx_cache_counters = Arc::new(TxScriptCacheCounters::default());
 
-    // The actual F-7 assertion: apply_pruning_proof must succeed.
-    let apply_result = validator.apply_pruning_proof(proof.as_ref().clone(), &trusted_set);
+    let staging_factory = Arc::new(ConsensusFactory::new(
+        staging_meta_db,
+        &producer_cfg, // identical params + genesis to the producer
+        staging_db_path.join("consensus"),
+        4,
+        staging_notification_root,
+        staging_counters,
+        staging_tx_cache_counters,
+        200,
+        Arc::new(MiningRules::default()),
+        sophis_database::prelude::RocksDbPreset::Default,
+        None,
+        None,
+    ));
+    let staging_manager = Arc::new(ConsensusManager::new(staging_factory));
+
+    let staging_core = Arc::new(Core::new());
+    staging_core.bind(staging_manager.clone());
+    let staging_core_joins = staging_core.start();
+
+    let staging = staging_manager.new_staging_consensus();
+
+    // ---- Stage 3: apply the proof on the pristine staging DB. The
+    // closure receives `&dyn ConsensusApi` so we call the trait method
+    // directly. spawn_blocking is the consensus-manager-canonical way
+    // to run sync consensus work from an async test context.
+    let proof_for_apply: sophis_consensus_core::pruning::PruningPointProof = proof.as_ref().clone();
+    let trusted_set_for_apply = trusted_set.clone();
+    let apply_result = staging
+        .clone()
+        .unguarded_session()
+        .spawn_blocking(move |c| c.apply_pruning_proof(proof_for_apply, &trusted_set_for_apply))
+        .await;
     assert!(
         apply_result.is_ok(),
-        "F-7: apply_pruning_proof must commit the validated proof; got {apply_result:?}"
+        "F-7: apply_pruning_proof must commit the validated proof on a pristine staging DB; got {apply_result:?}"
     );
 
+    // ---- Cleanup
     producer.shutdown(producer_handles);
+    staging_core.shutdown();
+    staging_core.join(staging_core_joins);
 }
