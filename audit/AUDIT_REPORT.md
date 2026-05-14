@@ -780,9 +780,77 @@ The CLAUDE.md `mainnet-mining/WALLET-PROCEDURE.md` already documents the canonic
 
 ---
 
-## 6. Verdict (Session final)
+## 5. Tier 3 — UX/infra (preliminary, Session 3 closure)
 
-> ⏳ Pending. Will deliver: APPROVED / REJECTED for testnet, with numbered gate list.
+Spot-checked components — full Tier 3 sweep deferred to a separate session if needed.
+
+| Component | Verdict |
+|---|---|
+| `testnet-faucet` | ✅ STRONG — per-address cooldown rate limit (config-driven, line 168), CORS `Any` (correct posture for public testnet faucet), bind address configurable. Deployed at `https://faucet.sophis.org/` per project memory. |
+| `sophis-explorer`, `sophis-dnsseeder`, `tools/{dashboard,calculator,da-stress}` | ⏳ deferred to a Tier 3 sweep session — none are consensus-critical or operational-security-critical; they consume RPC and present read-only views. Low audit priority pre-testnet. |
+| `indexes/{core,processor,utxoindex}`, `notify/`, `metrics/` | ⏳ deferred — internal indexing & observability; tested via the integration test suite (Session 1 baseline showed 1,917 pass including index/notify/metrics tests). |
+
+## 6. Verdict (preliminary, Session 3 closure — 2026-05-14)
+
+This audit was launched on 2026-05-14 in response to the founder's pre-testnet request: *"auditoria completa fase por fase, função por função, parâmetro por parâmetro"*. Sessions 1-3 + extensions covered:
+
+- ✅ **Workspace baseline gates — all GREEN** (compile, test, clippy, devnet end-to-end 10/10).
+- ✅ **Tier 0** — consensus-critical surfaces audited (9 invariants confirmed clean + sign_input_dilithium covered with 3 unit tests).
+- ✅ **Tier 1** — operational security perimeter audited across 17 areas (15 STRONG + 4 GAP).
+- ⏳ **Tier 2** — ZK plumbing (Phase 3 rollup + Phase 5 oracle + Phase 6 DA + Phase 9 PQC oracle). Requires Linux Docker to compile risc0; deferred.
+- ✅ **Tier 3** — spot-check on faucet (STRONG); rest deferred (low priority pre-testnet).
+
+### Findings ledger (final state, 13 total)
+
+| # | Sev | Status | Component | Mainnet blocker? |
+|---|---|---|---|---|
+| F-1 | P1 | ✅ fixed `a50706f` | sophis-pow compile guard | — |
+| F-2 | P2 | ✅ fixed `cd53691` | WASM ABI safecast | — |
+| F-3 | doc | ✅ fixed | CLAUDE.md Capability enum | — |
+| F-4 | doc | ✅ fixed | CLAUDE.md MAX_SPK_VERSION | — |
+| F-5 | P0 | ✅ fixed `1dcbbad`+`3261134` | sign_input_dilithium tests | — |
+| F-6 | P1 | open | pruning_proof/validate 0% cov | **yes** |
+| F-7 | P1 | open | pruning_proof/apply 0% cov | **yes** |
+| F-8 | P1 | open | IBD/v7 flow handlers 0% cov | **yes** |
+| F-9 | P2 | open | CLI binary mains 0% cov | — |
+| F-10 | P2 | open | manifest/imports consistency | — |
+| F-11 | P2 | open | SDK env.rs ALT+DA missing | — |
+| F-12 | P2 | open | peer banning strategy | — |
+| F-13 | P1 | open | dilithium-wallet plaintext mainnet | **yes** |
+
+**Pre-mainnet blockers (4 P1):** F-6, F-7, F-8, F-13.
+**Post-mainnet tech debt (6 items):** F-2 (partial — full type-id check deferred), F-9, F-10, F-11, F-12, plus F-6/F-7/F-13's deeper hardening.
+
+### Verdict: **testnet ✅ APPROVED, with gates**
+
+The workspace meets the baseline bar for testnet launch:
+
+- All compile + test + clippy + devnet gates green.
+- Tier 0 consensus invariants confirmed.
+- Tier 1 operational security has no exploitable findings; F-13 is testnet-tolerable (testnet wallets are throwaway) and F-10/F-11/F-12 are defense-in-depth gaps that testnet will exercise.
+
+**Mandatory before testnet launch (must do):**
+1. **Re-run baseline** at the HEAD that will be tagged for testnet — see `audit/AUDIT_REPORT.md` §1.5 for the four commands.
+2. **Tier 2 audit on Linux Docker** — `cargo nextest run --workspace --features svm-zk` (Phase 3 rollup + Phase 9 PQC oracle paths). Documented as required in §1.5.1.
+3. **Operator-facing warning** that testnet uses a single canonical wallet workflow (dilithium-wallet --network testnet); mainnet must use `mainnet-mining/WALLET-PROCEDURE.md` (per F-13).
+
+**Mandatory before mainnet launch (must close):**
+1. **F-13 mitigation** — add the warn-or-reject behavior to `cmd_keygen --network mainnet`.
+2. **F-6 + F-7** — stand up a tractable pruning-proof integration harness and produce at least the round-trip positive vector + each `ProofWeakness` variant.
+3. **F-8** — review and cover (or document the inherent integration-test-only nature of) the IBD + v7 flow handlers.
+4. **F-12** — define + wire the peer banning strategy (Bitcoin-Core-style per-IP score → ban store).
+
+**Recommended (P2, post-mainnet flywheel-permitting):** F-10, F-11, F-9.
+
+### Audit ledger (sessions)
+
+| Session | Date | Tier/area | Outcome |
+|---|---|---|---|
+| 1 | 2026-05-14 | Baseline + inventory | ✅ done — 9 invariants confirmed, F-1 fixed |
+| 2 | 2026-05-14 | Coverage map | ✅ done — 4 findings filed (F-5..F-8) |
+| 3 | 2026-05-14 | Tier 0 audit + Tier 1 svm/wallet/rpc/protocol + Tier 3 spot-check | ✅ done — F-2/F-3/F-4 closed, F-5 fixed, F-10/F-11/F-12/F-13 filed |
+| 4 | TBD | Tier 2 (Linux Docker) | ⏳ pending |
+| final | TBD | Verdict post-Tier-2 | ⏳ pending (this verdict is preliminary, modulo Tier 2 outcome) |
 
 ---
 
