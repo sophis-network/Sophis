@@ -98,7 +98,7 @@ mod tests {
     /// outpoint and a populated UTXO so that `sign_input_dilithium` has a
     /// well-defined sighash to compute.
     fn make_test_tx() -> (Transaction, Vec<UtxoEntry>) {
-        let outpoint = TransactionOutpoint { transaction_id: ZERO_HASH.into(), index: 0 };
+        let outpoint = TransactionOutpoint { transaction_id: ZERO_HASH, index: 0 };
         let tx = Transaction::new(
             0,
             vec![TransactionInput { previous_outpoint: outpoint, signature_script: vec![], sequence: 0, sig_op_count: 1 }],
