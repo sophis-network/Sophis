@@ -362,7 +362,30 @@ impl<'de> Deserialize<'de> for Address {
             {
                 use wasm_bindgen::convert::RefFromWasmAbi;
 
-                let instance_ref = unsafe { Self::Value::ref_from_abi(v) }; // TODO: add checks for safecast
+                // Reject the null pointer (most common forge / use-after-free trigger).
+                // wasm-bindgen reserves slot 0 for `null`/`undefined`, so any caller
+                // passing 0 is either un-initialized or attempting to dereference a
+                // moved-from JS handle.
+                if v == 0 {
+                    return Err(serde::de::Error::custom("Address: null wasm-bindgen ABI handle"));
+                }
+
+                // SAFETY: This visitor is reached only via `serde::Deserializer::deserialize_any`
+                // when the JS caller hands an `Address` *instance* (not a string) into a JS
+                // value that is then re-serialized through serde-wasm-bindgen. The u32 is the
+                // wasm-bindgen slot index of a previously-constructed `Address` handle living
+                // in the wasm-bindgen reference table.
+                //
+                // The safety contract is therefore: callers MUST pass a u32 that originated
+                // from `IntoWasmAbi::into_abi(Address)` on the same wasm instance. JS callers
+                // who hand-craft a u32 break the contract and get UB (this is the standard
+                // wasm-bindgen / `RefFromWasmAbi` guarantee, the same one the auto-generated
+                // bindings rely on for every method invocation across the JS/Rust boundary).
+                //
+                // The null check above closes the most likely accidental-use-after-free; a
+                // type-id check is *not* available because wasm-bindgen does not expose one
+                // for arbitrary types. F-2 (audit/AUDIT_REPORT.md) — closed here.
+                let instance_ref = unsafe { Self::Value::ref_from_abi(v) };
                 Ok(instance_ref.clone())
             }
 
