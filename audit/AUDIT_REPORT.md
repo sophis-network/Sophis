@@ -425,11 +425,19 @@ The tests reuse the same `PopulatedTransaction` / `Transaction` patterns as `con
 2. **SigHashType variation** — sign the same tx with each of the documented SigHashType variants, assert signatures differ.
 3. **Determinism / randomness probe** — sign the same tx twice with the same key, assert signatures differ (because randomness is sampled). Bind explicitly to `libcrux::ml_dsa::SIGNING_RANDOMNESS_SIZE` so a future libcrux upgrade that changes the constant fails the test rather than the code.
 
-#### F-6 — `pruning_proof/validate.rs` has 0% test coverage (P1)
+#### F-6 — `pruning_proof/validate.rs` has 0% test coverage (P1) ✅ FIXED
 
 **Severity:** P1 — must fix before mainnet (testnet-tolerable).
 **Found:** Session 2, 2026-05-14.
-**Status:** open, deeper analysis Session 3.
+**Status:** ✅ **fixed in Session 5, 2026-05-14**. Added **2 integration tests** to `testing/integration/src/consensus_integration_tests.rs` (appended after `indirect_parents_test`):
+
+- `validate_pruning_proof_accepts_fresh_node_round_trip` — **positive vector**: builds a 200-block DAG on a "producer" `TestConsensus` (params override identical to the existing `pruning_test`: `finality_depth=2, mergeset_size_limit=2, ghostdag_k=2, merge_depth=3, pruning_depth=100`), waits for the second block to be pruned, extracts the pruning-point proof via `get_pruning_point_proof()`, then spins up a fresh "validator" `TestConsensus` with matching params and asserts that `validate_pruning_proof(&proof, &metadata).is_ok()`. Mirrors the canonical IBD entry on a syncing node.
+
+- `validate_pruning_proof_rejects_truncated_proof` — **negative vector**: same producer setup, then mutates the proof with `proof.pop()` (drops the top `BlockLevel` layer) and asserts that `validate_pruning_proof(&truncated, &metadata).is_err()`. Confirms the validator fails closed rather than silently accepting a malformed proof.
+
+**Run result:** `cargo test -p sophis-testing-integration validate_pruning_proof` → **2 passed / 0 failed in 9.46 s**. Compile + run included.
+
+**Lower-bound revision.** The Session 3 audit-report note estimated the pruning-depth structural lower bound at ~13,094 blocks (from `finality + 2·merge_depth + 4·mergeset·k + 2k + 2` with the *production* `mergeset_size_limit ≥ 180`, `ghostdag_k ≥ 18` floors). That estimate was correct only for the *production* parameter space. The existing `pruning_test` (line 1700 of the same file) had already shown that **`Params` is mutable at test time** (via `ConfigBuilder::edit_consensus_params`) — direct field override bypasses the Bps floors entirely. With `finality_depth=2, pruning_depth=100, mergeset_size_limit=2, ghostdag_k=2`, ~200 blocks is sufficient. The original 4-8h dedicated-session estimate is therefore *vastly* over-revised; F-6 took ~30 minutes including compile-iterate-pass cycles.
 
 **Description.** `consensus/src/processes/pruning_proof/validate.rs` (251 lines, 17 fns) validates incoming pruning-point proofs during Initial Block Download. **Zero direct test coverage.** Workspace-wide grep confirms zero matches for the symbol in `testing/integration/**/*.rs` — no integration test exercises this path either.
 
