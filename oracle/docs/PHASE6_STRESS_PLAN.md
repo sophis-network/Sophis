@@ -5,11 +5,11 @@ before Phase 6 can ship on mainnet. It covers the test scenario, the
 metrics to capture, the acceptance gates, and a step-by-step operator
 recipe.
 
-**Status:** v1, drafted at sub-fase 6.8 (2026-05-06). The plan ships
-with `devnet/da_stress_check.py` (observability helper). The traffic
-generator depends on sub-fase 6.4.b (gRPC client binding for V5
-carrier submission); when 6.4.b lands, this plan can be executed
-end-to-end.
+**Status:** v2, updated at sub-fase 6.8.b (2026-05-14). The plan
+ships with `devnet/da_stress_check.py` (observability) and
+`tools/sophis-da-stress` (traffic generator, sub-fase 6.8.b). Both
+6.4.b (gRPC client binding) and 6.5.b (real `current_blue_score`)
+have landed, so this plan is now executable end-to-end.
 
 ---
 
@@ -70,8 +70,20 @@ The generator publishes a mix:
 - **20% 5-fragment bundles, ~64 KiB each** — exercises reassembly + by_domain bucketing
 - **10% 32-fragment, 64 KiB each (= 2 MiB max bundle)** — exercises MAX_FRAGMENTS edge
 
+**Multi-tx publishing:** because consensus caps carrier outputs per tx
+at `MAX_CARRIER_OUTPUTS_PER_TX` (= 8, ABI freeze), bundles with
+more than 8 fragments are split across **N sequential sub-txs** sharing
+the same `bundle_id`. The store's `BundleIndex` (prefix 197) reassembles
+by bundle_id regardless of how many txs the fragments arrived in. The
+32-fragment class therefore fires `ceil(32 / 8) = 4` sub-txs per bundle.
+The generator waits ~250 ms between sub-txs so the previous tx's change
+UTXO can land in the mempool.
+
 Generator must drop to zero submissions on observed mempool back-pressure
-(use `get_mempool_entries`); the stress is sustained, not bursty.
+(use `get_mempool_entries`); the stress is sustained, not bursty. The
+reference generator skips an iteration entirely when `get_mempool_entries`
+exceeds the configured threshold (CLI `--mempool-threshold`, default 100)
+and logs a `backpressure_skip` row to the CSV.
 
 ## 3. Metrics
 
@@ -165,8 +177,20 @@ cd <repo-root>
 copy oracle\relayer\stress.toml relayer.toml  # da_publish=true variant
 cargo run --release --features grpc-submit -p sophis-oracle-relayer -- daemon
 
-# Synthetic stress generator (REQUIRES 6.4.b)
-cargo run --release -p sophis-da-stress -- --target-mb-per-s 0.625 --duration 72h
+# Synthetic stress generator (sub-fase 6.8.b)
+# --profile mixed = canonical 70/20/10 mix from §2.2 (default)
+# --target-mb-per-s 0.625 maps to ~2.18 iter/s using the mix's average payload
+# --mempool-threshold 100 honors §2.1 back-pressure rule
+# --domain user keeps stress traffic distinct from rollup/oracle bits
+cargo run --release -p sophis-da-stress -- \
+  --wallet devnet/devnet_mining_wallet.json \
+  --rpcserver localhost:46610 \
+  --profile mixed \
+  --target-mb-per-s 0.625 \
+  --domain user \
+  --mempool-threshold 100 \
+  --duration 72h \
+  --csv stress-traffic.csv
 ```
 
 ### 5.4 Observability loop
@@ -235,18 +259,17 @@ Overall:                        PASS — Phase 6 cleared for mainnet ship.
 - **Light-client behavior** — there is no light-client implementation
   in v1 (see PHASE6_DA_DESIGN §14.1).
 
-## 8. Pending dependencies
+## 8. Dependencies (all delivered)
 
-| Dep | Sub-fase | Required for |
+| Dep | Sub-fase | Status |
 |---|---|---|
-| `sophis-da-stress` binary | future (post 6.4.b) | §5.3 generator |
-| Real `current_blue_score` plumbing | 6.5.b | §3 `indexation_lag_blocks`, §4 G5 |
-| `GrpcClient::get_da_payload` real impl | 6.4.b | §3 `payloads_count` reads (alternative: read RocksDB directly via `rocksdb` crate from da_stress_check.py) |
-| Synthetic carrier generator | new | actually drive the load |
+| `sophis-da-stress` binary | 6.8.b | ✅ delivered 2026-05-14 (`tools/sophis-da-stress`, 17 unit tests) |
+| Real `current_blue_score` plumbing | 6.5.b | ✅ delivered |
+| `GrpcClient::get_da_payload` real impl | 6.4.b | ✅ delivered |
+| Synthetic carrier generator | 6.8.b | ✅ delivered (mixed profile 70/20/10, multi-tx publishing, back-pressure) |
 
-Until those land, `da_stress_check.py` can run in **observe-only mode**
-against a regular devnet — it captures everything except the
-carrier-specific metrics, which become available as 6.4.b ships.
+The 72h soak is executable end-to-end. `da_stress_check.py` runs in
+da-aware mode against the carrier metrics now that 6.4.b is wired.
 
 ## 9. Reference
 
