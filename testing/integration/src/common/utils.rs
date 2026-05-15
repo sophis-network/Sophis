@@ -4,11 +4,13 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use sophis_addresses::Address;
 use sophis_consensus_core::{
     constants::TX_VERSION,
+    hashing::sighash_type::SIG_HASH_ALL,
     header::Header,
+    sign::sign_input_dilithium,
     subnets::SUBNETWORK_ID_NATIVE,
     tx::{
-        ScriptPublicKey, SignableTransaction, Transaction, TransactionId, TransactionInput, TransactionOutpoint, TransactionOutput,
-        UtxoEntry,
+        MutableTransaction, ScriptPublicKey, SignableTransaction, Transaction, TransactionId, TransactionInput, TransactionOutpoint,
+        TransactionOutput, UtxoEntry,
     },
     utxo::{
         utxo_collection::{UtxoCollection, UtxoCollectionExtensions},
@@ -18,7 +20,10 @@ use sophis_consensus_core::{
 use sophis_core::info;
 use sophis_grpc_client::GrpcClient;
 use sophis_rpc_core::{BlockAddedNotification, Notification, RpcUtxoEntry, VirtualDaaScoreChangedNotification, api::rpc::RpcApi};
-use sophis_txscript::pay_to_address_script;
+use sophis_txscript::{
+    pay_to_address_script,
+    standard::{dilithium_redeem_script, pay_to_script_hash_signature_script},
+};
 use std::{
     collections::{HashMap, HashSet, hash_map::Entry::Occupied},
     future::Future,
@@ -123,12 +128,29 @@ where
     }
 }
 
-/// Generates an unsigned transaction (signature_script = []).
-/// Dilithium signing integration is pending.
-pub fn generate_tx(utxos: &[(TransactionOutpoint, UtxoEntry)], amount: u64, num_outputs: u64, address: &Address) -> Transaction {
+/// Generates a Dilithium-signed transaction spending the supplied UTXOs to
+/// `output_address`. Each input is signed with `signing_key` against the
+/// caller's `verification_key` (1312-byte ML-DSA-44 VK); the resulting
+/// `signature_script` is a P2SH redeem-script reveal + Dilithium signature
+/// matching `dilithium_redeem_script(verification_key)`. The transaction is
+/// returned non-finalized; callers serialize via `.into()` for RPC submit.
+///
+/// Audit/F-20 (Session 6, 2026-05-14): rewritten to actually sign with
+/// Dilithium; the previous unsigned form (signature_script = []) was a
+/// Schnorr-era holdover that the post-pivot strict-mempool rejects with
+/// `failed to verify empty signature script. Inner error: opcode requires
+/// at least 1 but stack has only 0`.
+pub fn generate_tx(
+    utxos: &[(TransactionOutpoint, UtxoEntry)],
+    amount: u64,
+    num_outputs: u64,
+    output_address: &Address,
+    signing_key: &[u8; 2560],
+    verification_key: &[u8; 1312],
+) -> Transaction {
     let total_in = utxos.iter().map(|x| x.1.amount).sum::<u64>();
     assert!(amount <= total_in - required_fee(utxos.len(), num_outputs));
-    let script_public_key = pay_to_address_script(address);
+    let script_public_key = pay_to_address_script(output_address);
     let inputs = utxos
         .iter()
         .map(|(op, _)| TransactionInput { previous_outpoint: *op, signature_script: vec![], sequence: 0, sig_op_count: 1 })
@@ -137,7 +159,18 @@ pub fn generate_tx(utxos: &[(TransactionOutpoint, UtxoEntry)], amount: u64, num_
     let outputs = (0..num_outputs)
         .map(|_| TransactionOutput { value: amount / num_outputs, script_public_key: script_public_key.clone() })
         .collect_vec();
-    Transaction::new(TX_VERSION, inputs, outputs, 0, SUBNETWORK_ID_NATIVE, 0, vec![])
+    let unsigned = Transaction::new_non_finalized(TX_VERSION, inputs, outputs, 0, SUBNETWORK_ID_NATIVE, 0, vec![]);
+    let entries: Vec<UtxoEntry> = utxos.iter().map(|(_, e)| e.clone()).collect();
+    let mut mutable = MutableTransaction::with_entries(unsigned, entries);
+    let redeem = dilithium_redeem_script(verification_key).expect("dilithium_redeem_script");
+    for i in 0..mutable.tx.inputs.len() {
+        let sig = sign_input_dilithium(&mutable.as_verifiable(), i, signing_key, SIG_HASH_ALL).expect("sign_input_dilithium");
+        mutable.tx.inputs[i].signature_script = pay_to_script_hash_signature_script(redeem.clone(), sig).expect("p2sh sig script");
+    }
+    // Recompute cached `id` over the now-signed tx so `tx.id()` matches the
+    // daemon-side hashing::tx::id() that the mempool indexer keys on.
+    mutable.tx.finalize();
+    mutable.tx
 }
 
 pub async fn fetch_spendable_utxos(

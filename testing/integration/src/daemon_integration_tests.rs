@@ -4,6 +4,7 @@ use crate::common::{
     daemon::Daemon,
     utils::{fetch_spendable_utxos, generate_tx, mine_block, wait_for},
 };
+use libcrux_ml_dsa::{KEY_GENERATION_RANDOMNESS_SIZE, ml_dsa_44};
 use sophis_addresses::Address;
 use sophis_alloc::init_allocator_with_default_settings;
 use sophis_consensus::params::SIMNET_PARAMS;
@@ -13,7 +14,7 @@ use sophis_core::{task::runtime::AsyncRuntime, trace};
 use sophis_grpc_client::GrpcClient;
 use sophis_notify::scope::{BlockAddedScope, UtxosChangedScope, VirtualDaaScoreChangedScope};
 use sophis_rpc_core::{Notification, RpcTransactionId, api::rpc::RpcApi};
-use sophis_txscript::pay_to_address_script;
+use sophis_txscript::{pay_to_address_script, standard::dilithium_address};
 use sophisd_lib::args::Args;
 use std::{sync::Arc, time::Duration};
 
@@ -149,10 +150,11 @@ async fn daemon_mining_test() {
 /// but a second wait_for in the propagation phase times out, suggesting a
 /// downstream notification or relay issue not captured by F-19. Kept
 /// `#[ignore]` with updated rationale; follow-up issue tracked as F-20.
-#[ignore = "TODO Sophis (F-20): after F-19 fix the test reaches a wait_for \
-            timeout at common/utils.rs:121 in the propagation phase — needs \
-            investigation of which assertion fires and whether it is a real \
-            relay / notification regression or just another stale assertion"]
+// Audit/F-20 (Session 6, 2026-05-14): un-ignored after generate_tx was
+// rewritten to actually Dilithium-sign. Original `#[ignore]` rationale
+// ("legacy signing path") was Schnorr-era residue; the real root cause
+// surfaced as a strict-mempool rejection of empty signature_script at
+// line 308 after F-19 cleared the earlier address-shape assertion.
 async fn daemon_utxos_propagation_test() {
     #[cfg(feature = "heap")]
     let _profiler = dhat::Profiler::builder().file_name("sophis-testing-integration-heap.json").build();
@@ -198,11 +200,29 @@ async fn daemon_utxos_propagation_test() {
     )
     .await;
 
-    // Mining address (Dilithium)
-    let miner_address = Address::new(sophisd1.network.into(), sophis_addresses::Version::PubKeyDilithium, &[1u8; 32]);
+    // Generate a real Dilithium-2 keypair so the miner address resolves to a
+    // payload that we can later spend. The arbitrary `[1u8; 32]` payload of
+    // the pre-F-20 test produced an address whose P2SH redeem-script preimage
+    // is computationally infeasible to derive, so any spend attempt failed at
+    // mempool validation.
+    //
+    // Deterministic randomness keeps the test reproducible; SK/VK derivation
+    // is pure given the seed bytes.
+    let mut randomness = [0u8; KEY_GENERATION_RANDOMNESS_SIZE];
+    randomness.iter_mut().enumerate().for_each(|(i, b)| *b = (i as u8).wrapping_mul(7).wrapping_add(13));
+    let keypair = ml_dsa_44::generate_key_pair(randomness);
+    let mut miner_sk = [0u8; 2560];
+    let mut miner_vk = [0u8; 1312];
+    miner_sk.copy_from_slice(keypair.signing_key.as_ref());
+    miner_vk.copy_from_slice(keypair.verification_key.as_ref());
+
+    // Mining address derived from the real VK (Blake2b-256(redeem_script)).
+    let miner_address = dilithium_address(&miner_vk, sophisd1.network.into()).expect("dilithium_address");
     let miner_spk = pay_to_address_script(&miner_address);
 
-    // User address (Dilithium)
+    // User address — destination only, never spent in this test, so a fixed
+    // payload is fine (the resulting UTXO is locked to a P2SH script whose
+    // redeem-script preimage is unknown, but the test only checks arrival).
     let user_address = Address::new(sophisd1.network.into(), sophis_addresses::Version::PubKeyDilithium, &[2u8; 32]);
 
     // Some dummy non-monitored address
@@ -234,10 +254,15 @@ async fn daemon_utxos_propagation_test() {
         }
     }
 
+    // Audit/F-20 (Session 6, 2026-05-14): bumped from 50ms × 20 (= 1s) to
+    // 100ms × 600 (= 60s). The original budget was set for the Schnorr-era
+    // SIMNET when coinbase_maturity was small; with the current 10-BPS SIMNET
+    // params (= 1000 blocks) daemon-2 needs ~30 s of relay catch-up under
+    // workspace contention.
     let check_client = rpc_client2.clone();
     wait_for(
-        50,
-        20,
+        100,
+        600,
         move || {
             async fn daa_score_reached(client: GrpcClient) -> bool {
                 let virtual_daa_score = client.get_server_info().await.unwrap().virtual_daa_score;
@@ -304,14 +329,17 @@ async fn daemon_utxos_propagation_test() {
     const NUMBER_INPUTS: u64 = 2;
     const NUMBER_OUTPUTS: u64 = 2;
     const TX_AMOUNT: u64 = SIMNET_PARAMS.pre_deflationary_phase_base_subsidy * (NUMBER_INPUTS * 5 - 1) / 5;
-    let transaction = generate_tx(&utxos[0..NUMBER_INPUTS as usize], TX_AMOUNT, NUMBER_OUTPUTS, &user_address);
+    let transaction = generate_tx(&utxos[0..NUMBER_INPUTS as usize], TX_AMOUNT, NUMBER_OUTPUTS, &user_address, &miner_sk, &miner_vk);
     rpc_client1.submit_transaction((&transaction).into(), false).await.unwrap();
 
+    // Audit/F-20 (Session 6, 2026-05-14): bumped from 50ms × 20 (= 1s) to
+    // 100ms × 100 (= 10s). Mempool indexer can lag the submit return path
+    // under workspace contention.
     let check_client = rpc_client1.clone();
     let transaction_id = transaction.id();
     wait_for(
-        50,
-        20,
+        100,
+        100,
         move || {
             async fn transaction_in_mempool(client: GrpcClient, transaction_id: RpcTransactionId) -> bool {
                 let entry = client.get_mempool_entry(transaction_id, false, false).await;
@@ -325,20 +353,35 @@ async fn daemon_utxos_propagation_test() {
 
     mine_block(blank_address.clone(), &rpc_client1, &clients).await;
 
+    // Audit/F-20 (Session 6, 2026-05-14): the indexer canonicalizes
+    // addresses to ScriptHash shape; the test's `miner_address` /
+    // `user_address` are PubKeyDilithium shape (same script, different
+    // version byte). Compare via `pay_to_address_script` for script-space
+    // equivalence — same approach as common/utils.rs::fetch_spendable_utxos.
+    let miner_spk_check = pay_to_address_script(&miner_address);
+    let user_spk_check = pay_to_address_script(&user_address);
     // Check UTXOs changed notifications
     for x in clients.iter() {
         let Notification::UtxosChanged(uc) = x.utxos_changed_listener().unwrap().receiver.recv().await.unwrap() else {
             panic!("wrong notification type")
         };
-        assert!(uc.removed.iter().all(|x| x.address.is_some() && *x.address.as_ref().unwrap() == miner_address));
-        assert!(uc.added.iter().all(|x| x.address.is_some() && *x.address.as_ref().unwrap() == user_address));
+        assert!(
+            uc.removed
+                .iter()
+                .all(|x| { x.address.is_some() && pay_to_address_script(x.address.as_ref().unwrap()) == miner_spk_check })
+        );
+        assert!(
+            uc.added.iter().all(|x| { x.address.is_some() && pay_to_address_script(x.address.as_ref().unwrap()) == user_spk_check })
+        );
         assert_eq!(uc.removed.len() as u64, NUMBER_INPUTS);
         assert_eq!(uc.added.len() as u64, NUMBER_OUTPUTS);
         assert_eq!(
             uc.removed.iter().map(|x| x.utxo_entry.amount).sum::<u64>(),
             SIMNET_PARAMS.pre_deflationary_phase_base_subsidy * NUMBER_INPUTS
         );
-        assert_eq!(uc.added.iter().map(|x| x.utxo_entry.amount).sum::<u64>(), TX_AMOUNT);
+        // generate_tx floor-divides; remainder is lost. Compare to the
+        // realized aggregate, not the nominal TX_AMOUNT.
+        assert_eq!(uc.added.iter().map(|x| x.utxo_entry.amount).sum::<u64>(), (TX_AMOUNT / NUMBER_OUTPUTS) * NUMBER_OUTPUTS);
     }
 
     // Check the balance of both miner and user addresses
@@ -346,8 +389,14 @@ async fn daemon_utxos_propagation_test() {
         let miner_balance = x.get_balance_by_address(miner_address.clone()).await.unwrap();
         assert_eq!(miner_balance, (initial_blocks - NUMBER_INPUTS) * SIMNET_PARAMS.pre_deflationary_phase_base_subsidy);
 
+        // Audit/F-20 (Session 6, 2026-05-14): generate_tx allocates
+        // `amount / num_outputs` (floor) to each output and discards the
+        // remainder, so the user's resulting balance is the rounded-down
+        // multiple. The original assertion `== TX_AMOUNT` only held when
+        // TX_AMOUNT was a clean multiple of NUMBER_OUTPUTS.
+        let expected_user_balance = (TX_AMOUNT / NUMBER_OUTPUTS) * NUMBER_OUTPUTS;
         let user_balance = x.get_balance_by_address(user_address.clone()).await.unwrap();
-        assert_eq!(user_balance, TX_AMOUNT);
+        assert_eq!(user_balance, expected_user_balance);
     }
 
     // UTXO Return Address Test
@@ -365,7 +414,10 @@ async fn daemon_utxos_propagation_test() {
         .await
         .expect("We just created the tx and utxo here");
 
-    assert_eq!(miner_address, utxo_return_address);
+    // Audit/F-20 (Session 6, 2026-05-14): same canonicalization gap as F-19 —
+    // the RPC returns the address in canonical ScriptHash shape; compare in
+    // script-space.
+    assert_eq!(pay_to_address_script(&miner_address), pay_to_address_script(&utxo_return_address));
 
     // Terminate multi-listener clients
     for x in clients.iter() {
