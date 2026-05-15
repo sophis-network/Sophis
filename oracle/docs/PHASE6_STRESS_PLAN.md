@@ -145,6 +145,23 @@ A failure on any gate blocks the mainnet ship. Operators triage:
 
 ### 5.1 Setup (T-30 min)
 
+> **Pre-flight RAM check (Audit/F-24, Session 12, 2026-05-15):** the
+> host MUST have ≥ 8 GB RAM free at `sophis-miner` start, OR the
+> miner MUST run on a separate machine from the devnet sophisd
+> processes. RandomX fast-mode rebuilds a 2 GB contiguous dataset
+> at every epoch transition (~30k blocks); on a co-located host
+> running 5 sophisd processes (~1.7 GB RSS each) + observer +
+> sophis-da-stress, Windows cannot fulfill the allocation and the
+> miner panics with `RandomX: CreationError("Could not allocate
+> cache")`. The Session 11 4h pre-flight soak terminated at ~63 min
+> for exactly this reason. Mitigations, in order of preference:
+> (a) dedicated miner host (one machine for devnet sophisd, another
+> for sophis-miner + observer + da-stress); (b) reduce co-located
+> devnet to 1-3 nodes; (c) run sophis-miner in light mode (drop the
+> `--fast-mode` flag; uses 256 MB cache only, hashrate falls ~10×
+> which is still adequate for devnet stress). See AUDIT_REPORT.md
+> §F-24 for the full diagnostic trace.
+
 ```bash
 # 1. Ensure no stale data
 cd <devnet-scripts-dir>

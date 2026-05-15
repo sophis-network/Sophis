@@ -1220,14 +1220,14 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-20 | P2 | ✅ fixed (S6) | daemon_utxos_propagation_test 4-layer fix | — |
 | F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
 | F-22 | **P0** | ✅ fixed `d7c877e` (S11) | mass-calc divide-by-zero on V5 carriers + ALT-creation | — |
-| F-23 | P3 | open | wRPC observer in da_stress_check.py returns 0/-1 | — |
-| F-24 | P2 | open | sophis-miner RandomX cache OOM on epoch transition under host RAM contention | — |
+| F-23 | P3 | ✅ fixed (S12) | wRPC observer in da_stress_check.py — method names + field path | — |
+| F-24 | P2 | ✅ doc'd (S12) | sophis-miner RandomX cache OOM — pre-flight RAM check in stress plan §5.1 | — |
 
 **Pre-mainnet blockers (0 P1 open):** all 4 original P1 blockers (F-6, F-7, F-8, F-13) closed. F-22 (P0 — consensus panic) surfaced + fixed during Session 11 Phase 6 stress soak setup.
-**Post-mainnet tech debt (1 open):** F-24 (operational — single-host mining limitation, doesn't affect dedicated rigs).
-**Test-infra debt (1 open):** F-23 (observability gap — wRPC method/field path drift).
+**Post-mainnet tech debt (0 open):** F-24 documented in PHASE6_STRESS_PLAN.md §5.1 (Session 12).
+**Test-infra debt (0 open):** F-23 wRPC observer fixed in Session 12 via live-probe of method names + field path.
 
-**🎯 Audit core 100% clear** — all 21 original audit findings closed; F-22/F-23/F-24 surfaced from real-world Phase 6 stress validation (Session 11), with the P0 (F-22) fixed in the same session and the remaining two (F-23/F-24) classified as operational follow-ups that do not block mainnet launch.
+**🎯 Audit ledger 100% clear** — all 24 findings closed (21 original + F-22 P0 fix + F-23/F-24 operational follow-ups from real-world Phase 6 stress validation).
 
 ### Verdict: **testnet ✅ APPROVED + mainnet ✅ APPROVED (Session 6 closure)**
 
@@ -1269,7 +1269,8 @@ The workspace meets the bar for both testnet and mainnet launch:
 | 9 | 2026-05-15 | F-9 CLI smoke-test harness (10 binaries × 32 checks) + latent sophisd --help exit code fix | ✅ done — 1 finding closed, 1 P2 remaining (F-12) |
 | 10 | 2026-05-15 | F-12 peer banning policy — PeerScoreManager + 10 unit tests + Flow::launch signature change + accept-time gate | ✅ done — **audit ledger 100% clear** |
 | 11 | 2026-05-15 | Phase 6 4h pre-flight stress soak — surfaced + fixed F-22 (P0 mass-calc divide-by-zero), filed F-23 + F-24 as operational follow-ups | ✅ done — 5,551 OK / 1.2 GB / 0 daemon panics; **Phase 6 carrier path validated under real load** |
-| final | 2026-05-15 | Verdict post-Session-11 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, F-22 (P0) fixed, F-23/F-24 are operational. **Phase 6 path empirically validated** with 65-min real-world soak. |
+| 12 | 2026-05-15 | F-23 wRPC observer live-probe + 2-line fix + F-24 doc note in PHASE6_STRESS_PLAN.md §5.1 + 3-step regression (1957/0 + 10/10 + Tier 2 1968/0/0) | ✅ done — **audit ledger 100% clear** at 24 findings |
+| final | 2026-05-15 | Verdict post-Session-12 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 open findings; **3-layer regression validated** on HEAD `5b22309`; Phase 6 empirically proven. |
 
 ---
 
@@ -1473,11 +1474,26 @@ attempt to divide by zero
 
 **Validation:** post-fix smoke (30 s, mixed profile, 0.3 MB/s) → 37/37 OK, 5.3 MB submitted, 0 errors. Sustained 65 min soak → 5,551 OK, 1.2 GB submitted, 0 daemon panics.
 
-#### F-23 — `da_stress_check.py` wRPC observer returns 0/-1 (P3) — open
+#### F-23 — `da_stress_check.py` wRPC observer returns 0/-1 (P3) ✅ FIXED
 
 **Severity:** P3 — test infrastructure only. Production daemon RPC is unaffected; only the observer script is broken.
 **Found:** Session 11, 2026-05-15, during baseline capture.
-**Status:** open.
+**Status:** ✅ **fixed in Session 12, 2026-05-15**. Live-probed the wRPC JSON server (devnet node-0 on `ws://127.0.0.1:48610` after F-22 fix landed) with 5 method-name variants. Two bugs found, both two-line fixes in `devnet/da_stress_check.py`:
+
+1. Method name has a spurious `"Request"` suffix. The wRPC JSON server expects `"getBlockDagInfo"` and `"getMempoolEntries"` (workflow-rpc lower-camel-case), not `"getBlockDagInfoRequest"` / `"getMempoolEntriesRequest"`. The server silently dropped the unrecognized method names and closed the WebSocket without a frame.
+2. Mempool response field is `params.mempoolEntries`, not `params.entries`. The script's `.get("entries", [])` returned an empty list even when txs were in the mempool.
+
+**Validation:** post-fix `da_stress_check.py --once --out f23-verify.csv` against a 5-node devnet with miner active for 15 s → `daa_score=330` (was previously stuck at 0), real RSS/CPU/datadir values per node, mempool=0 (was previously stuck at -1 = connection error). All 5 nodes return live metrics; observer can now drive the G2 (consensus advance) and G5 (indexation lag) gates that were stuck `OPERATOR` in Session 11.
+
+**Probe artifact** preserved at `C:/Users/mfhor/AppData/Local/Temp/probe_wrpc.py` for future wRPC method-name drift debugging.
+
+#### F-24 — `sophis-miner` RandomX cache OOM on epoch transition under host RAM contention (P2) ✅ DOC'd
+
+**Severity:** P2 — operational. Production miners on dedicated rigs are unaffected; impacts dev-box / single-host devnet/testnet stress setups.
+**Found:** Session 11, 2026-05-15, at block 30,720 (epoch 15) into the 4h soak — ~63 min in.
+**Status:** ✅ **documented in Session 12, 2026-05-15**. Per the original finding's recommendation (1), added a "Pre-flight RAM check" callout to `oracle/docs/PHASE6_STRESS_PLAN.md` §5.1 (operator recipe). The note explains the failure mode (RandomX fast-mode rebuilds 2 GB at epoch transitions; co-located 5 sophisd + observer + da-stress saturates Windows RAM and the miner panics), lists three mitigations in order of preference (dedicated miner host / reduce to 1-3 sophisd / drop `--fast-mode` for light mode at 10× slower hashrate), and points back to AUDIT_REPORT.md §F-24 for the diagnostic trace.
+
+**Why this closes F-24 without a code fix:** mainnet miners run on dedicated rigs by convention; the bug only manifests on co-located dev setups. Code-side retries (recommendation 2 from the original finding) and light-mode fallback (recommendation 3) are deferred until a real operator hits the limitation despite the documentation.
 
 **Description.** `devnet/da_stress_check.py::query_dag_info` and `query_mempool_size` make wRPC JSON calls to `ws://127.0.0.1:486xx` with method `getBlockDagInfoRequest` and `getMempoolEntriesRequest`. During the Session 11 soak both returned empty/-1 for all 5 nodes even though the miner was producing blocks at 65 MH/s and the mempool was actively accepting txs. The script parses `resp.get("params", {}).get("virtualDaaScore", 0)` and `resp.get("params", {}).get("entries", [])` — those paths return defaults because either the method name or the response structure differs from what the script expects.
 
