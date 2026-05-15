@@ -456,8 +456,24 @@ pub fn parse_args() -> Args {
     match Args::parse(std::env::args_os()) {
         Ok(args) => args,
         Err(err) => {
-            println!("{err}");
-            std::process::exit(1);
+            // Audit/F-9 (Session 9, 2026-05-15): clap surfaces `--help` and
+            // `--version` as `Err` with specific Kinds. Per Unix CLI
+            // convention, those exit 0 with help/version text on stdout; only
+            // real parse errors exit non-zero (and write to stderr). The
+            // pre-F-9 code blindly mapped every Err to `println!(err) +
+            // exit(1)`, which sent help text to a non-zero exit and broke
+            // scripts like `sophisd --help && start-something`.
+            use clap::error::ErrorKind;
+            match err.kind() {
+                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
+                    println!("{err}");
+                    std::process::exit(0);
+                }
+                _ => {
+                    eprintln!("{err}");
+                    std::process::exit(2);
+                }
+            }
         }
     }
 }

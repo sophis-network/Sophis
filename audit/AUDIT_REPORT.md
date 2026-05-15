@@ -576,19 +576,35 @@ The test's UTXO-walker helper expects miner output to use the legacy `ScriptHash
 
 **Action.** Tier 1 audit (Sessions 6-7) must inventory the v7 / v8 protocol surface, identify which messages have *no* integration test exercising them on devnet, and either add coverage or document the risk.
 
-#### F-9 — CLI binary `main.rs` has 0% coverage (P2)
+#### F-9 — CLI binary `main.rs` has 0% coverage (P2) ✅ FIXED
 
 **Severity:** P2 — post-mainnet technical debt.
 **Found:** Session 2, 2026-05-14.
+**Status:** ✅ **fixed in Session 9, 2026-05-15** via the "CLI smoke-test harness" path (option 2 of the original finding). The harness lives at `G:\Meu Drive\Claude\Sophis\devnet\cli_smoke_tests.py` and exercises **10 binaries × 3 invocations each = 32 checks** (sophisd and rothschild add a 4th `--version` check):
 
-**Description.** Several `*/src/main.rs` are 0% covered (most by-design):
-- `dilithium-wallet/src/main.rs` — 1142 lines, 72 fns
-- `miner/src/main.rs` — 250 lines, 8 fns
-- `testnet-faucet/src/main.rs` — 0%
-- `sophis-explorer/src/main.rs` — 0%
-- `tools/sophis-*/src/main.rs` — 0%
+| Binary | Checks |
+|---|---|
+| `dilithium-wallet` | binary present + `--help` + `--bad-flag` rejected |
+| `sophis-miner` | binary present + `--help` + `--bad-flag` rejected |
+| `testnet-faucet` | binary present + `--help` + `--bad-flag` rejected |
+| `sophis-explorer` | binary present + `--help` + `--bad-flag` rejected |
+| `sophisd` | binary present + `--help` + `--version` + `--bad-flag` rejected |
+| `sophis-dnsseeder` | binary present + `--help` + `--bad-flag` rejected |
+| `rothschild` | binary present + `--help` + `--version` + `--bad-flag` rejected |
+| `sophis-dashboard` | binary present + `--help` + `--bad-flag` rejected |
+| `sophis-calculator` | binary present + `--help` + `--bad-flag` rejected |
+| `sophis-da-stress` | binary present + `--help` + `--bad-flag` rejected |
 
-These are end-user CLI binaries. Integration / smoke tests on devnet implicitly exercise them but no automated assertion holds. Acceptable for testnet; tightening requires either extracting logic into a `lib.rs` testable surface or building a CLI smoke-test harness.
+Each check captures a structural invariant: the binary boots, parses args, prints the expected banner fingerprint (a substring of the first banner line — chosen so a regression that drops the banner or rewrites the description fails loudly), and rejects garbage flags. Total runtime: ~5 s. Per-binary spec table (`SPECS = [...]`) is the canonical source for fingerprint expectations.
+
+**Latent bug found and fixed:** the harness exposed a real bug in `sophisd/src/args.rs::parse_args` — clap surfaces `--help` and `--version` as `Err` with specific `ErrorKind::Display*` values, but the pre-F-9 code blindly mapped every `Err` to `println!(err) + exit(1)`. Result: `sophisd --help` printed the help text but exited with code 1, breaking convention and scripts like `sophisd --help && start-something`. Fix routes `DisplayHelp` / `DisplayVersion` to `exit(0)` (stdout) and real parse errors to `exit(2)` (stderr), matching clap defaults.
+
+**Validation:**
+- `python cli_smoke_tests.py --debug` → **32/32 checks passed** across 10 binaries.
+- `cargo clippy -p sophisd --all-targets -- -D warnings` clean.
+- `cargo fmt --all -- --check` clean.
+
+**What this harness does NOT do:** it is **not** a substitute for proper unit tests on the underlying logic — the original finding called that path out as a deferred refactor ("extracting logic into a lib.rs testable surface"). Bumping coverage from 0% → meaningful% on, e.g., `dilithium-wallet/src/main.rs` (1142 lines, 72 fns) requires extracting each `fn cmd_*` into testable helpers; that work is genuinely post-mainnet. The smoke harness closes the *structural* 0%-coverage gap: every binary's CLI grammar is now under regression test.
 
 ---
 
@@ -1151,7 +1167,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-6 | P1 | ✅ fixed `285487d` (S5) | pruning_proof/validate 2 integration tests | — |
 | F-7 | P1 | ✅ fixed `cbb1ebc` (S5) | pruning_proof/apply via StagingConsensus | — |
 | F-8 | P1 | ✅ fixed via F-20 closure (S6) | IBD/v7 flow handlers — 2 cargo-level daemon tests un-ignored | — |
-| F-9 | P2 | open | CLI binary mains 0% cov | — |
+| F-9 | P2 | ✅ fixed (S9) | CLI binary mains — smoke harness 10 binaries × 32 checks | — |
 | F-10 | P2 | ✅ fixed (S8) | manifest/imports consistency — deploy-time check | — |
 | F-11 | P2 | ✅ fixed (S7) | SDK env.rs ALT+DA shims | — |
 | F-12 | P2 | open | peer banning strategy | — |
@@ -1166,7 +1182,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
 
 **Pre-mainnet blockers (0 P1 open):** all 4 original P1 blockers (F-6, F-7, F-8, F-13) closed.
-**Post-mainnet tech debt (2 open):** F-9, F-12. Down from 6 in S6 — F-10/F-11/F-16/F-18 closed in S7/S8.
+**Post-mainnet tech debt (1 open):** F-12 (peer banning strategy). Down from 6 in S6 — F-9/F-10/F-11/F-16/F-18 closed across S7/S8/S9.
 **Test-infra debt (0 open):** F-21 closed in S7.
 
 ### Verdict: **testnet ✅ APPROVED + mainnet ✅ APPROVED (Session 6 closure)**
@@ -1190,7 +1206,7 @@ The workspace meets the bar for both testnet and mainnet launch:
 3. **F-7** ✅ closed `cbb1ebc` — apply_pruning_proof covered via StagingConsensus pattern matching production IBD.
 4. **F-8** ✅ closed Session 6 via F-20 closure — both daemon-level tests (`daemon_mining_test` + `daemon_utxos_propagation_test`) un-ignored and stable.
 
-**Recommended (P2, post-mainnet flywheel-permitting):** F-9 (CLI mains 0% cov), F-12 (peer banning strategy). Down from 6 after Sessions 7 + 8 closed F-10/F-11/F-16/F-18.
+**Recommended (P2, post-mainnet flywheel-permitting):** F-12 (peer banning strategy) — only one left. Down from 6 after Sessions 7/8/9 closed F-9/F-10/F-11/F-16/F-18.
 
 **Test-infra debt:** all closed (F-14, F-19, F-20, F-21 in Sessions 5-7).
 
@@ -1206,7 +1222,8 @@ The workspace meets the bar for both testnet and mainnet launch:
 | 6 | 2026-05-14 | Tier 1/2/3 regression re-fire on HEAD f3082fc + F-20 closure (closes F-8 → all P1 mainnet blockers closed) | ✅ done — see §7 below |
 | 7 | 2026-05-15 | P2/P3 cleanup quick wins (F-11 SDK shims, F-16 close, F-18 precondition, F-21 wait_for) + latent wasm32-edition fix | ✅ done — 4 findings closed, 3 P2 remaining |
 | 8 | 2026-05-15 | F-10 deploy-time imports-vs-manifest check (consensus rule + 9 unit tests + doc drift fix) | ✅ done — 1 finding closed, 2 P2 remaining |
-| final | 2026-05-15 | Verdict post-Session-8 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, 2 P2 cosmetic remaining |
+| 9 | 2026-05-15 | F-9 CLI smoke-test harness (10 binaries × 32 checks) + latent sophisd --help exit code fix | ✅ done — 1 finding closed, 1 P2 remaining (F-12) |
+| final | 2026-05-15 | Verdict post-Session-9 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, 1 P2 remaining (peer banning) |
 
 ---
 
