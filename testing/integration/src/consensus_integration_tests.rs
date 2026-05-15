@@ -2067,6 +2067,19 @@ async fn apply_pruning_proof_accepts_validated_proof() {
         "F-7: apply_pruning_proof must commit the validated proof on a pristine staging DB; got {apply_result:?}"
     );
 
+    // ---- F-18 negative vector: apply_proof on a non-pristine DB must return
+    // the typed `ApplyOnNonPristineDb` error instead of panicking. The
+    // producer's own consensus has genesis seeded at construction; the apply
+    // path would previously panic via `headers_store.insert(...).unwrap()`.
+    let proof_for_negative: sophis_consensus_core::pruning::PruningPointProof = proof.as_ref().clone();
+    let negative_result = producer.apply_pruning_proof(proof_for_negative, &trusted_set);
+    match negative_result {
+        Err(sophis_consensus_core::errors::pruning::PruningImportError::ApplyOnNonPristineDb(h)) => {
+            assert_eq!(h, producer_cfg.genesis.hash, "F-18: error must report the producer's genesis hash");
+        }
+        other => panic!("F-18: expected ApplyOnNonPristineDb on non-pristine consensus, got {other:?}"),
+    }
+
     // ---- Cleanup
     producer.shutdown(producer_handles);
     staging_core.shutdown();

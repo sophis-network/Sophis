@@ -12,7 +12,7 @@ const UTXO_BUF_SIZE: usize = 8192;
 // The Sophis sVM runtime registers all functions under module "env".
 #[cfg(target_arch = "wasm32")]
 #[link(wasm_import_module = "env")]
-extern "C" {
+unsafe extern "C" {
     fn get_input_utxo(index: i32, out_ptr: i32, out_len_ptr: i32) -> i32;
     fn get_output_utxo(index: i32, out_ptr: i32, out_len_ptr: i32) -> i32;
     fn get_block_height() -> i64;
@@ -38,6 +38,10 @@ extern "C" {
     fn sophis_emit_event(payload_ptr: i32, payload_len: i32) -> i32;
     // J3 — read 32 bytes of VRF entropy at out_ptr
     fn sophis_vrf_random_at(chain_index: i64, out_ptr: i32) -> i32;
+    // L1 ALT — resolve an Address Lookup Table entry (Capability::ResolveAlt)
+    fn sophis_alt_lookup(ptr_handle: i32, index: i32, out_ptr: i32, out_len_ptr: i32) -> i32;
+    // Phase 6 DA — check Data Availability carrier presence (Capability::VerifyDataAvailability)
+    fn sophis_verify_da(ptr_payload_id: i32, padding: i32, min_confirmations: i64, query_kind: i32) -> i32;
 }
 
 /// J4 — frozen ABI mirror of `sophis_svm_core::events::*` constants.
@@ -59,6 +63,60 @@ pub enum EmitEventError {
     DataTooLarge = 4,
     StructuralError = 5,
     PerTxCapReached = 6,
+}
+
+/// L1 ALT — maximum bytes a single ALT entry's spk_script can occupy.
+/// Mirrors `consensus_core::alt::MAX_ALT_ENTRY_SCRIPT_BYTES`; ABI-frozen.
+/// SDK callers receive resolved spk bytes into a stack buffer this size.
+pub const MAX_ALT_ENTRY_SCRIPT_BYTES: usize = 4_096;
+
+/// L1 ALT — non-zero status returned by `Env::alt_lookup`.
+/// Numbering matches the host fn (`-1`..`-6`); positive here so callers
+/// can compare in safe arithmetic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AltLookupError {
+    CapabilityMissing = 1,
+    GasExhausted = 2,
+    /// Handle pointer read landed outside guest linear memory.
+    MemoryReadOob = 3,
+    /// Handle is well-formed but not registered in the ALT registry for
+    /// this block (handle may be from a different chain or has been
+    /// pruned).
+    HandleNotFound = 4,
+    /// `index` exceeds `entry_count` for the resolved handle, OR the
+    /// resolved spk_script is larger than the SDK's stack buffer (the
+    /// caller should switch to the low-level [`sophis_alt_lookup`] FFI
+    /// with a heap buffer; rare in practice because the consensus cap is
+    /// `MAX_ALT_ENTRY_SCRIPT_BYTES`).
+    IndexOutOfRangeOrTooLarge = 5,
+    /// Output buffer pointer landed outside guest linear memory (SDK bug).
+    MemoryWriteOob = 6,
+}
+
+/// Phase 6 DA — query type for [`Env::verify_da`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DaQueryKind {
+    /// Look up a single carrier fragment by its `payload_id`
+    /// (SHA3-384 of the framed carrier script).
+    Payload = 0,
+    /// Look up a fully reassembled bundle by its `bundle_id`
+    /// (SHA3-384 of the reassembled data).
+    Bundle = 1,
+}
+
+/// Phase 6 DA — non-zero status returned by `Env::verify_da`.
+/// Numbering matches the host fn (`-1`..`-4`); positive here so callers
+/// can compare in safe arithmetic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DaVerifyError {
+    /// `query_kind` was not one of `DaQueryKind::Payload`/`Bundle`, OR
+    /// `min_confirmations` was negative when passed at the FFI layer.
+    InvalidArgument = 1,
+    CapabilityMissing = 2,
+    GasExhausted = 3,
+    /// `ptr_payload_id` did not point at 48 readable bytes in guest
+    /// memory, OR the `_padding` field was non-zero.
+    MemoryReadOob = 4,
 }
 
 /// J3 — non-zero status returned by `Env::vrf_random_at_chain_index`.
@@ -308,6 +366,113 @@ impl Env {
         {
             let _ = chain_index;
             Ok([0u8; 32])
+        }
+    }
+
+    /// Resolve a Sophis Address Lookup Table reference to its full
+    /// `script_public_key` (L1 ALT — `ResolveAlt` capability required).
+    ///
+    /// - `handle`: 6-byte ALT handle (declared in the L1 ALT registry).
+    /// - `index`:  entry index inside the resolved table, in `[0, entry_count)`.
+    ///
+    /// On success returns `Ok((spk_version, spk_script_bytes))` where
+    /// `spk_version` is the resolved script_public_key version (matches
+    /// `consensus_core::MAX_SCRIPT_PUBLIC_KEY_VERSION` enumeration) and
+    /// `spk_script_bytes` is the raw `script` bytes (≤ `MAX_ALT_ENTRY_SCRIPT_BYTES`).
+    ///
+    /// Returns `Err(AltLookupError::*)` mirroring the host fn status code
+    /// on rejection. Outside WASM (off-chain dev), always returns
+    /// `Err(AltLookupError::CapabilityMissing)` — there is no real ALT
+    /// registry to consult.
+    pub fn alt_lookup(&self, handle: &[u8; 6], index: u8) -> Result<(u16, Vec<u8>), AltLookupError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut buf = [0u8; MAX_ALT_ENTRY_SCRIPT_BYTES];
+            let mut len: u32 = MAX_ALT_ENTRY_SCRIPT_BYTES as u32;
+            let status = unsafe {
+                sophis_alt_lookup(handle.as_ptr() as i32, index as i32, buf.as_mut_ptr() as i32, &mut len as *mut u32 as i32)
+            };
+            match status {
+                -1 => Err(AltLookupError::CapabilityMissing),
+                -2 => Err(AltLookupError::GasExhausted),
+                -3 => Err(AltLookupError::MemoryReadOob),
+                -4 => Err(AltLookupError::HandleNotFound),
+                -5 => Err(AltLookupError::IndexOutOfRangeOrTooLarge),
+                -6 => Err(AltLookupError::MemoryWriteOob),
+                spk_version if spk_version >= 0 => {
+                    let n = len as usize;
+                    // Defensive guard: the host should never write past the
+                    // declared capacity, but a mismatch would be undefined
+                    // behavior — fail closed.
+                    if n > MAX_ALT_ENTRY_SCRIPT_BYTES {
+                        return Err(AltLookupError::MemoryWriteOob);
+                    }
+                    // spk_version fits in u16 (consensus enforces ≤ MAX_SCRIPT_PUBLIC_KEY_VERSION = 5).
+                    Ok((spk_version as u16, buf[..n].to_vec()))
+                }
+                // Any other negative code is a host-fn ABI bug; surface as MemoryWriteOob.
+                _ => Err(AltLookupError::MemoryWriteOob),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = (handle, index);
+            Err(AltLookupError::CapabilityMissing)
+        }
+    }
+
+    /// Check Phase 6 Data Availability carrier presence
+    /// (`VerifyDataAvailability` capability required).
+    ///
+    /// - `payload_id`:       48-byte identifier (SHA3-384 hash of either a
+    ///                       framed carrier script or a reassembled bundle,
+    ///                       per `query_kind`).
+    /// - `min_confirmations`: minimum chain confirmations required for
+    ///                       presence to count as "verified". Recommended
+    ///                       default per contract type is documented in
+    ///                       `consensus_core::da::DEFAULT_DA_CONFIRMATIONS`
+    ///                       (= 1000 blocks at 10 BPS ≈ 100 s).
+    /// - `query_kind`:       [`DaQueryKind::Payload`] or [`DaQueryKind::Bundle`].
+    ///
+    /// Returns `Ok(true)` if the carrier is on-chain with at least
+    /// `min_confirmations` confirmations, `Ok(false)` if absent / not yet
+    /// confirmed enough, or `Err(DaVerifyError::*)` on host-side
+    /// rejection. Outside WASM (off-chain dev), always returns
+    /// `Err(DaVerifyError::CapabilityMissing)`.
+    pub fn verify_da(&self, payload_id: &[u8; 48], min_confirmations: u64, query_kind: DaQueryKind) -> Result<bool, DaVerifyError> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            // The host fn signs `min_confirmations` as i64 to share a single
+            // ABI with the prior signed wire. Cast checks before crossing
+            // the boundary so a u64 value that overflows i64 fails fast in
+            // the SDK rather than producing a confusing host error.
+            let min_conf_i64: i64 = match i64::try_from(min_confirmations) {
+                Ok(v) => v,
+                Err(_) => return Err(DaVerifyError::InvalidArgument),
+            };
+            let status = unsafe {
+                sophis_verify_da(
+                    payload_id.as_ptr() as i32,
+                    0, // _padding — host rejects non-zero
+                    min_conf_i64,
+                    query_kind as i32,
+                )
+            };
+            match status {
+                0 => Ok(false),
+                1 => Ok(true),
+                -1 => Err(DaVerifyError::InvalidArgument),
+                -2 => Err(DaVerifyError::CapabilityMissing),
+                -3 => Err(DaVerifyError::GasExhausted),
+                -4 => Err(DaVerifyError::MemoryReadOob),
+                // Any other value is a host-fn ABI bug; surface as InvalidArgument.
+                _ => Err(DaVerifyError::InvalidArgument),
+            }
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = (payload_id, min_confirmations, query_kind);
+            Err(DaVerifyError::CapabilityMissing)
         }
     }
 

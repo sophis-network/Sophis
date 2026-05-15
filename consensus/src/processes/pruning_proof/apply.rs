@@ -43,6 +43,19 @@ use super::PruningProofManager;
 
 impl PruningProofManager {
     pub fn apply_proof(&self, proof: PruningPointProof, trusted_set: &[TrustedBlock]) -> PruningImportResult<()> {
+        // Audit/F-18 (Session 7, 2026-05-15): apply_proof writes the proof's
+        // genesis header (proof[0][0]) into headers_store unconditionally
+        // via `.unwrap()` further down (`populate_reachability_and_headers`
+        // line ~172). On a non-pristine DB the insert returns
+        // `HashAlreadyExists` and the unwrap panics. Production IBD always
+        // calls this on a `StagingConsensus` whose DB is pristine
+        // (`protocol/flows/src/ibd/flow.rs:160, 469, 500`), so the panic is
+        // unreachable in practice. This precondition turns the latent panic
+        // into a typed error for defensive programming and test ergonomics.
+        if self.headers_store.has(self.genesis_hash).unwrap_or(false) {
+            return Err(PruningImportError::ApplyOnNonPristineDb(self.genesis_hash));
+        }
+
         // Following validation of a pruning proof, various consensus storages must be updated
 
         let pruning_point_header = proof[0].last().unwrap().clone();

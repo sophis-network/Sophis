@@ -86,6 +86,16 @@ pub enum PruningImportError {
 
     #[error("got trusted block {0} in the future of the pruning point {1}")]
     TrustedBlockInPruningPointFuture(Hash, Hash),
+
+    /// Audit/F-18 (Session 7, 2026-05-15): `apply_proof` must be called on a
+    /// pristine consensus DB (typically a `StagingConsensus`); the proof
+    /// itself contains the genesis header at level 0 and the apply loop
+    /// re-inserts it. Calling `apply_proof` on a regular `Consensus`
+    /// instance — which seeds genesis at construction time — previously
+    /// triggered `HashAlreadyExists.unwrap()` and panicked. With this
+    /// precondition check the call returns this typed error instead.
+    #[error("apply_proof called on a non-pristine DB: genesis header {0} is already present")]
+    ApplyOnNonPristineDb(Hash),
 }
 
 #[derive(Error, Debug, Clone)]

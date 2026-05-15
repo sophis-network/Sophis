@@ -484,11 +484,23 @@ Test recipe (mirrors `staging_consensus_test` at line 1097):
 
 Run: `cargo test -p sophis-testing-integration apply_pruning_proof` → **1 passed / 0 failed / 8.25 s wall**. Cumulative pruning_proof tests (F-6 + F-7): **3 passed, 0 failed, 0 ignored** at this commit.
 
-#### F-18 — `apply_proof` panics via `.unwrap()` on `HashAlreadyExists` when called on a non-pristine DB (P2 — precondition-only)
+#### F-18 — `apply_proof` panics via `.unwrap()` on `HashAlreadyExists` when called on a non-pristine DB (P2 — precondition-only) ✅ FIXED
 
 **Severity:** P2 — precondition documentation gap, not exploitable.
 **Found:** Session 5, 2026-05-14, during F-7 test attempt.
-**Status:** open.
+**Status:** ✅ **fixed in Session 7, 2026-05-15**. Added typed `PruningImportError::ApplyOnNonPristineDb(Hash)` variant and a precondition check at the top of `apply_proof` (option (2) from the original recommendation):
+
+```rust
+if self.headers_store.has(self.genesis_hash).unwrap_or(false) {
+    return Err(PruningImportError::ApplyOnNonPristineDb(self.genesis_hash));
+}
+```
+
+The previously-latent panic at `apply.rs:172` (`headers_store.insert(...).unwrap()` on duplicate genesis) is now an early-return with a clear error message identifying the precondition violation.
+
+**Test coverage:** extended `apply_pruning_proof_accepts_validated_proof` (the F-7 happy-path test) with a negative vector that calls `producer.apply_pruning_proof(proof, &trusted_set)` on the producer's own consensus (which has genesis seeded at construction) and asserts the result is `Err(ApplyOnNonPristineDb(genesis_hash))`. Combined test: **1 pass / 8.99 s wall**.
+
+**Impact on production:** zero behavior change. Every production IBD code path calls `apply_pruning_proof` through `new_staging_consensus()` (`protocol/flows/src/ibd/flow.rs:160, 469, 500`), which produces a pristine DB. The precondition check is defense-in-depth + better test surface, not a fix for an exploitable bug.
 
 **Description.** `consensus/src/processes/pruning_proof/apply.rs:172`:
 ```rust
@@ -653,11 +665,24 @@ The real-world risk is third-party contract libraries that internally call `env:
 | `svm/sdk-macros/src/lib.rs` | ✅ STRONG | `#[sophis_contract]` attribute macro walks the AST and rejects (a) `unsafe fn` on the outer signature, (b) `unsafe` blocks, (c) `unsafe fn` declarations inside, (d) float literals, (e) unchecked arithmetic operators (`+ - * / %`). Generates the `extern "C" fn validate() -> i32` entry point with the user's fn renamed to `__sophis_inner_<name>`. **The macro does *not* generate `ContractManifest::required_capabilities`** — that's separately declared by the deployer in the deploy tx payload. This is the structural origin of F-10. |
 | `svm/sdk/src/env.rs` | ⚠️ GAP (see F-11) | Declares 9 of the 11 host functions actually registered by `svm/runtime/src/host.rs`. **Missing from the SDK surface:** `sophis_alt_lookup` (Capability::ResolveAlt) and `sophis_verify_da` (Capability::VerifyDataAvailability). |
 
-#### F-11 — SDK surface incomplete: ALT and DA host fns not exposed (P2)
+#### F-11 — SDK surface incomplete: ALT and DA host fns not exposed (P2) ✅ FIXED
 
 **Severity:** P2 — ergonomics gap, not a security vulnerability.
 **Found:** Session 3 continuation, 2026-05-14.
-**Status:** open.
+**Status:** ✅ **fixed in Session 7, 2026-05-15**. Added `Env::alt_lookup` and `Env::verify_da` to `svm/sdk/src/env.rs`, plus three supporting public types:
+
+- `pub fn alt_lookup(&self, handle: &[u8; 6], index: u8) -> Result<(u16, Vec<u8>), AltLookupError>` — calls the `sophis_alt_lookup` host fn with a `MAX_ALT_ENTRY_SCRIPT_BYTES` (= 4096) stack buffer, returns `(spk_version, spk_script_bytes)` on hit.
+- `pub fn verify_da(&self, payload_id: &[u8; 48], min_confirmations: u64, query_kind: DaQueryKind) -> Result<bool, DaVerifyError>` — calls `sophis_verify_da` with safe `i64` cast (SDK-side rejection of overflow), returns `Ok(true)` / `Ok(false)` for present / absent.
+- `pub enum AltLookupError { CapabilityMissing, GasExhausted, MemoryReadOob, HandleNotFound, IndexOutOfRangeOrTooLarge, MemoryWriteOob }` mirroring host status codes -1..-6.
+- `pub enum DaQueryKind { Payload = 0, Bundle = 1 }` for the wire-format selector.
+- `pub enum DaVerifyError { InvalidArgument, CapabilityMissing, GasExhausted, MemoryReadOob }` mirroring host status codes -1..-4.
+- `pub const MAX_ALT_ENTRY_SCRIPT_BYTES: usize = 4_096` — ABI mirror of the consensus cap.
+
+The extern "C" block at the top of env.rs gained the two new host fn declarations (`sophis_alt_lookup`, `sophis_verify_da`). Off-chain builds return `Err(CapabilityMissing)` so contract code can use the same call sites without `cfg` shenanigans.
+
+**Bonus fix (latent pre-existing bug):** the file's `extern "C" {}` block was missing the `unsafe` keyword required by Rust 2024 edition; the wasm32-unknown-unknown build was failing on master before this session. Added `unsafe extern "C" {}`. Verified: `cargo check -p sophis-sdk --target wasm32-unknown-unknown` now green.
+
+**Validation:** `cargo test -p sophis-sdk` → 7 + 4 + 1 = 12 passes / 0 failed. `cargo clippy -p sophis-sdk --all-targets -- -D warnings` clean. `cargo fmt -p sophis-sdk` clean. Wasm32 target check clean.
 
 **Description.** `svm/sdk/src/env.rs` declares the extern "C" shims that contract authors call via `env.verify_dilithium(...)`, `env.sha3_384(...)`, etc. The grep for `sophis_alt_lookup` and `sophis_verify_da` (or `alt_lookup` / `verify_da`) in the file returns **zero matches**, yet both are real host functions registered in `svm/runtime/src/host.rs` and have corresponding `Capability::ResolveAlt` and `Capability::VerifyDataAvailability` variants.
 
@@ -886,11 +911,11 @@ Reproduced for u128, u192, u256.
 
 Recommendation (1) is the smallest change to unblock fuzzing. (2) is the cleanest long-term but requires editing every call site.
 
-#### F-16 — `devnet/rothschild_wallet.json` was a pre-Dilithium-migration secp256k1 keypair (test-data, not code)
+#### F-16 — `devnet/rothschild_wallet.json` was a pre-Dilithium-migration secp256k1 keypair (test-data, not code) ✅ CLOSED (no code action)
 
 **Severity:** test-data drift (not production code).
 **Found:** Session 5, 2026-05-14, after `sophis-miner -a <old_rothschild_address>` panicked with `InvalidVersion(0)`.
-**Status:** open — guidance only; no code change required.
+**Status:** ✅ **closed in Session 7, 2026-05-15 — no code change required**. The stale file lives at `G:\Meu Drive\Claude\Sophis\devnet\rothschild_wallet.json` (the operator's audit-machine working dir on Google Drive), **not** in the git repo. Auto-regeneration on next throughput-test run reproduces the correct Dilithium-format wallet. No production code is affected; the miner already correctly rejects the legacy v=0 address with a typed error. Filed in the ledger as informational closure for completeness.
 
 **Description.** The `devnet/rothschild_wallet.json` file on the audit machine was dated 18/04/2026, **before** the 2026-05-04 PQC pivot and the corresponding rothschild migration to Dilithium-internal signing. The schema was the legacy two-field shape:
 
@@ -1088,7 +1113,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 - ✅ **Tier 2** — ZK plumbing (Phase 3 rollup + Phase 5 oracle + Phase 6 DA + Phase 9 PQC oracle) audited inside Linux Docker (`docker/Dockerfile.audit`, 47 GB image). `cargo test --workspace --features svm-zk` → **1,928 passed / 0 failed / 66 ignored** across 177 suites. No new findings; Phase 3/6/9 STRONG, Phase 5 ✅ NO REGRESSION (deprecated, removal-on-schedule per SIP-11).
 - ✅ **Tier 3** — spot-check on faucet (STRONG); rest deferred (low priority pre-testnet).
 
-### Findings ledger (final state, 21 total — updated Session 6, 2026-05-14)
+### Findings ledger (final state, 21 total — updated Session 7, 2026-05-15)
 
 | # | Sev | Status | Component | Mainnet blocker? |
 |---|---|---|---|---|
@@ -1102,21 +1127,21 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-8 | P1 | ✅ fixed via F-20 closure (S6) | IBD/v7 flow handlers — 2 cargo-level daemon tests un-ignored | — |
 | F-9 | P2 | open | CLI binary mains 0% cov | — |
 | F-10 | P2 | open | manifest/imports consistency | — |
-| F-11 | P2 | open | SDK env.rs ALT+DA missing | — |
+| F-11 | P2 | ✅ fixed (S7) | SDK env.rs ALT+DA shims | — |
 | F-12 | P2 | open | peer banning strategy | — |
 | F-13 | P1 | ✅ fixed `7b5231c` (S5) | dilithium-wallet mainnet keygen rejected | — |
 | F-14 | test-infra | ✅ fixed (S5) | Phase 6 adversarial runner filter paths | — |
 | F-15 | P1 | ⚠️ partial (S5) | math/fuzz Cargo.toml transitive deps | — |
-| F-16 | test-data | open | stale rothschild_wallet.json (audit machine) | — |
+| F-16 | test-data | ✅ closed (S7 — no code) | stale rothschild_wallet.json (audit machine) | — |
 | F-17 | P1 | ✅ fixed (S5) | math/fuzz harness wrapping semantics | — |
-| F-18 | P2 | open | apply_proof unwrap precondition | — |
+| F-18 | P2 | ✅ fixed (S7) | apply_proof pristine DB precondition + typed error | — |
 | F-19 | P2 | ✅ fixed (S5) | fetch_spendable_utxos script-space compare | — |
 | F-20 | P2 | ✅ fixed (S6) | daemon_utxos_propagation_test 4-layer fix | — |
-| F-21 | P3 | open | daemon_mining_test sleep-1s flake under contention | — |
+| F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
 
 **Pre-mainnet blockers (0 P1 open):** all 4 original P1 blockers (F-6, F-7, F-8, F-13) closed.
-**Post-mainnet tech debt (6 open):** F-9, F-10, F-11, F-12, F-16, F-18.
-**Test-infra debt (1 open):** F-21 (daemon_mining_test flake under workspace contention).
+**Post-mainnet tech debt (3 open):** F-9, F-10, F-12. Down from 6 — F-11, F-16, F-18 closed in S7.
+**Test-infra debt (0 open):** F-21 closed in S7.
 
 ### Verdict: **testnet ✅ APPROVED + mainnet ✅ APPROVED (Session 6 closure)**
 
@@ -1139,8 +1164,9 @@ The workspace meets the bar for both testnet and mainnet launch:
 3. **F-7** ✅ closed `cbb1ebc` — apply_pruning_proof covered via StagingConsensus pattern matching production IBD.
 4. **F-8** ✅ closed Session 6 via F-20 closure — both daemon-level tests (`daemon_mining_test` + `daemon_utxos_propagation_test`) un-ignored and stable.
 
-**Recommended (P2, post-mainnet flywheel-permitting):** F-9, F-10, F-11, F-12, F-16, F-18.
-**Test-infra polish (P3):** F-21 — wrap `daemon_mining_test` line-117 assertion in a `wait_for` retry loop to harden against workspace contention flake.
+**Recommended (P2, post-mainnet flywheel-permitting):** F-9 (CLI mains 0% cov), F-10 (manifest/imports consistency), F-12 (peer banning strategy). Down from 6 after Session 7 closed F-11/F-16/F-18.
+
+**Test-infra debt:** all closed (F-14, F-19, F-20, F-21 in Sessions 5-7).
 
 ### Audit ledger (sessions)
 
@@ -1152,7 +1178,8 @@ The workspace meets the bar for both testnet and mainnet launch:
 | 4 | 2026-05-14 | Tier 2 Linux Docker (`--features svm-zk`) | ✅ done — 1,928 / 0 / 66; no new findings; Phase 3/6/9 STRONG |
 | 5 | 2026-05-14 | Impeccable-tests pipeline + Phase 6 adversarial + Kani + math fuzz | ✅ done — F-14/F-15/F-17/F-19 fixed, F-16/F-18/F-20 filed |
 | 6 | 2026-05-14 | Tier 1/2/3 regression re-fire on HEAD f3082fc + F-20 closure (closes F-8 → all P1 mainnet blockers closed) | ✅ done — see §7 below |
-| final | 2026-05-14 | Verdict post-Session-6 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers open |
+| 7 | 2026-05-15 | P2/P3 cleanup quick wins (F-11 SDK shims, F-16 close, F-18 precondition, F-21 wait_for) + latent wasm32-edition fix | ✅ done — 4 findings closed, 3 P2 remaining |
+| final | 2026-05-15 | Verdict post-Session-7 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, 3 P2 cosmetic remaining |
 
 ---
 
@@ -1266,7 +1293,7 @@ cargo build -p sophis-dashboard -p sophis-calculator -p sophis-da-stress -p soph
 
 **No new findings.** Pre-existing flake re-confirmed:
 
-- **F-21 (new, P3 — test infrastructure)**: `daemon_integration_tests::daemon_mining_test` line 117 sleep-1s window insufficient under concurrent workspace test pressure. Passes 4/4 isolated. Reproduces under workspace `cargo test` whenever CPU contention is high. **Not a code regression**, not blocking — but should be hardened pre-mainnet via retry-loop on `block_count` query before asserting (`wait_for` style with 5s timeout). Filed as P3 because it's test-runner ergonomics, not consensus or operational safety.
+- **F-21 (P3 — test infrastructure)** ✅ **fixed in Session 7, 2026-05-15**: `daemon_integration_tests::daemon_mining_test` line 117 sleep-1s window insufficient under concurrent workspace test pressure. Passed 4/4 isolated. Reproduced under workspace `cargo test` whenever CPU contention was high. **Fix:** replaced the fixed `tokio::time::sleep(Duration::from_secs(1))` with a `wait_for(100, 100, ...)` polling loop on `daemon-2.get_block_dag_info().block_count == 10` (100 ms × 100 = 10 s budget). The typical relay completes in <300 ms on uncontended runs; the 10 s budget absorbs ~30× the typical case before failing. Verified locally: 1/1 PASS in 7.28 s. Not a code regression in production paths — was test ergonomics only.
 
 ### 7.6 Overall Session 6 verdict
 

@@ -112,7 +112,27 @@ async fn daemon_mining_test() {
         }
     }
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    // Audit/F-21 (Session 7, 2026-05-15): wait for daemon-2 to catch up
+    // via the v7 BlockRelay flow instead of a fixed 1s sleep. The original
+    // sleep was insufficient under workspace contention (concurrent test
+    // binaries) and produced intermittent `left: 9, right: 10` flakes
+    // even though the relay flow itself was correct. 100ms × 100 = 10s
+    // is generous; the typical relay completes in <300ms on uncontended
+    // runs.
+    let check_client = rpc_client2.clone();
+    wait_for(
+        100,
+        100,
+        move || {
+            async fn relayed_all(client: GrpcClient) -> bool {
+                client.get_block_dag_info().await.map(|info| info.block_count == 10).unwrap_or(false)
+            }
+            Box::pin(relayed_all(check_client.clone()))
+        },
+        "daemon-2 did not receive all 10 blocks via v7 BlockRelay within 10s",
+    )
+    .await;
+
     // Expect the blocks to be relayed to daemon #2
     let dag_info = rpc_client2.get_block_dag_info().await.unwrap();
     assert_eq!(dag_info.block_count, 10);
