@@ -632,11 +632,37 @@ Audited files: `svm/host/src/lib.rs`, `svm/runtime/src/{validator,host,context}.
 | `svm/lint/src/*` | ⚠️ GAP (see F-10) | Only 3 lints: `no_float`, `no_unchecked_arith`, `no_unsafe`. No lint enforces that the contract's `required_capabilities` matches the host fns it imports from `env::*`. |
 | `consensus/.../validate_contract_deploy` | ⚠️ GAP (see F-10) | Validates WASM bytecode (calls `validate_bytecode`), `contract_id == hash(wasm)`, and `upgrade_policy.is_valid()`. **Does not** post-validate that the contract's WASM `ImportSection` (from the `"env"` module) is consistent with the manifest's `required_capabilities`. |
 
-#### F-10 — Manifest / WASM-imports consistency not enforced at deploy time (P2)
+#### F-10 — Manifest / WASM-imports consistency not enforced at deploy time (P2) ✅ FIXED
 
 **Severity:** P2 — defense-in-depth gap, not a unilateral vulnerability.
 **Found:** Session 3 continuation, 2026-05-14.
-**Status:** open.
+**Status:** ✅ **fixed in Session 8, 2026-05-15**. Implemented recommendation (1) — deploy-time check — exactly as outlined in the original finding.
+
+**Implementation:**
+- New `pub const HOST_FN_CAPABILITY_MAP: &[(&str, Capability)]` in `svm/runtime/src/validator.rs` listing all **11 host fns** and their **10 distinct Capabilities** (`ReadUtxo` is shared by `get_input_utxo` and `get_output_utxo` per the existing `check_capability` calls at host.rs:163 + 181).
+- New `pub fn validate_imports_against_manifest(wasm: &[u8], required_capabilities: &[Capability]) -> RuntimeResult<()>` walks `Payload::ImportSection` and rejects: (a) any `(env, fn_name)` import not in the canonical map → `UnknownHostImport(String)`; (b) any known import whose Capability is missing from `required_capabilities` → `CapabilityNotDeclared { host_fn, capability }`. Non-`env` imports (e.g., WASI) pass through; Wasmtime catches them at instantiation time downstream.
+- Wired into `validate_contract_deploy` in `consensus/src/processes/transaction_validator/tx_validation_in_isolation.rs` for each Contract UTXO output, immediately after the existing upgrade_policy validity check.
+- 2 new `RuntimeError` variants: `UnknownHostImport(String)` and `CapabilityNotDeclared { host_fn: String, capability: SvmCapability }`.
+
+**Test coverage** (9 new unit tests in `validator.rs`, all green):
+- Happy path: import + declare matching → accept
+- Negative: import + omit Capability → `CapabilityNotDeclared`
+- Negative: unknown `env` import name → `UnknownHostImport`
+- Edge: no imports → accept regardless of caps
+- Edge: non-`env` module imports → ignored
+- Multi-import: all declared → accept
+- Multi-import: one missing → reject on that specific one
+- Shared-Capability: `get_input_utxo` + `get_output_utxo` both satisfied by single `ReadUtxo` declaration
+- Map-shape invariants: HOST_FN_CAPABILITY_MAP has 11 rows / 10 distinct Capabilities, includes every expected host fn name
+
+**Doc drift fixed (bonus):** updated the doc comments on `Capability` (in `svm/core/src/capability.rs`) and `ContractManifest` (in `svm/core/src/manifest.rs`) that previously said *"Wasmtime traps immediately if the contract calls a host function not listed in ContractManifest.required_capabilities"* — that was inaccurate (the runtime returns a typed error code, doesn't trap) and predated the new deploy-time check. Now both docs describe the two-layer enforcement model (deploy-time reject + runtime defense-in-depth).
+
+**Validation:**
+- `cargo test -p sophis-svm-runtime --lib validator::` → 26/26 passed (9 new + 17 existing).
+- `cargo clippy -p sophis-svm-runtime -p sophis-consensus --all-targets -- -D warnings` clean.
+- `cargo fmt --all -- --check` clean.
+
+**Consensus consideration:** this check now runs in `validate_tx_in_isolation`, which means every validator rejects the same set of deploys. The check is bounded by `MAX_BYTECODE_SIZE` and parses the import section exactly once per output (typical deploys have 1 Contract UTXO). Cost is negligible vs. existing `validate_bytecode` pass.
 
 **Description.** A contract declares `required_capabilities` in its `ContractManifest`. The runtime calls `check_capability` at every host-fn entry and returns a specific error code (0 / -1 / -2) if the capability is missing. The runtime does **not** trap, despite CLAUDE.md saying *"Wasmtime traps immediately if the contract calls a host function not listed in its ContractManifest.required_capabilities."* (`C:\Projetos\sophis\CLAUDE.md` original line.) Behavior is correct (graceful error) but diverges from doc.
 
@@ -1126,7 +1152,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-7 | P1 | ✅ fixed `cbb1ebc` (S5) | pruning_proof/apply via StagingConsensus | — |
 | F-8 | P1 | ✅ fixed via F-20 closure (S6) | IBD/v7 flow handlers — 2 cargo-level daemon tests un-ignored | — |
 | F-9 | P2 | open | CLI binary mains 0% cov | — |
-| F-10 | P2 | open | manifest/imports consistency | — |
+| F-10 | P2 | ✅ fixed (S8) | manifest/imports consistency — deploy-time check | — |
 | F-11 | P2 | ✅ fixed (S7) | SDK env.rs ALT+DA shims | — |
 | F-12 | P2 | open | peer banning strategy | — |
 | F-13 | P1 | ✅ fixed `7b5231c` (S5) | dilithium-wallet mainnet keygen rejected | — |
@@ -1140,7 +1166,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
 
 **Pre-mainnet blockers (0 P1 open):** all 4 original P1 blockers (F-6, F-7, F-8, F-13) closed.
-**Post-mainnet tech debt (3 open):** F-9, F-10, F-12. Down from 6 — F-11, F-16, F-18 closed in S7.
+**Post-mainnet tech debt (2 open):** F-9, F-12. Down from 6 in S6 — F-10/F-11/F-16/F-18 closed in S7/S8.
 **Test-infra debt (0 open):** F-21 closed in S7.
 
 ### Verdict: **testnet ✅ APPROVED + mainnet ✅ APPROVED (Session 6 closure)**
@@ -1164,7 +1190,7 @@ The workspace meets the bar for both testnet and mainnet launch:
 3. **F-7** ✅ closed `cbb1ebc` — apply_pruning_proof covered via StagingConsensus pattern matching production IBD.
 4. **F-8** ✅ closed Session 6 via F-20 closure — both daemon-level tests (`daemon_mining_test` + `daemon_utxos_propagation_test`) un-ignored and stable.
 
-**Recommended (P2, post-mainnet flywheel-permitting):** F-9 (CLI mains 0% cov), F-10 (manifest/imports consistency), F-12 (peer banning strategy). Down from 6 after Session 7 closed F-11/F-16/F-18.
+**Recommended (P2, post-mainnet flywheel-permitting):** F-9 (CLI mains 0% cov), F-12 (peer banning strategy). Down from 6 after Sessions 7 + 8 closed F-10/F-11/F-16/F-18.
 
 **Test-infra debt:** all closed (F-14, F-19, F-20, F-21 in Sessions 5-7).
 
@@ -1179,7 +1205,8 @@ The workspace meets the bar for both testnet and mainnet launch:
 | 5 | 2026-05-14 | Impeccable-tests pipeline + Phase 6 adversarial + Kani + math fuzz | ✅ done — F-14/F-15/F-17/F-19 fixed, F-16/F-18/F-20 filed |
 | 6 | 2026-05-14 | Tier 1/2/3 regression re-fire on HEAD f3082fc + F-20 closure (closes F-8 → all P1 mainnet blockers closed) | ✅ done — see §7 below |
 | 7 | 2026-05-15 | P2/P3 cleanup quick wins (F-11 SDK shims, F-16 close, F-18 precondition, F-21 wait_for) + latent wasm32-edition fix | ✅ done — 4 findings closed, 3 P2 remaining |
-| final | 2026-05-15 | Verdict post-Session-7 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, 3 P2 cosmetic remaining |
+| 8 | 2026-05-15 | F-10 deploy-time imports-vs-manifest check (consensus rule + 9 unit tests + doc drift fix) | ✅ done — 1 finding closed, 2 P2 remaining |
+| final | 2026-05-15 | Verdict post-Session-8 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 P1 blockers, 2 P2 cosmetic remaining |
 
 ---
 

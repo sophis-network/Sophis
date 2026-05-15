@@ -2,8 +2,19 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Permission a contract must declare at deploy time.
-/// Wasmtime traps immediately if the contract calls a host function
-/// not listed in its ContractManifest.required_capabilities.
+///
+/// Enforced at two layers (defense-in-depth):
+///   1. **Deploy-time** (Audit/F-10, Session 8, 2026-05-15) — consensus
+///      walks the WASM `ImportSection` and rejects deploys whose
+///      `(env, fn_name)` imports map to a Capability not present in
+///      `ContractManifest.required_capabilities`. See
+///      `svm/runtime/src/validator.rs::validate_imports_against_manifest`
+///      + `consensus/src/processes/transaction_validator/
+///      tx_validation_in_isolation.rs::validate_contract_deploy`.
+///   2. **Runtime** — every host fn call site re-checks
+///      `check_capability` and returns a typed error code (not a trap)
+///      when the capability is missing. Catches dynamic-dispatch and
+///      future-proofing scenarios.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum Capability {
     ReadUtxo,

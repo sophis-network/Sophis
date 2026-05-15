@@ -6,7 +6,14 @@ use crate::capability::Capability;
 use crate::upgrade_policy::UpgradePolicy;
 
 /// Declared once at deploy time and stored with the Contract UTXO.
-/// The runtime enforces required_capabilities — any undeclared host call traps.
+///
+/// Enforcement of `required_capabilities` is two-layered (Audit/F-10):
+///   - Consensus rejects deploys whose WASM imports map to a Capability
+///     not in this list — see
+///     `svm/runtime/src/validator.rs::validate_imports_against_manifest`.
+///   - Every runtime host fn call site re-checks `check_capability` as
+///     defense-in-depth, returning a typed error code (not a trap) when
+///     the capability is missing.
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct ContractManifest {
     /// Blake2b hash of the deployed WASM bytecode.

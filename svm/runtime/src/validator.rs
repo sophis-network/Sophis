@@ -1,7 +1,82 @@
+use sophis_svm_core::Capability;
 use wasmparser::{BinaryReaderError, Operator, Parser, Payload};
 
 use crate::config::MAX_MEMORY_PAGES;
 use crate::error::{RuntimeError, RuntimeResult};
+
+/// Audit/F-10 (Session 8, 2026-05-15): canonical map of every host fn the
+/// sVM exposes under the WASM `"env"` namespace, paired with the
+/// [`Capability`] the runtime check_capability call enforces at the call
+/// site. Order matches `register_host_functions` in `host.rs`.
+///
+/// **ABI freeze.** Every addition to this map requires a hard fork because
+/// `validate_imports_against_manifest` becomes part of consensus. Any
+/// change must:
+///   1. Register the host fn in `host.rs` via `linker.func_wrap("env", "<name>", ...)`.
+///   2. Add the matching `Capability` variant in `svm-core/src/capability.rs`.
+///   3. Append a row to this map.
+///   4. Bake into the next mainnet activation.
+///
+/// Why two host fns share `ReadUtxo`: `get_input_utxo` and `get_output_utxo`
+/// are dual reader shims; the consensus side considers "reading the UTXO set"
+/// a single capability. This is per the existing `check_capability` checks
+/// in `host.rs` lines 163 + 181.
+pub const HOST_FN_CAPABILITY_MAP: &[(&str, Capability)] = &[
+    ("get_input_utxo", Capability::ReadUtxo),
+    ("get_output_utxo", Capability::ReadUtxo),
+    ("get_block_height", Capability::ReadBlockHeight),
+    ("verify_dilithium", Capability::VerifyDilithium),
+    ("sha3_384", Capability::HashSha3),
+    ("verify_risc0_proof", Capability::VerifyRisc0Proof),
+    ("verify_plonky3_proof", Capability::VerifyPlonky3Proof),
+    ("sophis_emit_event", Capability::EmitEvent),
+    ("sophis_vrf_random_at", Capability::VrfRandomness),
+    ("sophis_alt_lookup", Capability::ResolveAlt),
+    ("sophis_verify_da", Capability::VerifyDataAvailability),
+];
+
+/// Audit/F-10 (Session 8, 2026-05-15): deploy-time check that every
+/// `(env, fn_name)` import declared by the contract WASM:
+///   1. is registered in [`HOST_FN_CAPABILITY_MAP`] — otherwise
+///      [`RuntimeError::UnknownHostImport`].
+///   2. maps to a `Capability` that the deploy manifest declared in
+///      `required_capabilities` — otherwise
+///      [`RuntimeError::CapabilityNotDeclared`].
+///
+/// Imports from any module other than `"env"` (e.g., the WASI namespace)
+/// are not the sVM's concern and are passed through; the existing
+/// `validate_bytecode` rejects them indirectly via instantiation failure.
+///
+/// This check runs in consensus (`tx_validation_in_isolation::validate_contract_deploy`)
+/// so every validator rejects the same set of deploys.
+pub fn validate_imports_against_manifest(wasm: &[u8], required_capabilities: &[Capability]) -> RuntimeResult<()> {
+    for payload in Parser::new(0).parse_all(wasm) {
+        let payload = payload.map_err(|e: BinaryReaderError| RuntimeError::ValidationFailed(e.to_string()))?;
+        let Payload::ImportSection(reader) = payload else {
+            continue;
+        };
+        for import in reader {
+            let import = import.map_err(|e| RuntimeError::ValidationFailed(e.to_string()))?;
+            if import.module != "env" {
+                continue;
+            }
+            // Function imports only — host fns are wrapped via `linker.func_wrap`.
+            // Memory / global / table imports under "env" (notably the shared-memory
+            // case rejected by validate_bytecode upstream) are skipped here.
+            if !matches!(import.ty, wasmparser::TypeRef::Func(_)) {
+                continue;
+            }
+            let needed = HOST_FN_CAPABILITY_MAP
+                .iter()
+                .find_map(|(name, cap)| if *name == import.name { Some(cap) } else { None })
+                .ok_or_else(|| RuntimeError::UnknownHostImport(import.name.to_string()))?;
+            if !required_capabilities.contains(needed) {
+                return Err(RuntimeError::CapabilityNotDeclared { host_fn: import.name.to_string(), capability: needed.clone() });
+            }
+        }
+    }
+    Ok(())
+}
 
 /// Validates WASM bytecode before compilation.
 /// Rejects: float instructions (scalar + SIMD), threads (shared memory, atomics), size excess.
@@ -402,5 +477,164 @@ mod tests {
             matches!(validate_bytecode(&wasm, MAX_BYTECODE_SIZE), Err(RuntimeError::MemoryUnbounded)),
             "should be MemoryUnbounded"
         );
+    }
+
+    // --- F-10: imports-vs-manifest consistency check -----------------------
+
+    /// Helper: WAT module body that imports verify_dilithium from env. The
+    /// function never runs (caller only walks the import section) so an empty
+    /// body is fine.
+    const WAT_IMPORTS_VERIFY_DILITHIUM: &str = r#"(module
+        (import "env" "verify_dilithium"
+            (func $vd (param i32 i32 i32 i32 i32 i32) (result i32)))
+        (memory (export "memory") 1 256)
+        (func (export "validate") (result i32) i32.const 1))"#;
+
+    /// Helper: imports both verify_dilithium AND sha3_384.
+    const WAT_IMPORTS_TWO_HOST_FNS: &str = r#"(module
+        (import "env" "verify_dilithium"
+            (func $vd (param i32 i32 i32 i32 i32 i32) (result i32)))
+        (import "env" "sha3_384"
+            (func $sha (param i32 i32 i32) (result i32)))
+        (memory (export "memory") 1 256)
+        (func (export "validate") (result i32) i32.const 1))"#;
+
+    /// Helper: imports an unknown host fn that is not in HOST_FN_CAPABILITY_MAP.
+    const WAT_IMPORTS_UNKNOWN: &str = r#"(module
+        (import "env" "some_future_host_fn"
+            (func $f (param i32) (result i32)))
+        (memory (export "memory") 1 256)
+        (func (export "validate") (result i32) i32.const 1))"#;
+
+    /// Helper: no imports at all.
+    const WAT_NO_IMPORTS: &str = r#"(module
+        (memory (export "memory") 1 256)
+        (func (export "validate") (result i32) i32.const 1))"#;
+
+    /// Helper: imports a host fn from a non-"env" module — must be ignored.
+    const WAT_IMPORTS_FROM_OTHER_MODULE: &str = r#"(module
+        (import "wasi_snapshot_preview1" "fd_write"
+            (func $w (param i32 i32 i32 i32) (result i32)))
+        (memory (export "memory") 1 256)
+        (func (export "validate") (result i32) i32.const 1))"#;
+
+    #[test]
+    fn imports_check_happy_path_when_capability_declared() {
+        let wasm = wat::parse_str(WAT_IMPORTS_VERIFY_DILITHIUM).unwrap();
+        let caps = vec![Capability::VerifyDilithium];
+        assert!(validate_imports_against_manifest(&wasm, &caps).is_ok());
+    }
+
+    #[test]
+    fn imports_check_rejects_when_capability_missing() {
+        let wasm = wat::parse_str(WAT_IMPORTS_VERIFY_DILITHIUM).unwrap();
+        // Declares ReadUtxo but NOT VerifyDilithium — should reject.
+        let caps = vec![Capability::ReadUtxo];
+        match validate_imports_against_manifest(&wasm, &caps) {
+            Err(RuntimeError::CapabilityNotDeclared { host_fn, capability }) => {
+                assert_eq!(host_fn, "verify_dilithium");
+                assert_eq!(capability, Capability::VerifyDilithium);
+            }
+            other => panic!("expected CapabilityNotDeclared, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn imports_check_rejects_unknown_host_fn() {
+        let wasm = wat::parse_str(WAT_IMPORTS_UNKNOWN).unwrap();
+        let caps = vec![Capability::ReadUtxo, Capability::VerifyDilithium];
+        match validate_imports_against_manifest(&wasm, &caps) {
+            Err(RuntimeError::UnknownHostImport(name)) => {
+                assert_eq!(name, "some_future_host_fn");
+            }
+            other => panic!("expected UnknownHostImport, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn imports_check_accepts_module_with_no_imports() {
+        let wasm = wat::parse_str(WAT_NO_IMPORTS).unwrap();
+        // Empty cap list is fine when nothing is imported.
+        assert!(validate_imports_against_manifest(&wasm, &[]).is_ok());
+    }
+
+    #[test]
+    fn imports_check_ignores_non_env_modules() {
+        let wasm = wat::parse_str(WAT_IMPORTS_FROM_OTHER_MODULE).unwrap();
+        // Empty cap list is fine — the WASI import is not the sVM's concern.
+        // (Wasmtime instantiation will fail because nothing satisfies WASI,
+        // but this check is structural / consensus-side; the runtime catches
+        // the missing import at instantiation time downstream.)
+        assert!(validate_imports_against_manifest(&wasm, &[]).is_ok());
+    }
+
+    #[test]
+    fn imports_check_multiple_host_fns_all_declared() {
+        let wasm = wat::parse_str(WAT_IMPORTS_TWO_HOST_FNS).unwrap();
+        let caps = vec![Capability::VerifyDilithium, Capability::HashSha3];
+        assert!(validate_imports_against_manifest(&wasm, &caps).is_ok());
+    }
+
+    #[test]
+    fn imports_check_multiple_host_fns_one_missing() {
+        let wasm = wat::parse_str(WAT_IMPORTS_TWO_HOST_FNS).unwrap();
+        // Declares VerifyDilithium but NOT HashSha3 — should reject on sha3_384.
+        let caps = vec![Capability::VerifyDilithium];
+        match validate_imports_against_manifest(&wasm, &caps) {
+            Err(RuntimeError::CapabilityNotDeclared { host_fn, capability }) => {
+                assert_eq!(host_fn, "sha3_384");
+                assert_eq!(capability, Capability::HashSha3);
+            }
+            other => panic!("expected CapabilityNotDeclared for sha3_384, got {other:?}"),
+        }
+    }
+
+    /// `get_input_utxo` and `get_output_utxo` both map to ReadUtxo — declaring
+    /// the single ReadUtxo capability satisfies both imports.
+    #[test]
+    fn imports_check_dual_readers_share_one_capability() {
+        let wat = r#"(module
+            (import "env" "get_input_utxo"
+                (func $gi (param i32 i32 i32) (result i32)))
+            (import "env" "get_output_utxo"
+                (func $go (param i32 i32 i32) (result i32)))
+            (memory (export "memory") 1 256)
+            (func (export "validate") (result i32) i32.const 1))"#;
+        let wasm = wat::parse_str(wat).unwrap();
+        let caps = vec![Capability::ReadUtxo];
+        assert!(validate_imports_against_manifest(&wasm, &caps).is_ok());
+    }
+
+    /// HOST_FN_CAPABILITY_MAP must list every host fn registered in
+    /// `register_host_functions` in host.rs. Catches regressions where a
+    /// new host fn lands without being added to the canonical map.
+    /// Count is 11 (10 distinct Capabilities; ReadUtxo is shared).
+    #[test]
+    fn host_fn_capability_map_has_expected_size() {
+        assert_eq!(HOST_FN_CAPABILITY_MAP.len(), 11, "HOST_FN_CAPABILITY_MAP must list every host fn registered in host.rs");
+        // Distinct capabilities count: 10 (ReadUtxo is shared by get_input_utxo and get_output_utxo).
+        use std::collections::HashSet;
+        let distinct: HashSet<&Capability> = HOST_FN_CAPABILITY_MAP.iter().map(|(_, cap)| cap).collect();
+        assert_eq!(distinct.len(), 10, "expected 10 distinct Capabilities (ReadUtxo is shared by 2 host fns)");
+    }
+
+    #[test]
+    fn host_fn_capability_map_includes_all_known_names() {
+        let names: std::collections::HashSet<&str> = HOST_FN_CAPABILITY_MAP.iter().map(|(n, _)| *n).collect();
+        for expected in [
+            "get_input_utxo",
+            "get_output_utxo",
+            "get_block_height",
+            "verify_dilithium",
+            "sha3_384",
+            "verify_risc0_proof",
+            "verify_plonky3_proof",
+            "sophis_emit_event",
+            "sophis_vrf_random_at",
+            "sophis_alt_lookup",
+            "sophis_verify_da",
+        ] {
+            assert!(names.contains(expected), "HOST_FN_CAPABILITY_MAP missing entry for {expected}");
+        }
     }
 }

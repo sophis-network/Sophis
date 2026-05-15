@@ -13,7 +13,7 @@ use sophis_svm_core::{
     hash_wasm, upgrade_policy::UPGRADE_MIN_BLOCKS,
 };
 use sophis_svm_runtime::config::MAX_BYTECODE_SIZE;
-use sophis_svm_runtime::validator::validate_bytecode;
+use sophis_svm_runtime::validator::{validate_bytecode, validate_imports_against_manifest};
 
 use super::{
     TransactionValidator,
@@ -189,6 +189,14 @@ pub fn validate_contract_deploy(tx: &Transaction) -> TxResult<()> {
                  multisig threshold must be 1..=keys.len() with at most 16 keys"
             )));
         }
+        // Audit/F-10 (Session 8, 2026-05-15): reject deploys whose WASM
+        // imports reference host fns that the manifest does not declare,
+        // OR that reference an unknown `(env, fn_name)` pair. Closes the
+        // silent-third-party-library scenario where a library imports
+        // verify_dilithium internally but the parent contract forgets to
+        // declare VerifyDilithium and silently gets a zero-return.
+        validate_imports_against_manifest(&payload.wasm, &contract_data.manifest.required_capabilities)
+            .map_err(|e| TxRuleError::SvmValidationFailed(format!("output {i} imports/manifest mismatch: {e}")))?;
     }
     Ok(())
 }
