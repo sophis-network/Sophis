@@ -3,7 +3,7 @@ use crate::{
         ALT_HEADER_LEN, ALT_STORAGE_MASS_FACTOR, AltScriptKind, BASE_ALT_CREATION_MASS, classify_alt_script, parse_alt_creation_header,
     },
     config::params::Params,
-    constants::TRANSIENT_BYTE_TO_MASS_FACTOR,
+    constants::{SCRIPT_VERSION_CARRIER, TRANSIENT_BYTE_TO_MASS_FACTOR},
     subnets::SUBNETWORK_ID_SIZE,
     tx::{ScriptPublicKey, Transaction, TransactionInput, TransactionOutput, UtxoEntry, VerifiableTransaction},
 };
@@ -294,20 +294,55 @@ impl MassCalculator {
     }
 
     /// Calculates the contextual masses for this populated transaction.
-    /// Assumptions which must be verified before this call:
-    ///     1. All output values are non-zero
-    ///     2. At least one input (unless coinbase)
     ///
-    /// Otherwise this function should never fail.
+    /// Audit/F-22 (Session 11, 2026-05-15): Phase 6 V5 carrier outputs
+    /// (value=0 protocol marks for Data Availability) and ALT-creation
+    /// outputs (value=0 protocol marks for Address Lookup Tables) MUST
+    /// be filtered out before the harmonic storage-mass calculation —
+    /// `calc_storage_mass` divides by `amount` and would panic on
+    /// value=0 entries. These outputs already contribute to compute
+    /// mass separately:
+    ///   * Carriers contribute to transient_mass via
+    ///     `TRANSIENT_BYTE_TO_MASS_FACTOR` on their byte size.
+    ///   * ALT-creation contributes via `BASE_ALT_CREATION_MASS +
+    ///     ALT_STORAGE_MASS_FACTOR * payload_bytes` (see
+    ///     `calc_non_contextual_masses_for_size_and_sigs`).
+    ///
+    /// Remaining assumptions, verified at consensus tx-validation
+    /// layer before this call (post-filter):
+    ///     1. All remaining output values are non-zero
+    ///     2. At least one input (unless coinbase)
     pub fn calc_contextual_masses(&self, tx: &impl VerifiableTransaction) -> Option<ContextualMasses> {
         calc_storage_mass(
             tx.is_coinbase(),
             tx.populated_inputs().map(|(_, entry)| entry.into()),
-            tx.outputs().iter().map(|out| out.into()),
+            tx.outputs().iter().filter(|out| !is_zero_value_protocol_output(out)).map(|out| out.into()),
             self.storage_mass_parameter,
         )
         .map(ContextualMasses::new)
     }
+}
+
+/// Audit/F-22 (Session 11, 2026-05-15): returns true for outputs that
+/// are protocol-mandated to carry `value == 0`. These outputs are
+/// excluded from the harmonic storage-mass formula in
+/// `calc_contextual_masses` to avoid division-by-zero. Their mass
+/// contribution is computed via the separate non-contextual path:
+///   * Carriers (v=`SCRIPT_VERSION_CARRIER`=5) → `transient_mass`
+///   * ALT-creation outputs                    → `alt_creation_mass`
+///
+/// **Frozen contract.** Any new zero-value output kind must be added
+/// here AND have its own non-contextual mass contribution to keep the
+/// storm-param-bounded fee policy honest.
+#[inline]
+fn is_zero_value_protocol_output(output: &TransactionOutput) -> bool {
+    if output.value != 0 {
+        return false;
+    }
+    if output.script_public_key.version() == SCRIPT_VERSION_CARRIER {
+        return true;
+    }
+    matches!(classify_alt_script(output.script_public_key.script()), Some(AltScriptKind::Creation))
 }
 
 /// Calculates the storage mass (KIP-0009) for a given set of inputs and outputs.
@@ -712,6 +747,84 @@ mod tests {
         tx.tx.outputs[0].value = 50;
         let storage_mass = MassCalculator::new(0, 0, 0, storage_mass_parameter).calc_contextual_masses(&tx.as_verifiable()).unwrap();
         assert_eq!(storage_mass, 5000000000);
+    }
+
+    /// Audit/F-22 (Session 11, 2026-05-15): Phase 6 V5 carrier outputs
+    /// (value=0, version=SCRIPT_VERSION_CARRIER) MUST be filtered from
+    /// the harmonic storage-mass formula. Without the filter,
+    /// `calc_storage_mass` panics on `amount=0` divide. This test
+    /// constructs the minimal repro from the failing devnet soak
+    /// (1 mature input, 1 carrier output, 1 change output) and asserts:
+    /// (a) `calc_contextual_masses` returns `Some(_)` instead of
+    /// panicking; (b) the resulting storage mass is computed solely
+    /// from the value-bearing change output (not the carrier).
+    #[test]
+    fn test_storage_mass_skips_v5_carrier() {
+        let mut tx = generate_tx_from_amounts(&[1_000_000], &[0, 500_000]);
+        // Mark output 0 as a Phase 6 V5 carrier — same construction
+        // as `sophis-da-stress::build_signed_da_tx`.
+        tx.tx.outputs[0].script_public_key = ScriptPublicKey::new(SCRIPT_VERSION_CARRIER, ScriptVec::from_slice(&[0u8; 64]));
+
+        let storage_mass_parameter = 10u64.pow(12);
+        let storage_mass = MassCalculator::new(0, 0, 0, storage_mass_parameter)
+            .calc_contextual_masses(&tx.as_verifiable())
+            .expect("F-22: V5 carrier outputs must NOT cause divide-by-zero");
+
+        // With output 0 filtered, the storage_mass calculation reduces
+        // to the standard 1-in / 1-out harmonic formula on the change
+        // output (value=500_000) vs input (value=1_000_000):
+        //   C·(1/500_000 − 1/1_000_000) = 10^12 / 1_000_000 = 1_000_000
+        // The load-bearing assertion is that the call did not panic;
+        // the numeric result is included so a future change to the
+        // harmonic formula is caught.
+        assert_eq!(storage_mass, ContextualMasses { storage_mass: 1_000_000 });
+    }
+
+    /// Audit/F-22 (Session 11, 2026-05-15): an *entirely zero-value*
+    /// tx (all outputs are carriers) must yield zero storage mass
+    /// without panicking. This is the all-protocol-output edge case.
+    #[test]
+    fn test_storage_mass_all_outputs_carrier() {
+        let mut tx = generate_tx_from_amounts(&[1_000_000], &[0]);
+        tx.tx.outputs[0].script_public_key = ScriptPublicKey::new(SCRIPT_VERSION_CARRIER, ScriptVec::from_slice(&[0u8; 64]));
+
+        let storage_mass_parameter = 10u64.pow(12);
+        let storage_mass = MassCalculator::new(0, 0, 0, storage_mass_parameter)
+            .calc_contextual_masses(&tx.as_verifiable())
+            .expect("F-22: all-carrier tx must NOT cause divide-by-zero");
+        // No value-bearing outputs → no harmonic contribution → 0.
+        assert_eq!(storage_mass, 0);
+    }
+
+    /// Audit/F-22 (Session 11, 2026-05-15): defense-in-depth — verify
+    /// `is_zero_value_protocol_output` matches exactly the value=0
+    /// outputs that calc_storage_mass cannot handle.
+    #[test]
+    fn is_zero_value_protocol_output_classifier() {
+        // Carrier with value=0 → filtered
+        let carrier = TransactionOutput {
+            value: 0,
+            script_public_key: ScriptPublicKey::new(SCRIPT_VERSION_CARRIER, ScriptVec::from_slice(&[0u8; 64])),
+        };
+        assert!(is_zero_value_protocol_output(&carrier));
+
+        // Carrier with value!=0 (invalid by Phase 6 rule 12, but the
+        // filter is conservative — only filters when value is actually 0).
+        let carrier_nonzero = TransactionOutput {
+            value: 1,
+            script_public_key: ScriptPublicKey::new(SCRIPT_VERSION_CARRIER, ScriptVec::from_slice(&[0u8; 64])),
+        };
+        assert!(!is_zero_value_protocol_output(&carrier_nonzero));
+
+        // Regular value=0 P2PKH (not protocol) → NOT filtered.
+        // This case is rejected by `check_transaction_output_value_ranges`
+        // upstream, but the filter should not silently mask it.
+        let dust = TransactionOutput { value: 0, script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&[])) };
+        assert!(!is_zero_value_protocol_output(&dust));
+
+        // Regular value-bearing output → NOT filtered.
+        let normal = TransactionOutput { value: 1000, script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&[])) };
+        assert!(!is_zero_value_protocol_output(&normal));
     }
 
     fn generate_tx_from_amounts(ins: &[u64], outs: &[u64]) -> MutableTransaction<Transaction> {

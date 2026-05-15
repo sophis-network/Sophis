@@ -75,9 +75,13 @@ const VK_SIZE: usize = 1312;
 const SK_SIZE: usize = 2560;
 const RPC_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// Conservative fee per sub-tx in sompi. Larger than the standard
-/// invocation tx fee because carriers can carry up to ~512 KiB per tx.
-const FEE_PER_SUB_TX: u64 = 100_000;
+/// Conservative fee per sub-tx in sompi. Sized to cover the largest
+/// carrier-bundle tx in the mixed profile (32-fragment chunked at 8
+/// fragments/tx requires ~6 M sompi fee at the standard relay-fee
+/// rate). Set to 10 M as a generous bound; the change output absorbs
+/// the surplus. Tuned after Audit/F-22 unblocked submit-side
+/// acceptance (Session 11, 2026-05-15).
+const FEE_PER_SUB_TX: u64 = 10_000_000;
 
 /// How long to wait between sub-txs of a multi-tx bundle. Lets the
 /// previous tx land in the mempool and produce a spendable change UTXO.
@@ -484,8 +488,23 @@ async fn run_stress_loop(
                 break;
             }
 
-            // Use only the largest UTXO; one input is enough for the fee.
-            let single_input = utxos.into_iter().take(1).collect::<Vec<_>>();
+            // Audit/F-22 (Session 11, 2026-05-15): take as many UTXOs as
+            // needed to cover the fee. Devnet coinbase outputs are
+            // small (~6 M sompi per block) and the largest carrier tx
+            // needs up to 10 M (FEE_PER_SUB_TX), so a single UTXO is
+            // not always sufficient.
+            let mut accumulated = 0u64;
+            let single_input: Vec<_> = utxos
+                .into_iter()
+                .take_while(|(_, e)| {
+                    if accumulated >= FEE_PER_SUB_TX {
+                        false
+                    } else {
+                        accumulated = accumulated.saturating_add(e.amount);
+                        true
+                    }
+                })
+                .collect();
 
             let chunk_vec: Vec<Vec<u8>> = chunk.to_vec();
             let payload_bytes_in_tx: usize = chunk_vec.iter().map(|s| s.len().saturating_sub(64)).sum();
