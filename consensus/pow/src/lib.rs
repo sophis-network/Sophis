@@ -1,21 +1,28 @@
-// Audit guard (Session 1 finding F-1, 2026-05-14; condition refined Session 5
-// after CI revealed a regression on the WASM32 build job):
+// Build guard (originated as Session-1 audit finding F-1, 2026-05-14;
+// upgraded to Option 3 — full kHeavyHash removal — 2026-05-16 per founder
+// decision; the WASM32 exemption history from Session 5 is preserved).
 //
-// A *native* build of `sophis-pow` without the `randomx` feature compiles the
-// legacy `Matrix::heavy_hash` + `PowHash` fallback path. That path predates
-// Sophis's switch to RandomX (PoW = RandomX only, per CLAUDE.md invariants) and
-// is consensus-incompatible with the mainnet/testnet protocol: a node built
-// without RandomX would reject every block produced by the network.
+// Sophis is RandomX-only (PoW = RandomX, per CLAUDE.md invariants). The
+// legacy kHeavyHash `Matrix`/`PowHash` fallback PoW has been deleted
+// entirely — there is no longer a second compilable PoW algorithm in this
+// crate. What remains on the `not(feature = "randomx")` path is a
+// type-only stub: `State` still exists but `calculate_pow` is
+// `unreachable!()` (no algorithm), so wasm32 consumers can pull sophis-pow
+// transitively for type definitions while never hashing.
+//
+// A *native* build without `randomx` would therefore have no working PoW
+// (every `calculate_pow` panics). That is almost certainly a build
+// misconfiguration for a node, so we fail fast at compile time instead of
+// shipping a binary that panics at the first PoW check.
 //
 // Exemptions to the guard:
-//   1. `feature = "wasm32-sdk"` — explicit browser-miner build that
-//      ships kHeavyHash for display + connects to a real miner via Stratum.
-//   2. `target_arch = "wasm32"` — any wasm32 target (WASM SDK, web bindings,
-//      compact-filters JS bridge). `randomx-rs` does not compile to wasm32
-//      anyway; the workspace exposes WASM crates that pull `sophis-pow`
-//      transitively for type definitions, not for hashing. Forcing the
-//      `randomx` feature on a wasm32 build would break every downstream
-//      wasm32 consumer.
+//   1. `feature = "wasm32-sdk"` — browser SDK build (ships Stratum helpers
+//      such as `wasm::calculate_target`; no in-browser PoW).
+//   2. `target_arch = "wasm32"` — any wasm32 target (WASM SDK, web
+//      bindings, compact-filters JS bridge). `randomx-rs` does not compile
+//      to wasm32; these consumers pull `sophis-pow` for type definitions,
+//      not hashing. Forcing `randomx` on wasm32 would break every
+//      downstream wasm32 consumer.
 //
 // The CI WASM32 job (`cargo clippy -p sophis-wasm --target
 // wasm32-unknown-unknown`) needs both exemptions: it does not enable the
@@ -23,23 +30,19 @@
 // `target_arch` exemption is what unblocks it.
 #[cfg(all(not(feature = "randomx"), not(feature = "wasm32-sdk"), not(target_arch = "wasm32"),))]
 compile_error!(
-    "sophis-pow requires either the 'randomx' feature (mainnet/testnet — default) \
-     or the 'wasm32-sdk' feature (browser display) on native targets. Building \
-     without RandomX on a native target compiles the legacy kHeavyHash fallback, \
-     which is incompatible with the network's PoW consensus rules. Either remove \
-     `--no-default-features` or add `--features randomx`. wasm32 targets are \
-     exempt — randomx-rs does not build on wasm32."
+    "sophis-pow requires the 'randomx' feature (mainnet/testnet — default) on \
+     native targets. The legacy kHeavyHash fallback has been removed (F-1 \
+     Option 3); a non-randomx native build has no working PoW (calculate_pow \
+     is unreachable!). Either remove `--no-default-features` or add \
+     `--features randomx`. wasm32 targets are exempt — randomx-rs does not \
+     build on wasm32 and pulls sophis-pow for type definitions only."
 );
 
-// public for benchmarks
-#[doc(hidden)]
-pub mod matrix;
 #[cfg(feature = "wasm32-sdk")]
 pub mod wasm;
-#[doc(hidden)]
-pub mod xoshiro;
 
 use std::cmp::max;
+#[cfg(feature = "randomx")]
 use std::sync::Arc;
 
 use sophis_consensus_core::{BlockLevel, hashing, header::Header};
@@ -212,6 +215,12 @@ pub fn build_epoch_dataset(daa_score: u64) -> SharedDataset {
 // State
 // ---------------------------------------------------------------------------
 
+// On the `not(feature = "randomx")` type-only path (wasm32 transitive
+// consumers) `calculate_pow` is `unreachable!()`, so `pre_pow_hash`,
+// `timestamp` and `epoch_num` are constructed but never read. They exist
+// solely so the type-shape matches the randomx build. The allow is scoped
+// to that cfg only — on the randomx build the dead-code lint stays active.
+#[cfg_attr(not(feature = "randomx"), allow(dead_code))]
 pub struct State {
     pub(crate) target: Uint256,
     pub(crate) pre_pow_hash: Hash,
@@ -223,10 +232,6 @@ pub struct State {
     pub(crate) cache: RandomXCache,
     #[cfg(feature = "randomx")]
     pub(crate) fast_dataset: Option<Arc<SharedDataset>>,
-    #[cfg(not(feature = "randomx"))]
-    pub(crate) matrix: crate::matrix::Matrix,
-    #[cfg(not(feature = "randomx"))]
-    pub(crate) hasher: sophis_hashes::PowHash,
 }
 
 // RandomXCache / SharedDataset are read-only after init — safe to share across threads.
@@ -249,14 +254,14 @@ impl State {
 
         #[cfg(not(feature = "randomx"))]
         {
-            use crate::matrix::Matrix;
-            use sophis_hashes::PowHash;
+            // Type-only path (wasm32 transitive consumers). No PoW
+            // algorithm — `calculate_pow` is `unreachable!()`; these fields
+            // exist solely so the type compiles and `calc_block_level`
+            // type-checks. Never executed for hashing on wasm32.
             let target = Uint256::from_compact_target_bits(header.bits);
             let pre_pow_hash = hashing::header::hash_override_nonce_time(header, 0, 0);
             let epoch_num = header.daa_score / EPOCH_LENGTH;
-            let hasher = PowHash::new(pre_pow_hash, header.timestamp);
-            let matrix = Matrix::generate(pre_pow_hash);
-            Self { target, pre_pow_hash, timestamp: header.timestamp, epoch_num, matrix, hasher }
+            Self { target, pre_pow_hash, timestamp: header.timestamp, epoch_num }
         }
     }
 
@@ -344,9 +349,15 @@ impl State {
 
         #[cfg(not(feature = "randomx"))]
         {
-            let hash = self.hasher.clone().finalize_with_nonce(nonce);
-            let hash = self.matrix.heavy_hash(hash);
-            Uint256::from_le_bytes(hash.as_bytes())
+            let _ = nonce;
+            unreachable!(
+                "sophis-pow has no PoW without the 'randomx' feature: the \
+                 legacy kHeavyHash fallback was removed (F-1 Option 3). The \
+                 non-randomx path is type-only for wasm32 transitive \
+                 consumers; browsers must use Stratum to a real RandomX \
+                 miner. A native node reaching this is a build \
+                 misconfiguration the module-level compile guard prevents."
+            )
         }
     }
 
