@@ -284,7 +284,7 @@ rand_core = { version = "0.9", features = ["std"] }
 rand_distr = "0.5"
 rayon = "1.12.0"
 regex = "1.10.2"
-rlimit = "0.10.1"
+rlimit = "0.11.0"
 rocksdb = "0.24.0"
 rv = "0.16.4"
 separator = "0.4.1"
