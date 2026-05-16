@@ -14,30 +14,21 @@ num-bigint = "0.4"
 num-traits = "0.2"
 num-integer = "0.1"
 
-# Audit/F-15 (2026-05-14): `construct_uint!` macro from `sophis-math::uint`
-# expands to references of ~10 transitive crates that the main `sophis-math`
-# crate carries (wasm_bindgen, js_sys, serde, serde-wasm-bindgen, borsh,
-# faster-hex, sophis-utils, malachite-base, malachite-nz, thiserror,
-# workflow-*). The fuzz binaries compile for Linux x86_64 only and never
-# link the WASM/JS annotations — but the macro resolution still needs the
-# crate names to be in scope. Listing them here as direct deps unblocks
-# compilation without enabling any WASM behavior.
-#
-# Long-term fix (out of scope of this audit): refactor `construct_uint!`
-# to feature-gate the WASM/serde-wasm-bindgen surface so non-WASM consumers
-# (fuzz, kani-proofs, plain integration tests) need only the minimal core.
-wasm-bindgen = "=0.2.100"
-js-sys = "=0.3.77"
-serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.6.1"
+# Audit/F-15 (Session 14, 2026-05-16): the definitive fix. The
+# `construct_uint!` macro's js-sys / wasm-bindgen surface (`as_bigint`,
+# `to_bigint`, the three `TryFrom<&_/_/JsValue>` impls) is now gated
+# behind `#[cfg(target_arch = "wasm32")]` in `sophis-math::uint`. On the
+# x86_64 fuzz target those blocks are not emitted, so the macro
+# expansion no longer references wasm-bindgen / js-sys / serde-wasm-
+# bindgen / workflow-*. Only the non-wasm expansion deps remain below.
+# (Replaces the 2026-05-14 partial workaround that listed all ~11
+# transitive crates.)
 borsh = { version = "1.5", features = ["derive"] }
 faster-hex = "0.9"
 malachite-base = "0.4.4"
 malachite-nz = "0.4.4"
+serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
-workflow-core = "0.18"
-workflow-log = "0.18"
-workflow-wasm = "0.18"
 sophis-utils = { path = "../../utils" }
 
 [dependencies.sophis-math]

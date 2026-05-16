@@ -471,11 +471,21 @@ macro_rules! construct_uint {
                 Ok(Self::from_be_bytes(out))
             }
 
+            // Audit/F-15 (Session 14, 2026-05-16): the js_sys::BigInt bridge
+            // is only meaningful on the wasm32 target (browser/SDK). Gating
+            // it behind `cfg(target_arch = "wasm32")` means non-wasm macro
+            // consumers (math/fuzz, svm/kani-proofs) no longer inherit a
+            // js-sys / wasm-bindgen dependency from the macro expansion. The
+            // wasm32 SDK build is unaffected — the block is still emitted
+            // there. See also the matching gate on the three TryFrom impls
+            // below.
+            #[cfg(target_arch = "wasm32")]
             #[inline]
             pub fn as_bigint(&self) -> Result<js_sys::BigInt, $crate::Error> {
                 self.try_into()
             }
 
+            #[cfg(target_arch = "wasm32")]
             #[inline]
             pub fn to_bigint(self) -> Result<js_sys::BigInt, $crate::Error> {
                 self.try_into()
@@ -1000,6 +1010,13 @@ macro_rules! construct_uint {
 
         }
 
+        // Audit/F-15 (Session 14, 2026-05-16): these three js_sys /
+        // wasm-bindgen bridges are wasm32-only. Gating them keeps the
+        // macro's non-wasm expansion free of any js-sys / wasm-bindgen
+        // reference, so downstream non-wasm crates that only need the
+        // integer arithmetic (math/fuzz, svm/kani-proofs) do not have to
+        // carry the WASM dependency tree.
+        #[cfg(target_arch = "wasm32")]
         impl TryFrom<&$name> for js_sys::BigInt {
             type Error = $crate::Error;
             #[inline]
@@ -1009,6 +1026,7 @@ macro_rules! construct_uint {
             }
         }
 
+        #[cfg(target_arch = "wasm32")]
         impl TryFrom<$name> for js_sys::BigInt {
             type Error = $crate::Error;
             #[inline]
@@ -1018,6 +1036,7 @@ macro_rules! construct_uint {
             }
         }
 
+        #[cfg(target_arch = "wasm32")]
         impl TryFrom<wasm_bindgen::JsValue> for $name {
             type Error = $crate::Error;
             fn try_from(js_value: wasm_bindgen::JsValue) -> Result<Self, Self::Error> {
