@@ -496,12 +496,227 @@ pub enum ExtractError {
 #[error("Transaction is not finalized")]
 pub struct TxNotFinalized {}
 
+// Audit category-D coverage closure (Session 16, 2026-05-16):
+// `pskt.rs` (the PSKT role state machine) was at 7.56% line coverage.
+// These exercise the role transitions (Creator → Constructor → Updater
+// → Signer → Combiner → Finalizer → Extractor), the builder mutators,
+// `unsigned_tx`/`determine_lock_time`/`calculate_id`, the hex
+// round-trip, the Combiner `Add` (both macro branches), and the
+// Finalizer/Extractor error paths. Bounded residual: `extract_tx`'s
+// script-engine execution path needs real signed scripts — covered E2E
+// by devnet; `extract_tx_unchecked` (the mechanical part) is covered.
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::crypto::{DILITHIUM44_SIG_SIZE, DILITHIUM44_VK_SIZE};
+    use sophis_consensus_core::config::params::DEVNET_PARAMS;
+    use sophis_consensus_core::tx::{ScriptPublicKey, ScriptVec, TransactionOutpoint, UtxoEntry};
 
-    // #[test]
-    // fn it_works() {
-    //     let result = add(2, 2);
-    //     assert_eq!(result, 4);
-    // }
+    fn op(txid: u8, index: u32) -> TransactionOutpoint {
+        TransactionOutpoint::new(Hash::from_slice(&[txid; 32]), index)
+    }
+    fn spk(b: u8) -> ScriptPublicKey {
+        ScriptPublicKey::new(0, ScriptVec::from_slice(&[b]))
+    }
+    fn inp(txid: u8, idx: u32, amount: u64) -> Input {
+        InputBuilder::default()
+            .previous_outpoint(op(txid, idx))
+            .utxo_entry(UtxoEntry::new(amount, spk(1), 0, false))
+            .sig_op_count(1)
+            .build()
+            .unwrap()
+    }
+    fn outp(amount: u64) -> Output {
+        OutputBuilder::default().amount(amount).script_public_key(spk(2)).build().unwrap()
+    }
+    fn pkey(b: u8) -> DilithiumPubKey {
+        DilithiumPubKey::from_bytes([b; DILITHIUM44_VK_SIZE])
+    }
+    fn sg(b: u8) -> Signature {
+        Signature::dilithium_ml44_from_bytes([b; DILITHIUM44_SIG_SIZE])
+    }
+
+    fn constructed() -> PSKT<Constructor> {
+        PSKT::<Creator>::default()
+            .set_version(Version::One)
+            .fallback_lock_time(42)
+            .inputs_modifiable()
+            .outputs_modifiable()
+            .constructor()
+            .input(inp(1, 0, 1000))
+            .output(outp(600))
+    }
+
+    #[test]
+    fn creator_to_constructor_builder_chain() {
+        let c = PSKT::<Creator>::default()
+            .set_version(Version::One)
+            .fallback_lock_time(7)
+            .inputs_modifiable()
+            .outputs_modifiable()
+            .constructor();
+        assert_eq!(c.global.version, Version::One);
+        assert_eq!(c.global.fallback_lock_time, Some(7));
+        assert!(c.global.inputs_modifiable && c.global.outputs_modifiable);
+    }
+
+    #[test]
+    fn constructor_input_output_payload_and_no_more() {
+        let c = constructed();
+        assert_eq!(c.inputs.len(), 1);
+        assert_eq!(c.outputs.len(), 1);
+        assert_eq!(c.global.input_count, 1);
+        assert_eq!(c.global.output_count, 1);
+        // payload allowed at Version::One
+        let c = c.payload(Some(vec![1, 2, 3])).unwrap();
+        assert_eq!(c.global.payload, Some(vec![1, 2, 3]));
+        let c = c.no_more_inputs().no_more_outputs();
+        assert!(!c.global.inputs_modifiable && !c.global.outputs_modifiable);
+    }
+
+    #[test]
+    fn payload_requires_version_one() {
+        let c = PSKT::<Creator>::default().constructor(); // version Zero
+        assert!(matches!(c.payload(Some(vec![1])), Err(Error::PayloadRequiresVersion1(Version::Zero))));
+    }
+
+    #[test]
+    fn updater_set_sequence_ok_and_out_of_bounds() {
+        let u = constructed().updater();
+        let u = u.set_sequence(99, 0).unwrap();
+        assert_eq!(u.inputs[0].sequence, Some(99));
+        assert!(matches!(u.set_sequence(1, 5), Err(Error::OutOfBounds)));
+    }
+
+    #[test]
+    fn unsigned_tx_lock_time_and_id_deterministic() {
+        let p = constructed();
+        let tx = p.unsigned_tx();
+        assert_eq!(tx.tx.inputs.len(), 1);
+        assert_eq!(tx.tx.outputs.len(), 1);
+        assert_eq!(tx.tx.outputs[0].value, 600);
+        assert_eq!(p.calculate_id_internal(), p.calculate_id_internal());
+
+        // determine_lock_time: with an input present whose min_time is
+        // None, `.max()` yields Some(None) so the fallback is NOT used →
+        // 0 (the fallback only applies when there are zero inputs).
+        assert_eq!(p.determine_lock_time(), 0);
+
+        // No inputs → empty iterator → fallback_lock_time is used.
+        let no_inputs = PSKT::<Creator>::default().fallback_lock_time(42).constructor();
+        assert_eq!(no_inputs.determine_lock_time(), 42);
+
+        // An input min_time wins via the max().
+        let with_min_time = PSKT::<Creator>::default().constructor().input(
+            InputBuilder::default()
+                .previous_outpoint(op(1, 0))
+                .utxo_entry(UtxoEntry::new(1000, spk(1), 0, false))
+                .sig_op_count(1)
+                .min_time(Some(50))
+                .build()
+                .unwrap(),
+        );
+        assert_eq!(with_min_time.determine_lock_time(), 50);
+    }
+
+    #[test]
+    fn hex_roundtrip_and_prefix_error() {
+        let p = constructed();
+        let hex = p.to_hex().unwrap();
+        assert!(hex.starts_with("PSKT"));
+        let back: PSKT<Constructor> = PSKT::from_hex(&hex).unwrap();
+        assert_eq!(back.inputs.len(), 1);
+        assert!(matches!(PSKT::<Constructor>::from_hex("NOPE"), Err(Error::PsktPrefixError)));
+    }
+
+    #[test]
+    fn deref_clone_and_from_inner() {
+        let inner = Inner { global: Global::default(), inputs: vec![inp(1, 0, 5)], outputs: vec![] };
+        let p: PSKT<Signer> = PSKT::from(inner);
+        assert_eq!(p.inputs.len(), 1); // Deref to Inner
+        assert_eq!(p.clone().inputs.len(), 1);
+    }
+
+    #[test]
+    fn signer_pass_signature_sync_populates_partial_sigs() {
+        let s = constructed().signer();
+        let signed = s
+            .pass_signature_sync(|_tx, _sighashes| -> Result<Vec<SignInputOk>, String> {
+                Ok(vec![SignInputOk { signature: sg(3), pub_key: pkey(4), key_source: None }])
+            })
+            .unwrap();
+        assert_eq!(signed.inputs[0].partial_sigs.len(), 1);
+        assert_eq!(signed.inputs[0].partial_sigs[0].0, pkey(4));
+        // role transitions
+        let _ = signed.clone().finalizer();
+        let _ = signed.clone().combiner();
+        let rebased = signed.set_input_prev_transaction_id(Hash::from_slice(&[9; 32]));
+        assert_eq!(rebased.inputs[0].previous_outpoint.transaction_id, Hash::from_slice(&[9; 32]));
+    }
+
+    #[test]
+    fn combiner_add_merges_compatible_pskts() {
+        let a = constructed().combiner();
+        let b: PSKT<Constructor> = constructed();
+        let combined = (a + b).unwrap();
+        assert_eq!(combined.inputs.len(), 1);
+        assert_eq!(combined.outputs.len(), 1);
+        let _ = combined.clone().signer();
+        let _ = combined.finalizer();
+    }
+
+    #[test]
+    fn combiner_add_global_mismatch_errors() {
+        let a = constructed().combiner(); // version One
+        let b = PSKT::<Creator>::default().constructor().input(inp(1, 0, 1000)); // version Zero
+        assert!(matches!(a + b, Err(CombineError::Global(_))));
+    }
+
+    #[test]
+    fn finalizer_success_and_error_paths() {
+        let s = constructed().signer();
+        let f = s.finalizer();
+        // wrong sig count
+        let wrong = f.clone().finalize_sync(|_| -> Result<Vec<Vec<u8>>, String> { Ok(vec![]) });
+        assert!(matches!(wrong, Err(FinalizeError::WrongFinalizedSigsCount { expected: 1, actual: 0 })));
+        // empty signature
+        let empty = f.clone().finalize_sync(|_| -> Result<Vec<Vec<u8>>, String> { Ok(vec![vec![]]) });
+        assert!(matches!(empty, Err(FinalizeError::EmptySignature(0))));
+        // callback error
+        let cberr = f.clone().finalize_sync(|_| -> Result<Vec<Vec<u8>>, String> { Err("boom".into()) });
+        assert!(matches!(cberr, Err(FinalizeError::FinalaziCb(_))));
+        // success → global.id set, extractor ok
+        let done = f.finalize_sync(|_| -> Result<Vec<Vec<u8>>, String> { Ok(vec![vec![1, 2, 3]]) }).unwrap();
+        assert!(done.id().is_some());
+        assert!(done.inputs[0].final_script_sig.is_some());
+        assert!(done.extractor().is_ok());
+    }
+
+    #[test]
+    fn finalizer_extractor_not_finalized() {
+        let f = constructed().signer().finalizer();
+        assert!(matches!(f.extractor(), Err(TxNotFinalized {})));
+    }
+
+    #[test]
+    fn extractor_unchecked_builds_tx_with_mass() {
+        let done = constructed()
+            .signer()
+            .finalizer()
+            .finalize_sync(|_| -> Result<Vec<Vec<u8>>, String> { Ok(vec![vec![0xaa, 0xbb]]) })
+            .unwrap();
+        let ex = done.extractor().unwrap();
+        let mtx = ex.extract_tx_unchecked(&DEVNET_PARAMS).unwrap();
+        assert_eq!(mtx.tx.inputs[0].signature_script, vec![0xaa, 0xbb]);
+        assert!(mtx.tx.mass() > 0);
+    }
+
+    #[test]
+    fn error_displays() {
+        assert_eq!(TxNotFinalized {}.to_string(), "Transaction is not finalized");
+        let e: FinalizeError<String> = FinalizeError::EmptySignature(2);
+        assert_eq!(e.to_string(), "Signatures at index: 2 is empty");
+        let ce: CombineError = crate::input::CombineError::SpentOutputIndexMismatch { this: 0, that: 1 }.into();
+        assert!(!ce.to_string().is_empty());
+    }
 }
