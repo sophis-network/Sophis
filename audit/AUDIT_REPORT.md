@@ -366,8 +366,10 @@ Per-crate re-baseline (`cargo llvm-cov --lib --summary-only`, ground truth repla
 | `wallet/pskt/src/output.rs` | 0.00% | **100.00%** | llvm-cov |
 | `wallet/pskt/src/input.rs` | 62.50% | **100.00%** | llvm-cov |
 | `wallet/pskt/src/error.rs` | 0.00% | **100.00%** | llvm-cov |
+| `wallet/pskt/src/convert.rs` | 0.00% | **91.53%** | llvm-cov |
+| `wallet/pskt/src/global.rs` | 8.86% | **100.00%** | llvm-cov |
 
-21 new pure-logic unit tests (combine/merge branches, error conversions); `cargo test -p sophis-wallet-pskt` 30/30 green; clippy `-D warnings` clean. **Remaining:** pskt `convert.rs`/`global.rs`/`pskt.rs` (heavier — need consensus-client/state-machine harness); items 1, 2, 4, 5 (bounded), 6, 7. The wasm-bindgen `wallet/pskt/src/wasm/*` files (0%) are excluded by the same architectural reasoning as F-2/F-15 (wasm-bindgen ABI is not unit-testable on a native target).
+41 new pure-logic unit tests (combine/merge branches, error conversions, TryFrom conversions); `cargo test -p sophis-wallet-pskt` 41/41 green; clippy `-D warnings` clean. `convert.rs` bounded residual (91.53%, not 100%): the `utxo: Some(_)` success branch of `TryFrom<client::TransactionInput> for Input` needs a wasm-oriented `UtxoEntryReference` — the equivalent InputBuilder-with-utxo success is covered via the populated-inputs path; same architectural cost class as the `wasm/*` exclusion. **Remaining for item 3:** `pskt.rs` (7.56% — the PSKT role state machine, its own milestone), `bundle.rs` (57.53%), `crypto.rs` (76.82%). **Remaining items:** 1, 2, 4, 5 (bounded), 6, 7. The wasm-bindgen `wallet/pskt/src/wasm/*` files (0%) are excluded by the same architectural reasoning as F-2/F-15 (wasm-bindgen ABI is not unit-testable on a native target).
 
 ### Tier 0 zero-coverage files (19 total)
 

@@ -154,3 +154,113 @@ pub enum CombineError {
         version: Version,
     },
 }
+
+// Audit category-D coverage closure (Session 16, 2026-05-16):
+// `global.rs` was at 8.86% line coverage. `Global::add` is the PSKT
+// combine merge for global data — pure; every branch (version /
+// tx_version / lock-time / tx-id mismatch, the modifiable AND-merge,
+// count max, proprietary & unknown conflicts, the payload version gate,
+// and all payload combinations) is exercised here.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn g() -> Global {
+        Global::default()
+    }
+
+    #[test]
+    fn version_and_tx_version_mismatch() {
+        let mut a = g();
+        a.version = Version::One;
+        assert!(matches!(a + g(), Err(CombineError::VersionMismatch { .. })));
+
+        let mut b = g();
+        b.tx_version = 99;
+        assert!(matches!(b + g(), Err(CombineError::TxVersionMismatch { .. })));
+    }
+
+    #[test]
+    fn fallback_lock_time_all_combinations() {
+        let with = |lt: Option<u64>| {
+            let mut x = g();
+            x.fallback_lock_time = lt;
+            x
+        };
+        assert_eq!((with(None) + with(None)).unwrap().fallback_lock_time, None);
+        assert_eq!((with(Some(5)) + with(None)).unwrap().fallback_lock_time, Some(5));
+        assert_eq!((with(None) + with(Some(7))).unwrap().fallback_lock_time, Some(7));
+        assert_eq!((with(Some(9)) + with(Some(9))).unwrap().fallback_lock_time, Some(9));
+        assert!(matches!(with(Some(1)) + with(Some(2)), Err(CombineError::LockTimeMismatch { .. })));
+    }
+
+    #[test]
+    fn modifiable_and_counts_merge() {
+        let mut a = g();
+        a.inputs_modifiable = true;
+        a.outputs_modifiable = true;
+        a.input_count = 2;
+        a.output_count = 5;
+        let mut b = g();
+        b.inputs_modifiable = true;
+        b.outputs_modifiable = false; // AND → false
+        b.input_count = 7;
+        b.output_count = 3;
+        let r = (a + b).unwrap();
+        assert!(r.inputs_modifiable); // true & true
+        assert!(!r.outputs_modifiable); // true & false
+        assert_eq!(r.input_count, 7); // max
+        assert_eq!(r.output_count, 5); // max
+    }
+
+    #[test]
+    fn transaction_id_combinations() {
+        use sophis_consensus_core::tx::TransactionId;
+        let id = |b: u8| TransactionId::from_slice(&[b; 32]);
+        let with = |i: Option<TransactionId>| {
+            let mut x = g();
+            x.id = i;
+            x
+        };
+        assert_eq!((with(None) + with(None)).unwrap().id, None);
+        assert_eq!((with(Some(id(1))) + with(None)).unwrap().id, Some(id(1)));
+        assert_eq!((with(Some(id(2))) + with(Some(id(2)))).unwrap().id, Some(id(2)));
+        assert!(matches!(with(Some(id(1))) + with(Some(id(2))), Err(CombineError::TransactionIdMismatch { .. })));
+    }
+
+    #[test]
+    fn proprietary_and_unknown_conflicts() {
+        let mut a = g();
+        let mut b = g();
+        a.proprietaries.insert("k".into(), serde_value::Value::U32(1));
+        b.proprietaries.insert("k".into(), serde_value::Value::U32(2));
+        assert!(matches!(a + b, Err(CombineError::NotCompatibleProprietary(_))));
+
+        let mut c = g();
+        let mut d = g();
+        c.unknowns.insert("u".into(), serde_value::Value::U32(1));
+        d.unknowns.insert("u".into(), serde_value::Value::U32(2));
+        assert!(matches!(c + d, Err(CombineError::NotCompatibleUnknownField(_))));
+    }
+
+    #[test]
+    fn payload_version_gate_and_combinations() {
+        // version Zero (< One) + a payload → rejected.
+        let mut z = g();
+        z.payload = Some(vec![1]);
+        assert!(matches!(z + g(), Err(CombineError::PayloadRequiresHigherVersion { .. })));
+
+        // version One: all payload combinations.
+        let v1 = |p: Option<Vec<u8>>| {
+            let mut x = g();
+            x.version = Version::One;
+            x.payload = p;
+            x
+        };
+        assert_eq!((v1(None) + v1(None)).unwrap().payload, None);
+        assert_eq!((v1(Some(vec![1])) + v1(None)).unwrap().payload, Some(vec![1]));
+        assert_eq!((v1(None) + v1(Some(vec![2]))).unwrap().payload, Some(vec![2]));
+        assert_eq!((v1(Some(vec![9])) + v1(Some(vec![9]))).unwrap().payload, Some(vec![9]));
+        assert!(matches!(v1(Some(vec![1])) + v1(Some(vec![2])), Err(CombineError::PayloadMismatch { .. })));
+    }
+}
