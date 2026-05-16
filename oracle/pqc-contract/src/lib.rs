@@ -27,8 +27,13 @@
 //! - **Median computation.** Indexer aggregates over the J4 event log
 //!   per asset within a time window.
 //!
-//! These deferrals match the design doc's "v1 lite" framing
-//! (`docs/PQC_NATIVE_ORACLE_DESIGN.md` §4 + §9). Strong on-chain
+//! These deferrals match the design doc's framing: §4 (aggregator
+//! semantics — explicitly "out of scope for this PR; frozen target for
+//! a follow-up session") + §9 (out of scope for v1). The off-chain
+//! aggregation/dispatch this v1 ships is **ratified** in
+//! `oracle/docs/PHASE9_3_DUAL_PATH.md` (SIP-11 D11) — that is the
+//! canonical doc for what v1 actually does; design doc §4/§6 describe
+//! the deferred Phase 9.1.x on-chain target. Strong on-chain
 //! enforcement of registry / sequence / rate-limit lands in 9.1.x as a
 //! companion registry-state contract; the wire format defined in
 //! `oracle/pqc-core` is unchanged across that evolution.

@@ -116,8 +116,12 @@ data collection but not the algorithm.
 Phase 9 introduces a **new aggregator contract** and a **new wire
 format**. Phase 5 remains operational; existing Phase 5 consumers see
 no change. Feeds flip from Phase 5 to Phase 9 individually, on a
-per-feed timetable, governed by the aggregator's `update_feed_source`
-call.
+per-feed timetable. **In v1 this flip is operator-side off-chain
+dispatch** — deterministic over public chain state, ratified in
+`oracle/docs/PHASE9_3_DUAL_PATH.md` (this SIP's D11). An on-chain
+`update_feed_source` registry call is the deferred Phase 9.3.x target
+(design doc §6), not a v1 mechanism; it requires a future SIP if
+chain-anchored flip authority is ever demanded.
 
 No L1 hard fork is required. The new wire format lives at the sVM
 contract layer (Dilithium sigs verified via existing capability),
@@ -187,6 +191,7 @@ community input:
 ## 9. References
 
 - `docs/PQC_NATIVE_ORACLE_DESIGN.md` — full technical specification
+- `oracle/docs/PHASE9_3_DUAL_PATH.md` — ratified v1 off-chain dual-path dispatch (D11 mechanism)
 - `docs/PRE_MAINNET_AUDIT.md` § 1.3 — original ed25519 residual identification
 - FIPS 204 (ML-DSA) — the Dilithium standard SIP-11 builds on
 - Pyth Network pull architecture — the predecessor design Phase 5 mirrored

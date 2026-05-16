@@ -225,6 +225,18 @@ add Dilithium STARK aggregation when feasible.
 
 ## 6. Migration from Phase 5
 
+> **v1 dispatch is off-chain (ratified re-scope of D11).** This section
+> describes the *eventual* on-chain dispatch (the §4 frozen target). The
+> **shipped v1** does NOT put dispatch on-chain: per-feed source
+> selection is operator-side, deterministic over public chain state, as
+> ratified in `oracle/docs/PHASE9_3_DUAL_PATH.md` (derived from SIP-11
+> D11; rationale: no curator authority to vest per Decisão 6 / D3, and
+> a once-per-feed flip gains nothing from on-chain serialization). An
+> on-chain announcement/`update_feed_source` contract is deferred to a
+> Phase 9.3.x post-mainnet SIP if chain-anchored flip authority is ever
+> demanded. Read §6 below as the deferred target; read
+> `PHASE9_3_DUAL_PATH.md` for the v1 mechanism that actually ships.
+
 Phase 5 (Plonky3 + Pyth ed25519) and Phase 9 (per-publisher Dilithium)
 coexist during the transition. The aggregator contract dispatches by
 feed: each feed has a `source` tag (`Phase5` or `Phase9`).

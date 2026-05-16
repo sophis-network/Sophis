@@ -18,6 +18,8 @@
 //! - `--mnemonic-file <path>`     BIP-39 24-word file (same path
 //!                                 `dilithium-wallet` uses)
 //! - `--signing-key-file <path>`  raw 2560-byte ML-DSA-44 signing key
+//!                                 (requires `--pubkey-file <path>`, the
+//!                                 companion 1312-byte public key)
 //!
 //! Output formats: hex (default) or raw bytes (`--output raw`).
 
@@ -88,6 +90,7 @@ fn build_cli() -> Command {
                 .about("Sign one PriceAttestation and emit the canonical bytes")
                 .arg(key_source_mnemonic_arg())
                 .arg(key_source_signing_key_arg())
+                .arg(key_source_pubkey_arg())
                 .arg(
                     Arg::new("asset")
                         .long("asset")
@@ -155,7 +158,16 @@ fn key_source_signing_key_arg() -> Arg {
         .long("signing-key-file")
         .value_parser(clap::value_parser!(PathBuf))
         .conflicts_with("mnemonic-file")
-        .help("Path to a raw 2560-byte ML-DSA-44 signing key file")
+        .requires("pubkey-file")
+        .help("Path to a raw 2560-byte ML-DSA-44 signing key file (requires --pubkey-file)")
+}
+
+fn key_source_pubkey_arg() -> Arg {
+    Arg::new("pubkey-file")
+        .long("pubkey-file")
+        .value_parser(clap::value_parser!(PathBuf))
+        .conflicts_with("mnemonic-file")
+        .help("Path to the companion raw 1312-byte ML-DSA-44 public key (emitted by `keygen --output-pubkey`). Required with --signing-key-file: ML-DSA-44 pubkey-from-signing-key derivation is not exposed and must not be hand-rolled")
 }
 
 // ---------------------------------------------------------------------------
@@ -273,25 +285,30 @@ fn load_keypair(matches: &ArgMatches) -> Result<([u8; DILITHIUM_PUBKEY_SIZE], [u
         let phrase = fs::read_to_string(path).map_err(|e| format!("cannot read mnemonic file {}: {e}", path.display()))?;
         return derive_keypair_from_mnemonic(phrase.trim()).map_err(|e| e.to_string());
     }
-    if let Some(path) = matches.get_one::<PathBuf>("signing-key-file") {
-        let bytes = fs::read(path).map_err(|e| format!("cannot read signing-key file {}: {e}", path.display()))?;
-        if bytes.len() != DILITHIUM_SIGNING_KEY_SIZE {
-            return Err(format!("signing-key file is {} bytes, expected {}", bytes.len(), DILITHIUM_SIGNING_KEY_SIZE));
+    if let Some(sk_path) = matches.get_one::<PathBuf>("signing-key-file") {
+        let sk_bytes = fs::read(sk_path).map_err(|e| format!("cannot read signing-key file {}: {e}", sk_path.display()))?;
+        if sk_bytes.len() != DILITHIUM_SIGNING_KEY_SIZE {
+            return Err(format!("signing-key file is {} bytes, expected {}", sk_bytes.len(), DILITHIUM_SIGNING_KEY_SIZE));
+        }
+        // ML-DSA-44 pubkey-from-signing-key derivation is not exposed by
+        // our crate surface, and hand-rolling FIPS-204 key recomposition
+        // in a publisher CLI would be an unreviewed crypto path. The
+        // raw-key flow therefore pairs the signing key with its
+        // companion public key — exactly as
+        // `keygen --output-signing-key/--output-pubkey` emits them.
+        // clap enforces `--signing-key-file` requires `--pubkey-file`.
+        let pk_path: &PathBuf = matches.get_one("pubkey-file").expect("clap: --signing-key-file requires --pubkey-file");
+        let pk_bytes = fs::read(pk_path).map_err(|e| format!("cannot read pubkey file {}: {e}", pk_path.display()))?;
+        if pk_bytes.len() != DILITHIUM_PUBKEY_SIZE {
+            return Err(format!("pubkey file is {} bytes, expected {}", pk_bytes.len(), DILITHIUM_PUBKEY_SIZE));
         }
         let mut sk = [0u8; DILITHIUM_SIGNING_KEY_SIZE];
-        sk.copy_from_slice(&bytes);
-        // We do not derive the pubkey from a raw signing-key file in v1;
-        // operators who use this path must keep the pubkey alongside.
-        // For a fresh keypair derived now, the keygen subcommand emits both.
-        // To stay self-contained, re-derive by running keygen via libcrux
-        // KeyPair::from(signing_key) would require a private API we do not
-        // expose; v1 requires the pubkey to be passed via mnemonic flow.
-        return Err(format!(
-            "raw signing-key flow needs companion pubkey; v1 supports --mnemonic-file only for sign (provided signing-key path: {})",
-            path.display()
-        ));
+        sk.copy_from_slice(&sk_bytes);
+        let mut vk = [0u8; DILITHIUM_PUBKEY_SIZE];
+        vk.copy_from_slice(&pk_bytes);
+        return Ok((vk, sk));
     }
-    Err("must pass --mnemonic-file (--signing-key-file flow not implemented in v1 sign subcommand)".into())
+    Err("must pass --mnemonic-file, or --signing-key-file together with --pubkey-file".into())
 }
 
 fn unix_now_secs() -> u64 {
@@ -326,4 +343,130 @@ fn hex_short(bytes: &[u8; 32]) -> String {
     let mut buf = vec![0u8; 16];
     faster_hex::hex_encode(&bytes[..8], &mut buf).expect("hex encode fits");
     String::from_utf8(buf).expect("ascii hex")
+}
+
+// Phase 9 functional-gap closure (Session 16, 2026-05-16): the
+// `sign --signing-key-file` flow was previously unimplemented (returned
+// an error). It now pairs the raw signing key with a companion
+// `--pubkey-file` (ML-DSA-44 pubkey-from-sk derivation is intentionally
+// not hand-rolled). These cover the binary's key-loading: happy path,
+// the clap `requires` rule, and the two size-validation errors.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sophis_oracle_pqc_core::{KEY_GENERATION_RANDOMNESS_SIZE, generate_keypair};
+
+    fn tmp(tag: &str, bytes: &[u8]) -> PathBuf {
+        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let p = std::env::temp_dir().join(format!("sophis_pub_test_{}_{tag}_{nanos}.bin", std::process::id()));
+        fs::write(&p, bytes).unwrap();
+        p
+    }
+
+    fn sign_matches(args: &[&str]) -> Result<clap::ArgMatches, clap::Error> {
+        let mut argv = vec!["sophis-oracle-publisher", "sign"];
+        argv.extend_from_slice(args);
+        build_cli().try_get_matches_from(argv)
+    }
+
+    #[test]
+    fn signing_key_file_with_companion_pubkey_loads_keypair() {
+        let (vk, sk) = generate_keypair([7u8; KEY_GENERATION_RANDOMNESS_SIZE]);
+        let sk_path = tmp("sk", &sk);
+        let pk_path = tmp("pk", &vk);
+
+        let m = sign_matches(&[
+            "--signing-key-file",
+            sk_path.to_str().unwrap(),
+            "--pubkey-file",
+            pk_path.to_str().unwrap(),
+            "--asset",
+            "BTC/USD",
+            "--price",
+            "1",
+            "--conf",
+            "1",
+            "--sequence",
+            "1",
+        ])
+        .expect("clap parses sk+pk flow");
+        let sub = m.subcommand_matches("sign").unwrap();
+
+        let (got_vk, got_sk) = load_keypair(sub).expect("raw-key flow now implemented");
+        assert_eq!(got_vk, vk);
+        assert_eq!(got_sk, sk);
+
+        fs::remove_file(&sk_path).ok();
+        fs::remove_file(&pk_path).ok();
+    }
+
+    #[test]
+    fn signing_key_file_without_pubkey_file_is_rejected_by_clap() {
+        let sk_path = tmp("sk_lonely", &[0u8; DILITHIUM_SIGNING_KEY_SIZE]);
+        // clap `.requires("pubkey-file")` must fail parsing.
+        let res = sign_matches(&[
+            "--signing-key-file",
+            sk_path.to_str().unwrap(),
+            "--asset",
+            "BTC/USD",
+            "--price",
+            "1",
+            "--conf",
+            "1",
+            "--sequence",
+            "1",
+        ]);
+        assert!(res.is_err(), "--signing-key-file without --pubkey-file must be a clap error");
+        fs::remove_file(&sk_path).ok();
+    }
+
+    #[test]
+    fn wrong_key_file_sizes_are_rejected() {
+        let (vk, _sk) = generate_keypair([9u8; KEY_GENERATION_RANDOMNESS_SIZE]);
+        // bad signing-key size
+        let bad_sk = tmp("badsk", &[1u8; 10]);
+        let good_pk = tmp("pk_ok", &vk);
+        let m = sign_matches(&[
+            "--signing-key-file",
+            bad_sk.to_str().unwrap(),
+            "--pubkey-file",
+            good_pk.to_str().unwrap(),
+            "--asset",
+            "BTC/USD",
+            "--price",
+            "1",
+            "--conf",
+            "1",
+            "--sequence",
+            "1",
+        ])
+        .unwrap();
+        let err = load_keypair(m.subcommand_matches("sign").unwrap()).unwrap_err();
+        assert!(err.contains(&DILITHIUM_SIGNING_KEY_SIZE.to_string()), "err names expected sk size: {err}");
+
+        // good signing-key, bad pubkey size
+        let good_sk = tmp("sk_ok", &[2u8; DILITHIUM_SIGNING_KEY_SIZE]);
+        let bad_pk = tmp("badpk", &[3u8; 10]);
+        let m2 = sign_matches(&[
+            "--signing-key-file",
+            good_sk.to_str().unwrap(),
+            "--pubkey-file",
+            bad_pk.to_str().unwrap(),
+            "--asset",
+            "BTC/USD",
+            "--price",
+            "1",
+            "--conf",
+            "1",
+            "--sequence",
+            "1",
+        ])
+        .unwrap();
+        let err2 = load_keypair(m2.subcommand_matches("sign").unwrap()).unwrap_err();
+        assert!(err2.contains(&DILITHIUM_PUBKEY_SIZE.to_string()), "err names expected pk size: {err2}");
+
+        for p in [bad_sk, good_pk, good_sk, bad_pk] {
+            fs::remove_file(&p).ok();
+        }
+    }
 }
