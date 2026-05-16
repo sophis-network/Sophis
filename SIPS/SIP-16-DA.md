@@ -245,7 +245,7 @@ The reference implementation is the Sophis main codebase. Key locations:
 - [`oracle/docs/PHASE6_RUNBOOK.md`](../oracle/docs/PHASE6_RUNBOOK.md) — operational runbook
 - [`oracle/docs/PHASE6_AUDIT.md`](../oracle/docs/PHASE6_AUDIT.md) — adversarial test runner + threat matrix (13 threats)
 - [`oracle/docs/PHASE6_STRESS_PLAN.md`](../oracle/docs/PHASE6_STRESS_PLAN.md) — 72-hour pre-mainnet stress test (9 acceptance gates)
-- [`oracle/docs/PHASE6_BUG_BOUNTY.md`](../oracle/docs/PHASE6_BUG_BOUNTY.md) — bug bounty program
+- [`oracle/docs/PHASE6_BUG_BOUNTY.md`](../oracle/docs/PHASE6_BUG_BOUNTY.md) — voluntary security review (unpaid, no reward)
 - [`oracle/docs/PHASE6_RFC.md`](../oracle/docs/PHASE6_RFC.md) — RFC for community review
 
 This SIP enters Draft simultaneously with the existing reference implementation. Per SIP-0 §5, Draft → Review transition requires the reference implementation to "exist and run" — that condition is already met. Draft → Final transition requires the pre-mainnet stress test (`oracle/docs/PHASE6_STRESS_PLAN.md`, 9 acceptance gates, 72-hour run) to complete successfully; this stress run is operational follow-up.
@@ -309,7 +309,7 @@ A complete table of test-vector inputs and expected `payload_id` / `bundle_id` o
 - [`oracle/docs/PHASE6_AUDIT.md`](../oracle/docs/PHASE6_AUDIT.md) — adversarial threat matrix (13 threats)
 - [`oracle/docs/PHASE6_RUNBOOK.md`](../oracle/docs/PHASE6_RUNBOOK.md) — operational runbook
 - [`oracle/docs/PHASE6_STRESS_PLAN.md`](../oracle/docs/PHASE6_STRESS_PLAN.md) — 72-hour pre-mainnet stress test (9 acceptance gates)
-- [`oracle/docs/PHASE6_BUG_BOUNTY.md`](../oracle/docs/PHASE6_BUG_BOUNTY.md) — bug bounty program
+- [`oracle/docs/PHASE6_BUG_BOUNTY.md`](../oracle/docs/PHASE6_BUG_BOUNTY.md) — voluntary security review (unpaid, no reward)
 - [`oracle/docs/PHASE6_RFC.md`](../oracle/docs/PHASE6_RFC.md) — RFC for community review
 - NIST FIPS 202 — SHA-3 family (the hash function used for `payload_id` / `bundle_id`)
 - NIST FIPS 204 — Dilithium ML-DSA-44 (the signature scheme securing transactions that contain carriers)

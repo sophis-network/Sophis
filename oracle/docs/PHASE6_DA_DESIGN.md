@@ -606,15 +606,13 @@ rejections, zero spurious accepts, zero panics.
 Metrics tracked: indexation latency, RocksDB growth, RAM, CPU, prune
 correctness. Acceptance gates documented in `PHASE6_AUDIT.md`.
 
-### 13.5 Public RFC and bug bounty
+### 13.5 Public RFC and voluntary security review
 
 Sub-fase 6.9:
 
 - Publish RFC document on GitHub (this design + diffs from review).
-- Announce a 30-day bug bounty pre-mainnet, scoped to consensus rules
-  and capability host fn.
-- Bounty pool funded from the founder's pre-genesis discretionary
-  budget (no on-chain treasury — see `project_no_entity_decision.md`).
+- Announce a 30-day voluntary security-review window pre-mainnet,
+  scoped to consensus rules and capability host fn. Unpaid; no reward.
 - Acknowledged findings: append to `PHASE6_AUDIT.md`.
 
 ## 14. Open questions deferred to v2
@@ -652,7 +650,7 @@ prevent re-litigation:
 | 6.6 | RUNBOOK + tooling | `oracle/docs/PHASE6_RUNBOOK.md` (operator guide), wallet/CLI helpers, oracle relayer `da_publish` flag | 1 |
 | 6.7 | Adversarial devnet | 13 attack scripts + reassembly fuzzer corpus + CI integration | 1 |
 | 6.8 | Pre-mainnet stress | 72h devnet run + metrics report in `PHASE6_AUDIT.md` | 1 |
-| 6.9 | DIY audit + RFC + bug bounty | Public RFC, fuzz coverage report, bounty announcement, response addendum | embedded |
+| 6.9 | DIY audit + RFC + voluntary security review | Public RFC, fuzz coverage report, review-window announcement, response addendum | embedded |
 
 Total: 10-12 sessions to ship Phase 6 at genesis.
 
@@ -705,7 +703,7 @@ have an authoritative target list.
 | Synthetic carrier traffic generator (load knob for §5.3) | `sophis-da-stress` binary | 6.8.b (pending; depends on 6.4.b) |
 | 6 property/fuzz tests in `da::tests` and `da::codec::tests` | `consensus/core/src/da/{mod,codec}.rs` | 6.9 (done) |
 | DIY audit playbook + findings ledger | `oracle/docs/PHASE6_AUDIT.md` | 6.9 (done) |
-| 30-day pre-mainnet bug bounty announcement | `oracle/docs/PHASE6_BUG_BOUNTY.md` | 6.9 (done) |
+| 30-day pre-mainnet voluntary security-review announcement | `oracle/docs/PHASE6_BUG_BOUNTY.md` | 6.9 (done) |
 | Public RFC consolidating Phase 6 docs | `oracle/docs/PHASE6_RFC.md` | 6.9 (done) |
 | `gRPC: da_get_payload, da_get_bundle, da_list_by_block, da_list_by_domain, da_status` | `rpc/grpc/server/src/da.rs` (new) | 6.4 |
 | `Capability::VerifyDataAvailability` | `svm/host/src/capabilities.rs` | 6.5 |

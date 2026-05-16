@@ -6,7 +6,7 @@
 
 This RFC consolidates the Phase 6 Data Availability layer for public
 review. It is the entry point for external reviewers, integrators, and
-bug-bounty participants. The technical content is split across nine
+security reviewers. The technical content is split across nine
 companion documents — this RFC indexes them and summarizes the design
 decisions worth flagging upfront.
 
@@ -189,7 +189,7 @@ The full DIY audit playbook is in `PHASE6_AUDIT.md`. Summary:
   (5000-iteration random inputs; never-panic + roundtrip + collision-
   resistance invariants)
 - 9 acceptance gates for the 72h stress run (`PHASE6_STRESS_PLAN.md`)
-- 30-day public bug bounty (`PHASE6_BUG_BOUNTY.md`)
+- 30-day public voluntary security review, unpaid (`PHASE6_BUG_BOUNTY.md`)
 
 83 tests verde at sub-fase 6.9 close (77 from 6.1-6.8 + 6 fuzz tests).
 
@@ -229,7 +229,7 @@ Each is tracked in `PHASE6_AUDIT.md §4` with reasoning.
 | `oracle/docs/PHASE6_RUNBOOK.md` | Operator manual (full nodes, sequencer, relayer, indexers) | ~360 |
 | `oracle/docs/PHASE6_STRESS_PLAN.md` | 72h pre-mainnet stress + 9 acceptance gates | ~250 |
 | `oracle/docs/PHASE6_AUDIT.md` | DIY audit playbook + findings ledger | ~200 |
-| `oracle/docs/PHASE6_BUG_BOUNTY.md` | 30-day pre-mainnet bug bounty announcement | ~180 |
+| `oracle/docs/PHASE6_BUG_BOUNTY.md` | 30-day pre-mainnet voluntary security-review announcement | ~180 |
 | `oracle/docs/PHASE6_RFC.md` | This document | (you are here) |
 | `devnet/test_phase6_da_attacks.py` | Adversarial threat × defense matrix runner | ~350 |
 | `devnet/da_stress_check.py` | Stress observability helper | ~370 |
@@ -239,10 +239,7 @@ Each is tracked in `PHASE6_AUDIT.md §4` with reasoning.
 Public comments accepted until 30 days post-publication. Channels:
 
 - GitHub PR comments on `phase6-DALayer` branch
-- Email to the founder (Dilithium-signed preferred for security
-  findings)
-- Bug-bounty channel for security-relevant items
-  (`PHASE6_BUG_BOUNTY.md §6`)
+- Private channel for security-relevant items — see `SECURITY.md`
 
 After the window closes, the team (1) addresses all comments in a
 public response addendum appended to `PHASE6_AUDIT.md §5.2`,
@@ -251,12 +248,11 @@ merges to `main` for mainnet ship.
 
 ## 11. Authors / contact
 
-This RFC is published under the no-entity / fair-launch posture
-documented in `project_no_entity_decision.md`. There is no foundation
-to "represent" Sophis. Contact channels are personal:
+This RFC is published under the project's no-entity / fair-launch
+posture. There is no foundation to "represent" Sophis.
 
 - GitHub: `sophis-network/Sophis`
-- Email: see `PHASE6_BUG_BOUNTY.md §6`
+- Security reports: see `SECURITY.md`
 
 Reviewers do not need to identify themselves to participate; the
 acknowledgment field in `PHASE6_AUDIT.md §5.2` accepts pseudonyms.

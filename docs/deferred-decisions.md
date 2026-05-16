@@ -25,10 +25,10 @@ The items below were considered as candidates from the comparative analyses of o
 
 **Decision:** Not writing this document at this time. Will revisit if a specific request from an exchange, auditor, or contributor justifies it.
 
-**Why:** Sophis is currently a single-maintainer project. Documenting an "emergency release process" that depends on infrastructure we do not have (a multi-maintainer review group, paid bug bounty SLA, dedicated security contact rotation) would be aspirational rather than operational. The bug bounty program was explicitly rejected for budget reasons (2026-05-06). Honest minimal coverage of vulnerability handling already exists in `CONTRIBUTING.md` and the `PHASE6_BUG_BOUNTY.md` reference document.
+**Why:** documenting an "emergency release process" that depends on infrastructure the project does not have would be aspirational rather than operational. Vulnerability handling is already covered by `SECURITY.md` (responsible disclosure, voluntary, no reward).
 
 **If asked, respond:**
-> *"Sophis is a single-maintainer project at mainnet launch. Vulnerability disclosure goes to the email channel published in `CONTRIBUTING.md`. The maintainer commits to acknowledge within 7 days and triage within 30. There is no paid bug bounty at this time — `PHASE6_BUG_BOUNTY.md` documents a reference framework that may be activated if external funding (grants from organizations like OpenSats, HRF, or Brink) becomes available. Emergency release procedures will be written when there are at least 2 active maintainers — a single-maintainer 'process' is theatre, not a process. The history of incidents on other chains (Polygon, Solana, Multichain) informs Sophis's defensive design choices — slow change post-launch, no bridge in core, PoW open-membership — but is not catalogued in a Sophis-specific document, because the choices already reflect the lessons."*
+> *"Vulnerability disclosure follows `SECURITY.md`: report privately via GitHub private vulnerability reporting or the security email; reports are triaged on a best-effort basis and fixes coordinated with the reporter. There is no bug bounty and no monetary reward — security review is voluntary. The history of incidents on other chains (Polygon, Solana, Multichain) informs Sophis's defensive design choices — slow change post-launch, no bridge in core, PoW open-membership — but is not catalogued in a Sophis-specific document, because the choices already reflect the lessons."*
 
 ---
 

@@ -343,7 +343,7 @@ for pid in session.async_da_list_by_block(block_hash).await {
 | 6.6 | First-party `dilithium-wallet` carrier helpers (deferred post-mainnet) |
 | 6.7 | Adversarial devnet scripts |
 | 6.8 | Pre-mainnet stress tests (72h devnet at 50% mass saturation) |
-| 6.9 | DIY audit + RFC + bug bounty |
+| 6.9 | DIY audit + RFC + voluntary security review |
 
 ## 13. Reference
 

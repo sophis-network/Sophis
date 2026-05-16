@@ -502,7 +502,7 @@ Before this spec is published as a SIP for community review, maintainers MUST:
 - [ ] Track each comment in a SIP discussion thread; respond or close each before the no-changes period
 - [ ] Run a 60-day no-changes period after the comment window closes
 - [ ] Publish a reference implementation in `wallet/aa/` (NOT this `aa-spec/` directory) gated by `[cfg(feature = "experimental-aa")]` for testnet validation
-- [ ] Run the testnet validation for ≥6 months with bug bounty open
+- [ ] Run the testnet validation for ≥6 months with a voluntary security-review window open (unpaid)
 - [ ] If no critical issues, publish mainnet beta with reference wallet for ≥90 days
 - [ ] Only then: freeze the spec, declare v1, and publish the SIP as accepted
 

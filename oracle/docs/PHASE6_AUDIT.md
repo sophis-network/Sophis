@@ -10,17 +10,16 @@ budget for v1; the "audit" is therefore the union of:
 3. The property-style fuzz tests in `consensus/core/src/da/{mod,codec}.rs`
 4. The adversarial threat × defense matrix in `devnet/test_phase6_da_attacks.py`
 5. The 72h pre-mainnet stress run defined in `PHASE6_STRESS_PLAN.md`
-6. The 30-day public bug bounty in `PHASE6_BUG_BOUNTY.md`
+6. The 30-day public voluntary security review (unpaid) in `PHASE6_BUG_BOUNTY.md`
 7. Findings tracked in §5 of this document, with disclosure dates
 
 The combination is **not** equivalent to a paid Trail-of-Bits-style
 audit. It is the maximum operator-reasonable due-diligence the core
 team can deliver under the no-entity / fair-launch / no-foundation
-posture (see `project_no_entity_decision.md`). The trade-off is
-explicit and documented.
+posture. The trade-off is explicit and documented.
 
 **Status:** v1, drafted at sub-fase 6.9 (2026-05-06). This document
-will accumulate findings as the bug bounty runs and after the 72h
+will accumulate findings as the voluntary security review runs and after the 72h
 stress executes. Each finding is appended in §5 with a disclosure
 date and a fix commit hash.
 
@@ -28,7 +27,7 @@ date and a fix commit hash.
 
 ## 1. Scope
 
-In scope for the self-audit (and for the bug bounty in §3):
+In scope for the self-audit (and for the voluntary security review in §3):
 
 - `consensus/core/src/da/{mod,codec,store_types}.rs` — all 14 rules,
   the codec, the persisted types
@@ -114,8 +113,8 @@ gate-by-gate PASS/FAIL.
 
 ### 2.5 Public review (⏳ in progress)
 
-The 30-day bug bounty in `PHASE6_BUG_BOUNTY.md` is the public-review
-phase. RFC posted alongside the bounty; design + RUNBOOK + STRESS_PLAN
+The 30-day voluntary security review in `PHASE6_BUG_BOUNTY.md` is the
+public-review phase. RFC posted alongside it; design + RUNBOOK + STRESS_PLAN
 + test runner all visible in the `phase6-DALayer` GitHub branch.
 
 ## 3. Review checklist
@@ -186,9 +185,9 @@ Findings are appended here as they come in. Each entry has the form:
 No findings. The codebase ships with the limitations in §4 acknowledged
 in the open.
 
-### 5.2 Bug bounty findings (T-30d to T-0)
+### 5.2 Voluntary security-review findings (T-30d to T-0)
 
-(empty until the bounty window opens)
+(empty until the review window opens)
 
 ### 5.3 Stress run report
 
@@ -204,6 +203,6 @@ in the open.
 - Operator manual: `oracle/docs/PHASE6_RUNBOOK.md`
 - Stress plan: `oracle/docs/PHASE6_STRESS_PLAN.md`
 - Public RFC wrapper: `oracle/docs/PHASE6_RFC.md`
-- Bug bounty: `oracle/docs/PHASE6_BUG_BOUNTY.md`
+- Voluntary security review: `oracle/docs/PHASE6_BUG_BOUNTY.md`
 - Adversarial matrix: `devnet/test_phase6_da_attacks.py`
 - Stress observability: `devnet/da_stress_check.py`

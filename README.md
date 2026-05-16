@@ -41,7 +41,7 @@ SPHS, send transactions.
 - [docs/override-params.md](docs/override-params.md) — `--override-params-file` for local testing (mainnet-blocked)
 - [docs/PRUNING_POLICY.md](docs/PRUNING_POLICY.md) — pruning depth + finality window
 - [bridge/docs/README.md](bridge/docs/README.md) — local-only stratum bridge for ASIC operators
-- [oracle/docs/PHASE6_BUG_BOUNTY.md](oracle/docs/PHASE6_BUG_BOUNTY.md) — DA bug bounty program
+- [oracle/docs/PHASE6_BUG_BOUNTY.md](oracle/docs/PHASE6_BUG_BOUNTY.md) — DA voluntary security review (unpaid, no reward)
 
 ---
 

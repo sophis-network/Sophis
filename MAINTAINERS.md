@@ -79,10 +79,9 @@ Maintainers do **not**:
 - Equity in any "Sophis entity" — there is no such entity by policy
   (`project_no_entity_decision.md`)
 
-External funding (HRF / OpenSats / Brink grants, employer-sponsored
-work, personal mining within the personal cap) is permitted as long
-as it does not create a conflict of interest with the project
-non-negotiables.
+Independent employment and personal mining within the personal cap are
+permitted as long as they do not create a conflict of interest with the
+project non-negotiables.
 
 ## 6. Reference
 

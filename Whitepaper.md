@@ -672,7 +672,7 @@ An earlier roadmap proposed integrating Avail as Sophis's data-availability laye
 - **Publisher integration** — Phase 9 publishers and the Phase 5 relayer can both opt into publishing through DA carriers via a `da_publish` flag.
 - **No external committee, no external token.** Carriers are paid for in SPHS like any other transaction; the L1 block producers store and serve the carrier payload as part of the normal block body. Pruning rules treat carrier payloads as ordinary block content.
 
-Pre-mainnet hardening: 72-hour stress run against 9 acceptance gates (see `oracle/docs/PHASE6_STRESS_PLAN.md`); adversarial test runner mapping 13 threats (see `oracle/docs/PHASE6_AUDIT.md`); RFC for community review (see `oracle/docs/PHASE6_RFC.md`); bug bounty program (see `oracle/docs/PHASE6_BUG_BOUNTY.md`); 6 fuzz tests on the codec.
+Pre-mainnet hardening: 72-hour stress run against 9 acceptance gates (see `oracle/docs/PHASE6_STRESS_PLAN.md`); adversarial test runner mapping 13 threats (see `oracle/docs/PHASE6_AUDIT.md`); RFC for community review (see `oracle/docs/PHASE6_RFC.md`); a voluntary, unpaid security-review window (see `oracle/docs/PHASE6_BUG_BOUNTY.md`); 6 fuzz tests on the codec.
 
 The trade-off: Sophis's DA throughput is bounded by L1 block bandwidth, which is lower than what a dedicated DA network can offer. The decision accepts that ceiling in exchange for keeping the trust assumptions of L2 data availability identical to the trust assumptions of L1 itself — a single PQC primitive set, no external dependency, no pre-quantum signature on the critical path. Throughput can be raised later via consensus parameter tuning if real workloads demand it; the architectural choice is fixed.
 
