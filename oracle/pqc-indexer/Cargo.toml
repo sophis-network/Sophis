@@ -19,7 +19,6 @@ path = "src/lib.rs"
 [dependencies]
 sophis-oracle-pqc-core.workspace = true
 sophis-oracle-pqc-contract.workspace = true
-borsh.workspace = true
 clap = { workspace = true }
 faster-hex.workspace = true
 thiserror.workspace = true

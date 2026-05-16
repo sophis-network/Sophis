@@ -24,7 +24,6 @@ sophis-rpc-core.workspace = true
 sophis-txscript.workspace = true
 
 clap = { workspace = true }
-hex.workspace = true
 log.workspace = true
 rand.workspace = true
 rayon.workspace = true

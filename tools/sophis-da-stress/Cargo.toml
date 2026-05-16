@@ -24,7 +24,6 @@ sophis-txscript.workspace = true
 
 clap = { workspace = true }
 hex.workspace = true
-libcrux-ml-dsa.workspace = true
 log.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

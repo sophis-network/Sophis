@@ -12,7 +12,6 @@ edition.workspace = true
 include.workspace = true
 
 [dependencies]
-sha3.workspace = true
 sophis-hashes.workspace = true
 sophis-merkle.workspace = true
 sophis-compact-filters.workspace = true

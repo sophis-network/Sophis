@@ -24,12 +24,10 @@ rand_core.workspace = true
 rand.workspace = true
 serde.workspace = true
 sha2.workspace = true
-subtle.workspace = true
 thiserror.workspace = true
 wasm-bindgen.workspace = true
 workflow-wasm.workspace = true
 zeroize.workspace = true
-sophis-consensus-core.workspace = true
 
 [dev-dependencies]
 faster-hex.workspace = true

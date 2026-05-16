@@ -15,7 +15,6 @@ sophis-utils.workspace = true
 serde.workspace = true
 
 # For the exhaustive tests, should only be enabled with release
-rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion.workspace = true

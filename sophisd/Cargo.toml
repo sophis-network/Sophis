@@ -34,7 +34,6 @@ sophis-p2p-flows.workspace = true
 sophis-p2p-lib.workspace = true
 sophis-p2p-mining.workspace = true
 sophis-perf-monitor.workspace = true
-sophis-rpc-core.workspace = true
 sophis-rpc-service.workspace = true
 sophis-txscript.workspace = true
 sophis-utils.workspace = true
@@ -47,17 +46,10 @@ cfg-if.workspace = true
 clap = { workspace = true, features = ["env"]}
 dhat = { workspace = true, optional = true }
 dirs.workspace = true
-futures-util.workspace = true
-itertools.workspace = true
 log.workspace = true
 num_cpus.workspace = true
-rand.workspace = true
-rayon.workspace = true
 rocksdb.workspace = true
 serde.workspace = true
-tempfile.workspace = true
-thiserror.workspace = true
-tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }
 workflow-log.workspace = true
 serde_json.workspace = true
 

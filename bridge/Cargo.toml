@@ -16,7 +16,6 @@ sophis-hashes = { workspace = true }
 sophis-pow = { workspace = true, features = ["randomx"] }
 sophis-addresses = { workspace = true }
 sophis-rpc-core = { workspace = true }
-sophis-rpc-service = { workspace = true }
 sophis-grpc-client = { workspace = true }
 sophis-notify = { workspace = true }
 sophis-core = { workspace = true }
@@ -48,7 +47,6 @@ tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
-blake2 = "0.10"
 num-bigint = "0.4"
 prometheus = "0.13"
 serde_yaml = "0.9"

@@ -30,7 +30,6 @@ sophis-utils.workspace = true
 bincode.workspace = true
 derive_builder.workspace = true
 js-sys.workspace = true
-futures.workspace = true
 hex.workspace = true
 serde_repr.workspace = true
 serde-value.workspace = true

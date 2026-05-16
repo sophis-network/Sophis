@@ -16,16 +16,13 @@ sophis-consensusmanager.workspace = true
 sophis-core.workspace = true
 sophis-hashes.workspace = true
 sophis-mining-errors.workspace = true
-sophis-muhash.workspace = true
 sophis-txscript.workspace = true
 sophis-utils.workspace = true
 
-futures-util.workspace = true
 itertools.workspace = true
 log.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
-serde.workspace = true
 smallvec.workspace = true
 sweep-bptree = "0.4.1"
 thiserror.workspace = true

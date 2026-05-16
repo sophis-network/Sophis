@@ -10,19 +10,15 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-duration-string.workspace = true
 futures-util.workspace = true
 futures.workspace = true
 itertools.workspace = true
-sophis-addresses.workspace=true
 sophis-consensus-core.workspace = true
-sophis-consensus-notify.workspace = true
 sophis-core.workspace = true
 sophis-merkle.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
 parking_lot.workspace = true
-rand.workspace = true
 tokio.workspace = true
 
 [lints]

@@ -20,7 +20,6 @@ sophis-index-core.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
 parking_lot.workspace = true
-rocksdb.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 

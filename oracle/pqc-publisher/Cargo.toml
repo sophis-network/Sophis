@@ -23,7 +23,6 @@ borsh.workspace = true
 clap = { workspace = true }
 faster-hex.workspace = true
 getrandom.workspace = true
-libcrux-ml-dsa.workspace = true
 thiserror.workspace = true
 
 [lints]

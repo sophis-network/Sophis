@@ -10,7 +10,6 @@ include.workspace = true
 repository.workspace = true
 
 [dependencies]
-sophis-svm-core.workspace = true
 sophis-svm-runtime.workspace = true
 libcrux-ml-dsa.workspace = true
 sha3.workspace = true

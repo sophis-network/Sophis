@@ -31,7 +31,6 @@ sophis-txscript.workspace = true
 sophis-utils.workspace = true
 sophis-rpc-macros.workspace = true
 
-async-channel.workspace = true
 async-trait.workspace = true
 borsh.workspace = true
 cfg-if.workspace = true

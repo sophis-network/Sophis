@@ -15,7 +15,6 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 async-trait.workspace = true
 borsh = { workspace = true, features = ["rc"] }
-futures.workspace = true
 sophis-consensus-core.workspace = true
 sophis-core.workspace = true
 sophis-grpc-client.workspace = true
@@ -25,8 +24,6 @@ sophis-rpc-macros.workspace = true
 sophis-rpc-service.workspace = true
 sophis-utils.workspace = true
 log.workspace = true
-num_cpus.workspace = true
-paste.workspace = true
 serde = { workspace = true, features = ["rc"] }
 thiserror.workspace = true
 tokio.workspace = true
@@ -34,6 +31,5 @@ workflow-core.workspace = true
 workflow-log.workspace = true
 workflow-rpc.workspace = true
 workflow-serializer.workspace = true
-rustls.workspace = true
 [lints]
 workspace = true

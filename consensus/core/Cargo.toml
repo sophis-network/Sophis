@@ -16,17 +16,14 @@ default = []
 
 [dependencies]
 arc-swap.workspace = true
-async-trait.workspace = true
 borsh.workspace = true
 bitflags.workspace = true
-cfg-if.workspace = true
 faster-hex.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
 itertools.workspace = true
 js-sys.workspace = true
 sophis-addresses.workspace = true
-sophis-core.workspace = true
 sophis-hashes.workspace = true
 sophis-math.workspace = true
 sophis-merkle.workspace = true

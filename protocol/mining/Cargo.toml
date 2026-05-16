@@ -13,12 +13,7 @@ repository.workspace = true
 sophis-core.workspace = true
 sophis-consensus-core.workspace = true
 sophis-consensusmanager.workspace = true
-sophis-mining-errors.workspace = true
-sophis-hashes.workspace = true
-sophis-math.workspace = true
 sophis-p2p-lib.workspace = true
-sophis-utils.workspace = true
-sophis-utils-tower.workspace = true
 log.workspace = true
 tokio.workspace = true
 

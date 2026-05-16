@@ -10,10 +10,8 @@ include.workspace = true
 repository.workspace = true
 
 [dependencies]
-async-trait.workspace = true
 borsh.workspace = true
 futures.workspace = true
-sophis-core.workspace = true
 sophis-rpc-core.workspace = true
 separator.workspace = true
 serde.workspace = true

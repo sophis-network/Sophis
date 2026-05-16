@@ -10,12 +10,10 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-async-trait.workspace = true
 clap.workspace = true
 sophis-consensus-core.workspace = true
 sophis-grpc-client.workspace = true
 sophis-rpc-core.workspace = true
-sophis-rpc-macros.workspace = true
 sophis-wrpc-server.workspace = true
 num_cpus.workspace = true
 thiserror.workspace = true

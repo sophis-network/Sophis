@@ -19,13 +19,10 @@ sophis-consensus-client.workspace = true
 sophis-addresses.workspace = true
 sophis-txscript.workspace = true
 sophis-hashes.workspace = true
-sophis-utils.workspace = true
 
 cfg-if.workspace = true
 faster-hex.workspace = true
 js-sys.workspace = true
-rand.workspace = true
-serde_json.workspace = true
 serde-wasm-bindgen.workspace = true
 serde.workspace = true
 thiserror.workspace = true

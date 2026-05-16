@@ -23,44 +23,33 @@ sophis-grpc-client.workspace = true
 sophis-grpc-core.workspace = true
 sophis-grpc-server.workspace = true
 sophis-hashes.workspace = true
-sophis-index-processor.workspace = true
 sophis-math.workspace = true
-sophis-merkle.workspace = true
 sophis-muhash.workspace = true
 sophis-notify.workspace = true
-sophis-pow = { workspace = true, features = ["randomx"] }
 sophis-rpc-core.workspace = true
 sophis-rpc-service.workspace = true
 sophis-txscript.workspace = true
 sophis-utils.workspace = true
-sophis-utxoindex.workspace = true
-sophis-wrpc-server.workspace = true
 sophisd.workspace = true
 
 async-channel.workspace = true
 async-trait.workspace = true
-bincode.workspace = true
 clap.workspace = true
 chrono.workspace = true
-crossbeam-channel.workspace = true
 dhat = { workspace = true, optional = true }
 faster-hex.workspace = true
 flate2.workspace = true
 futures-util.workspace = true
-indexmap.workspace = true
 itertools.workspace = true
 log.workspace = true
 parking_lot.workspace = true
 rand_distr.workspace = true
 rand.workspace = true
 rayon.workspace = true
-rocksdb.workspace = true
 libcrux-ml-dsa.workspace = true
 serde_json.workspace = true
 serde.workspace = true
-smallvec.workspace = true
 tempfile.workspace = true
-thiserror.workspace = true
 tokio.workspace = true
 workflow-perf-monitor.workspace = true
 

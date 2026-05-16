@@ -16,7 +16,6 @@ wasm32-types = []
 sophis-addresses.workspace = true
 sophis-consensus-core.workspace = true
 sophis-hashes.workspace = true
-sophis-math.workspace = true
 sophis-txscript.workspace = true
 sophis-utils.workspace = true
 sophis-wasm-core.workspace = true
@@ -32,7 +31,6 @@ serde-wasm-bindgen.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 wasm-bindgen.workspace = true
-itertools.workspace = true
 
 workflow-wasm.workspace = true
 workflow-log.workspace = true

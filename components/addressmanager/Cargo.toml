@@ -10,7 +10,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-borsh.workspace = true
 igd-next.workspace = true
 itertools.workspace = true
 sophis-consensus-core.workspace = true
@@ -21,7 +20,6 @@ local-ip-address.workspace = true
 log.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
-rocksdb.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

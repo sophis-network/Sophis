@@ -15,7 +15,6 @@ sophis-consensus-notify.workspace = true
 sophis-consensusmanager.workspace = true
 sophis-core.workspace = true
 sophis-database.workspace = true
-sophis-hashes.workspace = true
 sophis-index-core.workspace = true
 sophis-notify.workspace = true
 sophis-utils.workspace = true
@@ -23,13 +22,9 @@ sophis-utxoindex.workspace = true
 
 async-channel.workspace = true
 async-trait.workspace = true
-derive_more.workspace = true
-futures.workspace = true
 log.workspace = true
-paste.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = [ "rt-multi-thread", "macros", "signal" ]}
-triggered.workspace = true
 
 [dev-dependencies]
 sophis-consensus.workspace = true
