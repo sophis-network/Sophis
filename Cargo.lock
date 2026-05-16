@@ -1734,7 +1734,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "clap 4.5.51",
- "faster-hex 0.9.0",
+ "faster-hex",
  "getrandom 0.2.15",
  "hex",
  "libcrux-ml-dsa",
@@ -2084,12 +2084,6 @@ name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
-
-[[package]]
-name = "faster-hex"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ea2e4ecc921ec2cbb8b10f0d400fe448554779d2ac5e0bfbb065836d9d8483a"
 
 [[package]]
 name = "faster-hex"
@@ -5605,7 +5599,7 @@ dependencies = [
  "async-channel 2.3.1",
  "clap 4.5.51",
  "criterion",
- "faster-hex 0.9.0",
+ "faster-hex",
  "itertools 0.13.0",
  "log",
  "parking_lot",
@@ -6137,7 +6131,7 @@ dependencies = [
  "cfg-if",
  "clap 4.5.51",
  "dhat",
- "faster-hex 0.9.0",
+ "faster-hex",
  "flate2",
  "futures",
  "futures-util",
@@ -6245,7 +6239,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "bs58",
- "faster-hex 0.9.0",
+ "faster-hex",
  "getrandom 0.2.15",
  "hmac",
  "js-sys",
@@ -6334,7 +6328,7 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "dashmap",
- "faster-hex 0.9.0",
+ "faster-hex",
  "flate2",
  "futures-util",
  "indexmap 2.14.0",
@@ -6380,7 +6374,7 @@ version = "1.1.0"
 dependencies = [
  "ahash",
  "cfg-if",
- "faster-hex 0.9.0",
+ "faster-hex",
  "hex",
  "itertools 0.13.0",
  "js-sys",
@@ -6412,7 +6406,7 @@ dependencies = [
  "borsh",
  "cfg-if",
  "criterion",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures-util",
  "getrandom 0.2.15",
  "getrandom 0.3.4",
@@ -6467,7 +6461,7 @@ name = "sophis-consensus-wasm"
 version = "1.1.0"
 dependencies = [
  "cfg-if",
- "faster-hex 0.9.0",
+ "faster-hex",
  "js-sys",
  "rand 0.9.3",
  "serde",
@@ -6529,7 +6523,7 @@ name = "sophis-da-stress"
 version = "1.1.0"
 dependencies = [
  "clap 4.5.51",
- "faster-hex 0.9.0",
+ "faster-hex",
  "hex",
  "libcrux-ml-dsa",
  "log",
@@ -6572,7 +6566,7 @@ version = "1.1.0"
 dependencies = [
  "bincode",
  "enum-primitive-derive",
- "faster-hex 0.9.0",
+ "faster-hex",
  "indexmap 2.14.0",
  "itertools 0.13.0",
  "num-traits",
@@ -6624,7 +6618,7 @@ dependencies = [
  "async-channel 2.3.1",
  "async-stream",
  "async-trait",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures",
  "futures-util",
  "h2 0.4.6",
@@ -6656,7 +6650,7 @@ dependencies = [
  "async-channel 2.3.1",
  "async-stream",
  "async-trait",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures",
  "h2 0.4.6",
  "itertools 0.13.0",
@@ -6688,7 +6682,7 @@ dependencies = [
  "async-channel 2.3.1",
  "async-stream",
  "async-trait",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures",
  "h2 0.4.6",
  "itertools 0.13.0",
@@ -6735,7 +6729,7 @@ dependencies = [
  "borsh",
  "cc",
  "criterion",
- "faster-hex 0.9.0",
+ "faster-hex",
  "js-sys",
  "keccak",
  "rand 0.9.3",
@@ -6807,7 +6801,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "criterion",
- "faster-hex 0.9.0",
+ "faster-hex",
  "js-sys",
  "malachite-base",
  "malachite-nz",
@@ -7022,7 +7016,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "clap 4.5.51",
- "faster-hex 0.9.0",
+ "faster-hex",
  "sophis-oracle-pqc-contract",
  "sophis-oracle-pqc-core",
  "thiserror 1.0.64",
@@ -7045,7 +7039,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "clap 4.5.51",
- "faster-hex 0.9.0",
+ "faster-hex",
  "getrandom 0.2.15",
  "libcrux-ml-dsa",
  "sophis-bip39",
@@ -7259,7 +7253,7 @@ dependencies = [
  "cfg-if",
  "derive_more 0.99.18",
  "downcast",
- "faster-hex 0.9.0",
+ "faster-hex",
  "hex",
  "js-sys",
  "log",
@@ -7379,7 +7373,7 @@ dependencies = [
  "chrono",
  "clap 4.5.51",
  "dirs 5.0.1",
- "faster-hex 0.1.1",
+ "faster-hex",
  "futures-util",
  "hex",
  "include_dir",
@@ -7471,7 +7465,7 @@ dependencies = [
  "criterion",
  "crossbeam-channel",
  "dhat",
- "faster-hex 0.9.0",
+ "faster-hex",
  "flate2",
  "futures-util",
  "indexmap 2.14.0",
@@ -7580,7 +7574,7 @@ dependencies = [
  "criterion",
  "duct",
  "event-listener 2.5.3",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures-util",
  "ipnet",
  "itertools 0.13.0",
@@ -7712,7 +7706,7 @@ dependencies = [
 name = "sophis-wasm-core"
 version = "1.1.0"
 dependencies = [
- "faster-hex 0.9.0",
+ "faster-hex",
  "hexplay",
  "js-sys",
  "wasm-bindgen",
@@ -8170,7 +8164,7 @@ version = "1.1.0"
 dependencies = [
  "axum",
  "clap 4.5.51",
- "faster-hex 0.9.0",
+ "faster-hex",
  "getrandom 0.2.15",
  "hex",
  "libcrux-ml-dsa",
@@ -9778,7 +9772,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "dirs 5.0.1",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures",
  "getrandom 0.2.15",
  "instant",
@@ -9992,7 +9986,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799e5fbf266e0fffb5c24d6103735eb2b94bb31f93b664b91eaaf63b4f959804"
 dependencies = [
  "cfg-if",
- "faster-hex 0.9.0",
+ "faster-hex",
  "futures",
  "js-sys",
  "serde",
