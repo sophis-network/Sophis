@@ -608,7 +608,9 @@ Each check captures a structural invariant: the binary boots, parses args, print
 - `cargo clippy -p sophisd --all-targets -- -D warnings` clean.
 - `cargo fmt --all -- --check` clean.
 
-**What this harness does NOT do:** it is **not** a substitute for proper unit tests on the underlying logic — the original finding called that path out as a deferred refactor ("extracting logic into a lib.rs testable surface"). Bumping coverage from 0% → meaningful% on, e.g., `dilithium-wallet/src/main.rs` (1142 lines, 72 fns) requires extracting each `fn cmd_*` into testable helpers; that work is genuinely post-mainnet. The smoke harness closes the *structural* 0%-coverage gap: every binary's CLI grammar is now under regression test.
+**What the harness does NOT do (closed in Session 15):** the harness alone was *not* a substitute for unit tests on the underlying logic.
+
+**Session 15 upgrade (2026-05-16) — logic coverage added.** The original finding's "deferred lib.rs refactor" framing was wrong: a binary crate fully supports `#[cfg(test)] mod tests` *inside* `main.rs` (the child module sees the parent's private items), so no invasive refactor is needed. Added a 19-test module to `dilithium-wallet/src/main.rs` covering every pure/deterministic internal function — key derivation (determinism, size, whitespace-trim, distinct-mnemonic, invalid-input), hex helpers (`build_hex` / `parse_id_48` / `fmt_hex_48` round-trip + bad-input rejection), `parse_domain` / `fmt_domain_byte` / `prefix_for` mappings, `Wallet` save/load JSON round-trip + accessors, fee/mass math (`calc_storage_mass_integer` hand-computed, `estimate_tx_mass` change-output growth, `calc_fee` determinism + floor), and the signed-tx / DA-carrier builders (`build_and_sign_dilithium_tx` structure + signing + no-change case + tamper invariants, `build_signed_da_tx` value==0 carrier outputs + change + insufficient-funds rejection). `cargo test -p dilithium-wallet` → **19/19 green**; clippy `-D warnings` clean. The `cmd_*` orchestrators (RPC/stdout/`process::exit`) and the clap grammar remain covered by the smoke harness + devnet integration by design — that boundary is appropriate, not a gap. **F-9 logic gap closed, not deferred.**
 
 ---
 
@@ -1229,7 +1231,7 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-6 | P1 | ✅ fixed `285487d` (S5) | pruning_proof/validate 2 integration tests | — |
 | F-7 | P1 | ✅ fixed `cbb1ebc` (S5) | pruning_proof/apply via StagingConsensus | — |
 | F-8 | P1 | ✅ fixed via F-20 closure (S6) | IBD/v7 flow handlers — 2 cargo-level daemon tests un-ignored | — |
-| F-9 | P2 | ✅ fixed (S9) | CLI binary mains — smoke harness 10 binaries × 32 checks | — |
+| F-9 | P2 | ✅ fixed (S9 smoke + **S15 logic**) | CLI smoke harness 10 binaries × 32 checks **+ 19 dilithium-wallet logic unit tests** | — |
 | F-10 | P2 | ✅ fixed (S8) | manifest/imports consistency — deploy-time check | — |
 | F-11 | P2 | ✅ fixed (S7) | SDK env.rs ALT+DA shims | — |
 | F-12 | P2 | ✅ fixed (S10) | peer banning strategy — PeerScoreManager + accept-time gate | — |
@@ -1244,10 +1246,10 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
 | F-22 | **P0** | ✅ fixed `d7c877e` (S11) | mass-calc divide-by-zero on V5 carriers + ALT-creation | — |
 | F-23 | P3 | ✅ fixed (S12) | wRPC observer in da_stress_check.py — method names + field path | — |
-| F-24 | P2 | ✅ doc'd (S12) | sophis-miner RandomX cache OOM — pre-flight RAM check in stress plan §5.1 | — |
+| F-24 | P2 | ✅ **fixed (S15 — code)** | RandomX OOM: retry+backoff in sophis-pow + miner auto fast→light fallback (was doc'd S12) | — |
 
 **Pre-mainnet blockers (0 P1 open):** all 4 original P1 blockers (F-6, F-7, F-8, F-13) closed. F-22 (P0 — consensus panic) surfaced + fixed during Session 11 Phase 6 stress soak setup.
-**Post-mainnet tech debt (0 open):** F-24 documented in PHASE6_STRESS_PLAN.md §5.1 (Session 12).
+**Post-mainnet tech debt (0 open):** F-24 **code-fixed in Session 15** (sophis-pow bounded retry+backoff on the transient RandomX alloc-failure class + miner auto-downgrade fast→light instead of panicking); the Session-12 PHASE6_STRESS_PLAN.md §5.1 doc note is now defence-in-depth, not the only mitigation.
 **Test-infra debt (0 open):** F-23 wRPC observer fixed in Session 12 via live-probe of method names + field path.
 
 **🎯 Audit ledger 100% clear, 0 partials** — all 24 findings closed (21 original + F-22 P0 fix + F-23/F-24 operational follow-ups from real-world Phase 6 stress validation). Session 14 upgraded the last two partial fixes: **F-15 → definitive** (`construct_uint!` WASM surface cfg-gated; math/fuzz dep tree reduced from 11 → 6 with zero WASM crates), **F-2 → maximally mitigated** (the type-id check is architecturally unavailable in wasm-bindgen; the null-guard is the complete fix at this layer, not a deferral).
@@ -1512,13 +1514,18 @@ attempt to divide by zero
 
 **Probe artifact** preserved at `C:/Users/mfhor/AppData/Local/Temp/probe_wrpc.py` for future wRPC method-name drift debugging.
 
-#### F-24 — `sophis-miner` RandomX cache OOM on epoch transition under host RAM contention (P2) ✅ DOC'd
+#### F-24 — `sophis-miner` RandomX cache OOM on epoch transition under host RAM contention (P2) ✅ FIXED (code, S15)
 
 **Severity:** P2 — operational. Production miners on dedicated rigs are unaffected; impacts dev-box / single-host devnet/testnet stress setups.
 **Found:** Session 11, 2026-05-15, at block 30,720 (epoch 15) into the 4h soak — ~63 min in.
 **Status:** ✅ **documented in Session 12, 2026-05-15**. Per the original finding's recommendation (1), added a "Pre-flight RAM check" callout to `oracle/docs/PHASE6_STRESS_PLAN.md` §5.1 (operator recipe). The note explains the failure mode (RandomX fast-mode rebuilds 2 GB at epoch transitions; co-located 5 sophisd + observer + da-stress saturates Windows RAM and the miner panics), lists three mitigations in order of preference (dedicated miner host / reduce to 1-3 sophisd / drop `--fast-mode` for light mode at 10× slower hashrate), and points back to AUDIT_REPORT.md §F-24 for the diagnostic trace.
 
-**Why this closes F-24 without a code fix:** mainnet miners run on dedicated rigs by convention; the bug only manifests on co-located dev setups. Code-side retries (recommendation 2 from the original finding) and light-mode fallback (recommendation 3) are deferred until a real operator hits the limitation despite the documentation.
+**Session 15 (2026-05-16) — code fix shipped.** The Session-12 doc-only close is superseded; both deferred recommendations are now implemented:
+
+- **Recommendation 2 (retry + backoff) — `consensus/pow/src/lib.rs`.** The RandomX alloc-failure class is *transient* (a competing process releases RAM and the next attempt succeeds), so `RandomXCache::new` / `RandomXDataset::new` now run through `retry_alloc` — bounded retry (`MAX_ALLOC_ATTEMPTS = 5`) with exponential backoff (2 s, 4 s, 8 s, 16 s, capped 30 s) on `RandomXError::CreationError` only. Deterministic config errors (`ParameterError`/`FlagConfigError`) fail fast — retrying a bad flag never helps. The infallible `build_epoch_dataset` / `State::new` / `State::new_fast` keep their panic-on-failure contract but only *after* retries are exhausted, so the consensus-validation path is **strictly safer** (a transient OOM during block validation now recovers instead of taking the node down; the rebuilt cache is byte-identical — deterministic from the epoch seed — so consensus correctness is unchanged, only timing). No new dependency added — sophis-pow's audited dep surface is unchanged (no logging in the crate).
+- **Recommendation 3 (auto fast→light fallback) — `miner/src/main.rs`.** New fallible `try_build_epoch_dataset` / `State::try_new` / `State::try_new_fast` return the `RandomXError` instead of panicking. The miner calls them: if the ~2 GB dataset still fails after retries it logs a clear warning, **permanently downgrades to light mode** (256 MB, ~10× slower, never OOMs) and keeps mining; if even the light cache fails it sleeps 5 s and retries the loop. The miner process no longer has a RandomX panic site.
+
+**Validation:** `cargo test -p sophis-pow` → 9/9 (5 new F-24 retry-logic tests: which errors retry, backoff schedule, first-try/no-retry, non-retryable fail-fast, retry-then-succeed, attempt-cap); `cargo test -p sophis-miner` → 18/18 (compiles with fallback); clippy `-D warnings` clean on all three touched crates. The Session-12 PHASE6_STRESS_PLAN.md §5.1 operator note is retained as defence-in-depth (a dedicated rig is still preferable to a 10× slowdown), but it is no longer the *only* mitigation. **F-24 is now a code fix, not a doc workaround.**
 
 **Description.** `devnet/da_stress_check.py::query_dag_info` and `query_mempool_size` make wRPC JSON calls to `ws://127.0.0.1:486xx` with method `getBlockDagInfoRequest` and `getMempoolEntriesRequest`. During the Session 11 soak both returned empty/-1 for all 5 nodes even though the miner was producing blocks at 65 MH/s and the mempool was actively accepting txs. The script parses `resp.get("params", {}).get("virtualDaaScore", 0)` and `resp.get("params", {}).get("entries", [])` — those paths return defaults because either the method name or the response structure differs from what the script expects.
 
@@ -1528,11 +1535,11 @@ attempt to divide by zero
 
 **Why P3, not blocking:** the audit's G1/G3/G4 gates use psutil + log greps (no wRPC dependency); the wRPC failures are observability-only. The script's design is sound — it just needs a 30-min field repair against a current wRPC server.
 
-#### F-24 — `sophis-miner` RandomX cache OOM on epoch transition under host RAM contention (P2) — open
+#### F-24 — `sophis-miner` RandomX cache OOM on epoch transition under host RAM contention (P2) ✅ FIXED (code, S15)
 
 **Severity:** P2 — operational. Production miners on dedicated rigs are unaffected; impacts dev-box / single-host devnet/testnet stress setups.
 **Found:** Session 11, 2026-05-15, at block 30,720 (epoch 15) into the 4h soak — ~63 min in.
-**Status:** open.
+**Status:** ✅ **fixed in Session 15, 2026-05-16** (retry+backoff in sophis-pow + miner auto fast→light fallback — see the detailed Session-15 subsection above). The original diagnostic trace below is preserved for the record.
 
 **Description.** `sophis-miner.exe` panics at every RandomX epoch transition under heavy host RAM contention. Two panic sites:
 

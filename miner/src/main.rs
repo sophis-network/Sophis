@@ -10,7 +10,7 @@ use sophis_consensus_core::{header::Header, merkle::calc_hash_merkle_root, tx::T
 use sophis_core::{info, warn};
 use sophis_grpc_client::GrpcClient;
 use sophis_notify::subscription::context::SubscriptionContext;
-use sophis_pow::{EPOCH_LENGTH, SharedDataset, State, build_epoch_dataset};
+use sophis_pow::{EPOCH_LENGTH, SharedDataset, State, try_build_epoch_dataset};
 use sophis_rpc_core::{
     api::rpc::RpcApi,
     model::message::{GetBlockTemplateRequest, SubmitBlockRequest},
@@ -112,7 +112,10 @@ async fn main() {
 
     let rpc_server = m.get_one::<String>("rpcserver").unwrap().clone();
     let threads = *m.get_one::<usize>("threads").unwrap();
-    let fast_mode = m.get_flag("fast-mode");
+    // F-24: `fast_mode` is mutable so the miner can permanently downgrade
+    // to light mode if the ~2 GB dataset allocation fails even after the
+    // pow-crate's bounded retry+backoff (host RAM contention).
+    let mut fast_mode = m.get_flag("fast-mode");
 
     if threads > 0 {
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
@@ -219,17 +222,51 @@ async fn main() {
         let daa_score = header.daa_score;
         let epoch = daa_score / EPOCH_LENGTH;
 
-        // Reconstroi dataset ao entrar em novo epoch (fast mode)
+        // Reconstroi dataset ao entrar em novo epoch (fast mode).
+        // F-24: o build aloca ~2 GB; sob contenção de RAM do host (devnet
+        // co-locado) a alocação pode falhar mesmo após o retry+backoff do
+        // crate sophis-pow. Em vez de panicar o processo, fazemos
+        // downgrade permanente para light mode e seguimos minerando
+        // (~10x mais lento, 256 MB, nunca OOM).
         if fast_mode && epoch != current_epoch {
             info!("Novo epoch RandomX ({}) — construindo dataset (~2 GB RAM). Aguarde ~2 minutos...", epoch);
-            let ds = tokio::task::spawn_blocking(move || build_epoch_dataset(daa_score)).await.expect("build_epoch_dataset falhou");
-            shared_dataset = Some(Arc::new(ds));
-            current_epoch = epoch;
-            info!("Dataset RandomX pronto. Minerando em Fast Mode.");
+            match tokio::task::spawn_blocking(move || try_build_epoch_dataset(daa_score)).await.expect("spawn_blocking join") {
+                Ok(ds) => {
+                    shared_dataset = Some(Arc::new(ds));
+                    current_epoch = epoch;
+                    info!("Dataset RandomX pronto. Minerando em Fast Mode.");
+                }
+                Err(e) => {
+                    warn!(
+                        "Falha ao alocar dataset RandomX (~2 GB) apos retries: {}. \
+                         Downgrade PERMANENTE para light mode (256 MB, ~10x mais lento). \
+                         Mineracao continua — F-24.",
+                        e
+                    );
+                    fast_mode = false;
+                    shared_dataset = None;
+                }
+            }
         }
 
-        // Cria State para este template
-        let state = if fast_mode { State::new_fast(&header, shared_dataset.as_ref().unwrap().clone()) } else { State::new(&header) };
+        // Cria State para este template. F-24: usa as variantes falíveis
+        // — se até o cache light (256 MB) falhar, espera e tenta de novo
+        // em vez de panicar.
+        let state = {
+            let built = if fast_mode {
+                State::try_new_fast(&header, shared_dataset.as_ref().unwrap().clone())
+            } else {
+                State::try_new(&header)
+            };
+            match built {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("Falha ao inicializar RandomX state apos retries: {}. Retry em 5s...", e);
+                    sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+            }
+        };
 
         // Minera até encontrar nonce ou expirar o template
         let found = mine_template(&state, TEMPLATE_REFRESH_MS);

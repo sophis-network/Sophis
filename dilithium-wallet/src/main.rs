@@ -1382,3 +1382,293 @@ async fn main() {
         _ => unreachable!(),
     }
 }
+
+// ─── Unit tests (F-9, pre-testnet audit Session 15, 2026-05-16) ──────────────
+//
+// F-9 closed the *structural* 0%-coverage gap with a CLI smoke harness
+// (binary boots / parses args). This module closes the *logic* gap: the
+// pure, deterministic internal functions — key derivation, fee/mass math,
+// id parsing/formatting, wallet (de)serialization round-trip, and the
+// signed-tx / DA-carrier builders — now have direct unit coverage.
+// Binary crates fully support `#[cfg(test)] mod tests`; this child module
+// sees the parent's private items.
+//
+// Excluded by design (not pure logic — covered by the smoke harness +
+// devnet integration): the `cmd_*` orchestrators (RPC, stdout, process
+// ::exit), the clap grammar, and `cmd_pskt_*` (PSBS round-trip is
+// exercised end-to-end in devnet).
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A valid 24-word BIP39 phrase, generated fresh so the test never
+    /// depends on a hardcoded KAT (which could rot if the wordlist or
+    /// derivation changes). We assert *properties* (determinism,
+    /// uniqueness, sizes), not a frozen address.
+    fn fresh_phrase() -> String {
+        Mnemonic::random(WordCount::Words24, Language::English).expect("gen mnemonic").phrase_string()
+    }
+
+    fn fresh_keypair() -> ([u8; VK_SIZE], [u8; SK_SIZE]) {
+        derive_dilithium_from_mnemonic(&fresh_phrase()).expect("derive")
+    }
+
+    fn synth_utxo(amount: u64, tx_id_seed: u8, addr: &Address) -> (TransactionOutpoint, UtxoEntry) {
+        let tx_id = sophis_consensus_core::tx::TransactionId::from_slice(&[tx_id_seed; 32]);
+        let outpoint = TransactionOutpoint::new(tx_id, 0);
+        let entry = UtxoEntry::new(amount, pay_to_address_script(addr), 1, true);
+        (outpoint, entry)
+    }
+
+    // ── Key derivation ──────────────────────────────────────────────────
+
+    #[test]
+    fn derive_is_deterministic_and_correct_sizes() {
+        let phrase = fresh_phrase();
+        let (vk1, sk1) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        let (vk2, sk2) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        assert_eq!(vk1, vk2, "same mnemonic must derive the same VK");
+        assert_eq!(sk1, sk2, "same mnemonic must derive the same SK");
+        assert_eq!(vk1.len(), VK_SIZE);
+        assert_eq!(sk1.len(), SK_SIZE);
+        // Leading/trailing whitespace must not change the key (the fn trims).
+        let (vk3, _) = derive_dilithium_from_mnemonic(&format!("  {phrase}  ")).unwrap();
+        assert_eq!(vk1, vk3, "phrase is trimmed before derivation");
+    }
+
+    #[test]
+    fn derive_distinct_mnemonics_give_distinct_keys() {
+        let (vk_a, _) = fresh_keypair();
+        let (vk_b, _) = fresh_keypair();
+        assert_ne!(vk_a, vk_b, "independent mnemonics must not collide");
+    }
+
+    #[test]
+    fn derive_rejects_invalid_mnemonic() {
+        assert!(derive_dilithium_from_mnemonic("not a valid bip39 phrase at all").is_err());
+        assert!(derive_dilithium_from_mnemonic("").is_err());
+    }
+
+    // ── hex helpers ─────────────────────────────────────────────────────
+
+    #[test]
+    fn build_hex_matches_known_vector() {
+        assert_eq!(build_hex(&[0x00, 0x0f, 0xff, 0xab]), "000fffab");
+        assert_eq!(build_hex(&[]), "");
+    }
+
+    #[test]
+    fn parse_id_48_roundtrips_with_fmt_hex_48() {
+        let mut id = [0u8; 48];
+        for (i, b) in id.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let hex = fmt_hex_48(&id);
+        assert_eq!(hex.len(), 96);
+        assert_eq!(parse_id_48(&hex).unwrap(), id);
+        // 0x-prefixed and uppercase forms accepted.
+        assert_eq!(parse_id_48(&format!("0x{}", hex.to_uppercase())).unwrap(), id);
+    }
+
+    #[test]
+    fn parse_id_48_rejects_bad_input() {
+        assert!(parse_id_48("deadbeef").is_err(), "wrong length");
+        assert!(parse_id_48(&"z".repeat(96)).is_err(), "non-hex chars");
+        assert!(parse_id_48(&"a".repeat(95)).is_err(), "odd/short length");
+    }
+
+    #[test]
+    fn fmt_domain_byte_maps_all_known_and_unknown() {
+        assert_eq!(fmt_domain_byte(0), "(none)");
+        assert_eq!(fmt_domain_byte(1), "Rollup");
+        assert_eq!(fmt_domain_byte(2), "Oracle");
+        assert_eq!(fmt_domain_byte(3), "User");
+        assert_eq!(fmt_domain_byte(42), "(unknown)");
+    }
+
+    #[test]
+    fn parse_domain_accepts_aliases_and_rejects_garbage() {
+        assert!(parse_domain("none").unwrap().is_none());
+        assert!(parse_domain("").unwrap().is_none());
+        assert!(matches!(parse_domain("ROLLUP").unwrap(), Some(CarrierDomain::Rollup)));
+        assert!(matches!(parse_domain("Oracle").unwrap(), Some(CarrierDomain::Oracle)));
+        assert!(matches!(parse_domain("user").unwrap(), Some(CarrierDomain::User)));
+        assert!(parse_domain("bridge").is_err());
+    }
+
+    // ── network → prefix ────────────────────────────────────────────────
+
+    #[test]
+    fn prefix_for_maps_networks() {
+        assert_eq!(prefix_for("testnet"), Prefix::Testnet);
+        assert_eq!(prefix_for("mainnet"), Prefix::Mainnet);
+        assert_eq!(prefix_for("devnet"), Prefix::Devnet);
+        assert_eq!(prefix_for("anything-else"), Prefix::Devnet, "unknown defaults to devnet");
+    }
+
+    #[test]
+    fn reject_mainnet_plaintext_is_noop_for_non_mainnet() {
+        // The mainnet branch calls process::exit so it can't be unit-tested,
+        // but the safe-network path must simply return (no panic, no exit).
+        reject_mainnet_plaintext("devnet", "keygen");
+        reject_mainnet_plaintext("testnet", "restore");
+    }
+
+    // ── Wallet (de)serialization round-trip ─────────────────────────────
+
+    #[test]
+    fn wallet_save_load_roundtrip_and_accessors() {
+        let phrase = fresh_phrase();
+        let (vk, sk) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        let wallet = build_wallet_from_keys(&vk, &sk, &phrase, "devnet", Prefix::Devnet).unwrap();
+        assert_eq!(wallet.version, 2, "BIP39-derived wallet is format v2");
+        assert_eq!(wallet.network, "devnet");
+        assert_eq!(wallet.mnemonic.as_deref(), Some(phrase.as_str()));
+
+        // Accessors decode back to the exact key bytes + a parseable address.
+        assert_eq!(wallet.verification_key().unwrap(), vk);
+        assert_eq!(wallet.signing_key().unwrap(), sk);
+        let addr = wallet.address().unwrap();
+        assert_eq!(addr.prefix, Prefix::Devnet);
+
+        // JSON round-trip through a temp file preserves every field.
+        let path = std::env::temp_dir().join(format!("sophis_wallet_test_{}_{}.json", std::process::id(), tx_unique_suffix()));
+        wallet.save(&path).unwrap();
+        let loaded = Wallet::load(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+        assert_eq!(loaded.version, wallet.version);
+        assert_eq!(loaded.address, wallet.address);
+        assert_eq!(loaded.verification_key_hex, wallet.verification_key_hex);
+        assert_eq!(loaded.signing_key_hex, wallet.signing_key_hex);
+        assert_eq!(loaded.mnemonic, wallet.mnemonic);
+        assert_eq!(loaded.verification_key().unwrap(), vk);
+    }
+
+    #[test]
+    fn wallet_default_version_is_one() {
+        assert_eq!(Wallet::default_version(), 1, "legacy keyfiles default to v1");
+    }
+
+    fn tx_unique_suffix() -> u128 {
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    }
+
+    // ── Fee / mass math ─────────────────────────────────────────────────
+
+    #[test]
+    fn calc_storage_mass_integer_hand_computed() {
+        let p = STORAGE_MASS_PARAMETER;
+        let (vk, _) = fresh_keypair();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        // One input amount == P; send == P; no change:
+        //   out_send = ceil(P/P) = 1; out_change = 0; sum_in = P/P = 1
+        //   result = 1.saturating_sub(1) = 0
+        let inputs = vec![synth_utxo(p, 1, &addr)];
+        assert_eq!(calc_storage_mass_integer(&inputs, p, 0), 0);
+        // With change == P: out_change = 1 → sum_out = 2 → result = 2 - 1 = 1
+        assert_eq!(calc_storage_mass_integer(&inputs, p, p), 1);
+    }
+
+    #[test]
+    fn estimate_tx_mass_grows_with_a_change_output() {
+        let (vk, _) = fresh_keypair();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let one_in = vec![synth_utxo(10 * SOMPI_PER_SOPHIS, 2, &addr)];
+        // send == total - fee → no change → 1 output
+        let (cm_no_change, _) = estimate_tx_mass(&one_in, 10 * SOMPI_PER_SOPHIS - 1_000, 1_000);
+        // send small → change present → 2 outputs → larger compute mass
+        let (cm_change, _) = estimate_tx_mass(&one_in, SOMPI_PER_SOPHIS, 1_000);
+        assert!(cm_no_change > 0 && cm_change > 0);
+        assert!(cm_change > cm_no_change, "a change output adds tx bytes + spk mass");
+    }
+
+    #[test]
+    fn calc_fee_is_deterministic_and_at_least_minimum() {
+        let (vk, _) = fresh_keypair();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let utxos = vec![synth_utxo(50 * SOMPI_PER_SOPHIS, 3, &addr)];
+        let (fee1, cm1, sm1) = calc_fee(&utxos, 5 * SOMPI_PER_SOPHIS);
+        let (fee2, cm2, sm2) = calc_fee(&utxos, 5 * SOMPI_PER_SOPHIS);
+        assert_eq!((fee1, cm1, sm1), (fee2, cm2, sm2), "fee calc must be deterministic");
+        assert!(fee1 >= MINIMUM_FEE, "fee floor is MINIMUM_FEE");
+        assert!(cm1 > 0, "compute mass is non-zero for a real tx");
+    }
+
+    // ── Signed tx builder ───────────────────────────────────────────────
+
+    #[test]
+    fn build_and_sign_dilithium_tx_structure_and_signing() {
+        let phrase = fresh_phrase();
+        let (vk, sk) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let utxos = vec![synth_utxo(100 * SOMPI_PER_SOPHIS, 4, &addr)];
+        let send = 30 * SOMPI_PER_SOPHIS;
+        let fee = 1_000u64;
+
+        let tx = build_and_sign_dilithium_tx(&utxos, send, fee, &addr, &addr, &vk, &sk, false).unwrap();
+
+        assert_eq!(tx.version, TX_VERSION);
+        assert_eq!(tx.inputs.len(), 1);
+        assert_eq!(tx.outputs.len(), 2, "payment + change");
+        assert_eq!(tx.outputs[0].value, send);
+        assert_eq!(tx.outputs[1].value, 100 * SOMPI_PER_SOPHIS - send - fee, "change = total - send - fee");
+        assert!(!tx.inputs[0].signature_script.is_empty(), "input must be signed");
+
+        // No-change case: send == total - fee → single output.
+        let tx_nc = build_and_sign_dilithium_tx(&utxos, 100 * SOMPI_PER_SOPHIS - fee, fee, &addr, &addr, &vk, &sk, false).unwrap();
+        assert_eq!(tx_nc.outputs.len(), 1, "no change output when remainder is zero");
+    }
+
+    #[test]
+    fn tamper_path_stays_well_formed_and_same_length() {
+        // ML-DSA-44 signing is randomized, so two independent signatures
+        // differ even *without* tamper — comparing sig bytes wouldn't
+        // isolate the tamper logic. What IS deterministic: tamper is an
+        // in-place single-byte XOR, so the tx shape and the signature
+        // script length are unchanged (it corrupts, it doesn't truncate).
+        let phrase = fresh_phrase();
+        let (vk, sk) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let utxos = vec![synth_utxo(100 * SOMPI_PER_SOPHIS, 5, &addr)];
+        let clean = build_and_sign_dilithium_tx(&utxos, SOMPI_PER_SOPHIS, 1_000, &addr, &addr, &vk, &sk, false).unwrap();
+        let dirty = build_and_sign_dilithium_tx(&utxos, SOMPI_PER_SOPHIS, 1_000, &addr, &addr, &vk, &sk, true).unwrap();
+        assert_eq!(clean.outputs.len(), dirty.outputs.len(), "tamper must not change tx shape");
+        assert_eq!(clean.inputs.len(), dirty.inputs.len());
+        assert!(!dirty.inputs[0].signature_script.is_empty(), "tampered tx is still structurally signed");
+        assert_eq!(
+            clean.inputs[0].signature_script.len(),
+            dirty.inputs[0].signature_script.len(),
+            "tamper is an in-place byte flip — length is invariant"
+        );
+    }
+
+    // ── DA carrier tx builder (Phase 6) ─────────────────────────────────
+
+    #[test]
+    fn build_signed_da_tx_emits_zero_value_carrier_outputs() {
+        let phrase = fresh_phrase();
+        let (vk, sk) = derive_dilithium_from_mnemonic(&phrase).unwrap();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let utxos = vec![synth_utxo(10 * SOMPI_PER_SOPHIS, 6, &addr)];
+        let scripts = vec![vec![1u8, 2, 3], vec![9u8; 50]];
+        let fee = 1_000u64;
+
+        let tx = build_signed_da_tx(&utxos, &scripts, fee, &addr, &vk, &sk).unwrap();
+        assert_eq!(tx.outputs.len(), 3, "2 carriers + 1 change");
+        for out in &tx.outputs[..2] {
+            assert_eq!(out.value, 0, "carrier outputs are value==0 (F-22 landmine class)");
+            assert_eq!(out.script_public_key.version(), SCRIPT_VERSION_CARRIER);
+        }
+        assert_eq!(tx.outputs[2].value, 10 * SOMPI_PER_SOPHIS - fee, "change = total_in - fee");
+        assert!(!tx.inputs[0].signature_script.is_empty(), "carrier tx input must be signed");
+    }
+
+    #[test]
+    fn build_signed_da_tx_rejects_insufficient_funds() {
+        let (vk, sk) = fresh_keypair();
+        let addr = dilithium_address(&vk, Prefix::Devnet).unwrap();
+        let utxos = vec![synth_utxo(500, 7, &addr)]; // less than the fee
+        let err = build_signed_da_tx(&utxos, &[vec![1u8]], 1_000, &addr, &vk, &sk);
+        assert!(err.is_err(), "total_in < fee must be rejected, not underflow");
+    }
+}
