@@ -1,5 +1,4 @@
 mod hashers;
-mod pow_hashers;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use sophis_utils::{

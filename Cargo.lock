@@ -6930,14 +6930,11 @@ version = "1.1.0"
 dependencies = [
  "blake2b_simd",
  "borsh",
- "cc",
  "criterion",
  "faster-hex 0.9.0",
  "js-sys",
- "keccak",
  "rand 0.9.3",
  "serde",
- "sha3",
  "sophis-utils",
  "wasm-bindgen",
  "workflow-wasm",
@@ -7375,7 +7372,6 @@ dependencies = [
 name = "sophis-pow"
 version = "1.1.0"
 dependencies = [
- "criterion",
  "js-sys",
  "num",
  "randomx-rs",

@@ -196,7 +196,7 @@ Performed automated grep over the entire workspace; results triaged manually.
 | Coinbase 100% to miner | Read `consensus/src/processes/coinbase.rs:97-144` | ✅ **CLEAN.** `expected_coinbase_transaction` pays `reward_data.subsidy + reward_data.total_fees` to each mergeset_blue block's reported script; red rewards pay to current `miner_data.script_public_key`. No split, no devfund recipient. |
 | Sem privacidade nativa (FHE / OP_PRIVACY / ring sigs / mixers / confidential) | `fhe\|tfhe\|ring_sig\|mixer\|OP_PRIVACY\|confidential` (case-insensitive) | ✅ **CLEAN.** 4 false positives, all matching substring "fhe" inside `ProofHeader` / `JtfHeader` identifiers (case-insensitive). No FHE code remains. |
 | Sem Schnorr / secp256k1 (signatures) | `schnorr\|secp256k1` (case-insensitive) | ✅ **CLEAN.** Zero hits in `.rs` files. Note: project CLAUDE.md observes that `rothschild/Cargo.toml` historically listed `secp256k1` as a dep for keypair derivation residual — not verified this session, will check Tier 1. |
-| Sem kHeavyHash (PoW = RandomX only) | `kHeavyHash\|KHeavyHash` (case-insensitive) | ⚠️ **PARTIAL.** See finding F-1 below — `KHeavyHash` still compiled as default-OFF feature fallback. |
+| Sem kHeavyHash (PoW = RandomX only) | `kHeavyHash\|KHeavyHash` (case-insensitive) | ✅ **CLEAN.** F-1 Option 3 applied 2026-05-16: kHeavyHash deleted entirely (`matrix.rs`/`xoshiro.rs`/bench removed, wasm `PoW` removed; non-randomx path = type-only stub, `calculate_pow` = `unreachable!()`). No second PoW algorithm compiles. Eradication extended workspace-wide the same day: `sophis-hashes` `pow_hashers.rs` (`PowHash`+`KHeavyHash`) deleted, the keccak-f1600 asm build machinery removed (`build.rs`, `src/asm/`, the `keccak` dep, the orphaned workspace `keccak` dep), and stale `genesis.rs` kHeavyHash comments cleaned. Zero `KHeavyHash`/`PowHash` references and zero `keccak` references in any workspace manifest remain; the only `keccak` in `Cargo.lock` is risc0/ark's unrelated transitive ZK-circuit dependency (always present, nothing to do with Kaspa PoW). The distinct blake2b `ProofOfWorkHash` type is correctly retained. |
 | sVM `Capability` enum — Dilithium only signature, no Schnorr | Read `svm/core/src/capability.rs` | ✅ **CLEAN.** 11 variants: `ReadUtxo`, `ProduceOutput`, `VerifyDilithium`, `ReadBlockHeight`, `HashSha3`, `VerifyRisc0Proof`, `VerifyPlonky3Proof`, `VerifyDataAvailability`, `ResolveAlt`, `EmitEvent`, `VrfRandomness`. **No `VerifySchnorr`**. CLAUDE.md lists 8 — drift: 3 variants (`ResolveAlt`, `EmitEvent`, `VrfRandomness`) were added via roadmap items #1/#3/#4 in 2026-05-10 but the doc wasn't updated to enumerate them. Code matches the SIPs (SIP-1 ALT, SIP-3 VRF, SIP-4 Events). |
 | ABI-frozen constants — L1 ALT | Read `consensus/core/src/alt/mod.rs:70-102, 752-757` | ✅ **CLEAN.** All 8 constants match CLAUDE.md exactly: `ALT_HEADER_LEN=22`, `ALT_HANDLE_LEN=6`, `MAX_ALT_ENTRIES=256`, `MAX_ALT_ENTRY_SCRIPT_BYTES=4096`, `MAX_ALT_CREATIONS_PER_TX=4`, `MAX_ALT_CREATIONS_PER_BLOCK=16`, `BASE_ALT_CREATION_MASS=100_000`, `ALT_STORAGE_MASS_FACTOR=1`. **Tested with `#[test] fn frozen_constants()` at line 752.** |
 | ABI-frozen constants — J4 Events | Read `consensus/core/src/events/mod.rs:45-217` | ✅ **CLEAN.** All match CLAUDE.md: `MAX_TOPICS_PER_EVENT=4`, `TOPIC_LEN=32`, `MAX_EVENT_DATA_BYTES=4096`, `MAX_EVENTS_PER_TX=32`, `MAX_EVENTS_PER_BLOCK=1024`, `MAX_LOGS_PER_RESPONSE=1000`, `EVENTS_BY_CONTRACT_BUCKET_SIZE=65_536`. **Tested with `#[test] fn frozen_constants()` at line 207.** |
@@ -205,10 +205,42 @@ Performed automated grep over the entire workspace; results triaged manually.
 
 ### 1.7 Findings — Session 1 (preliminary)
 
-#### F-1 — PoW algorithm is a compile-time feature flag, not a consensus rule (P1) ✅ FIXED
+#### F-1 — PoW algorithm is a compile-time feature flag, not a consensus rule (P1) ✅ FIXED — Option 3 (full kHeavyHash removal) applied 2026-05-16
 
 **Severity:** P1 — must fix before mainnet launch.
 **Found:** Session 1, 2026-05-14.
+
+**Option 3 applied — 2026-05-16 (founder follow-up, post-audit-closure).**
+The Session-1 fix took Option 1 (a `compile_error!` guard that left the
+kHeavyHash source compilable behind a cfg). Per founder decision the
+auditor's own preferred Option 3 was then applied: the legacy kHeavyHash
+PoW was **deleted entirely** — `consensus/pow/src/matrix.rs` and
+`xoshiro.rs` removed, the `[[bench]]` that exercised them dropped, the
+`wasm.rs` browser `PoW`/`WorkT` (a kHeavyHash "miner" that could never
+produce a RandomX-valid block) removed (only the Stratum `calculate_target`
+helper kept), and the `not(feature = "randomx")` path reduced to a
+type-only stub (`calculate_pow` = `unreachable!()`, fields cfg-allow'd) so
+wasm32 transitive consumers still type-check. There is now no second
+compilable PoW algorithm in the crate; the §1 invariant cell is upgraded
+**PARTIAL → ✅ CLEAN**. Same day the eradication was extended
+workspace-wide: `sophis-hashes` `pow_hashers.rs` (`PowHash`+`KHeavyHash`)
+was deleted, the keccak-f1600 asm build machinery removed (`build.rs`,
+`src/asm/`, the `keccak` dep and the orphaned workspace `keccak` dep), and
+the stale `genesis.rs` kHeavyHash comments cleaned. The distinct blake2b
+`ProofOfWorkHash` type is correctly retained; zero `KHeavyHash`/`PowHash`
+references and no `keccak` in any workspace manifest remain — the only
+`keccak` in `Cargo.lock` is risc0/ark's unrelated transitive ZK-circuit
+dep (always present, not Kaspa PoW). Public
+JS-API change:
+`sophis-wasm` no longer exports the in-browser `PoW` (intended — it was
+actively misleading on a RandomX-only chain). Revalidated green:
+`sophis-pow` native (`check` / `test` 6-0 / `clippy -D warnings`) + wasm32
+(`check`, 0 warnings), canonical CI WASM
+`clippy -p sophis-wasm --target wasm32-unknown-unknown -- -D warnings`,
+`sophis-miner` native `check`, workspace `cargo fmt --all -- --check`.
+Verdict **unchanged** (F-1 was already FIXED under Option 1; this
+strengthens it). See the post-final ledger row.
+
 **Status:** ✅ **fixed in commit `a50706f` (same session, 2026-05-14)**. Adopted Option 1 with a WASM exemption: `compile_error!()` at the top of `consensus/pow/src/lib.rs` gated on `#[cfg(all(not(feature = "randomx"), not(feature = "wasm32-sdk")))]`. Verified:
 - `cargo check -p sophis-pow` (default features) → exit 0, compiles in ~57s.
 - `cargo check -p sophis-pow --no-default-features` → **fails as expected** with the documented message ("sophis-pow requires either the 'randomx' feature … or the 'wasm32-sdk' feature").
@@ -1336,6 +1368,7 @@ The workspace meets the bar for both testnet and mainnet launch:
 | 13 | 2026-05-15/16 | Stage 1 staged soak (4h light-mode) — F-24 mitigation proven (87k blocks, 0 OOM), Phase 6 sustained-load validated (20,726 OK / 4.6 GB / 0 panics) | ✅ done — §9 |
 | 14 | 2026-05-16 | Founder follow-up: F-15 **definitive** fix (cfg-gate construct_uint WASM blocks; 6 WASM deps removed from math/fuzz; 3 build targets validated) + F-2 reclassified (architectural limit, not deferred — wasm-bindgen exposes no type-id) | ✅ done — 2 partials upgraded to definitive/closed |
 | final | 2026-05-16 | Verdict post-Session-14 | ✅ TESTNET ✅ APPROVED + MAINNET ✅ APPROVED — 0 open, 0 partial; F-15 definitive, F-2 maximally mitigated; Phase 6 empirically proven (Stage 0 + Stage 1). |
+| post-final | 2026-05-16 | F-1 Option 3 (founder follow-up — post-closure code change to `consensus/pow`) | ✅ kHeavyHash fully removed (`matrix.rs`/`xoshiro.rs`/bench deleted; wasm `PoW`/`WorkT` removed; non-randomx path = type-only stub). §1 invariant cell PARTIAL → CLEAN. Revalidated: sophis-pow native+wasm32, CI WASM `clippy -p sophis-wasm --target wasm32 -D warnings`, sophis-miner, `fmt --check` — all green. Verdict **unchanged** (F-1 was already FIXED; this strengthens it). JS-API: `sophis-wasm` no longer exports in-browser `PoW` (intended). Eradication extended workspace-wide same day: `sophis-hashes` `pow_hashers.rs` (`PowHash`+`KHeavyHash`) + keccak-asm build machinery (`build.rs`/`src/asm/`/`keccak` dep/orphan workspace dep) deleted, stale `genesis.rs` kHeavyHash comments cleaned; revalidated sophis-hashes build/test/clippy/fmt + consensus-core + CI WASM + final grep = zero kHeavyHash/PowHash residual (the only `keccak` left is risc0/ark's unrelated transitive ZK dep — not Kaspa PoW). blake2b `ProofOfWorkHash` retained (distinct). |
 
 ---
 
@@ -1675,12 +1708,12 @@ The ladder's higher rungs (Stage 2 overnight 12h, Stage 3 24h + restart gate, St
 
 ## Appendix A — Audit ledger
 
-| Session | Date | Tier/area | Findings P0/P1/P2 | Status |
-|---|---|---|---|---|
-| 1 | 2026-05-14 | Baseline + inventory | TBD | 🚧 in progress |
-| 2 | TBD | Coverage map | — | ⏳ |
-| 3-5 | TBD | Tier 0 | — | ⏳ |
-| 6-7 | TBD | Tier 1 | — | ⏳ |
-| 8-9 | TBD | Tier 2 | — | ⏳ |
-| 10 | TBD | Tier 3 + sweep | — | ⏳ |
-| final | TBD | Verdict | — | ⏳ |
+The authoritative per-session ledger is maintained **inline at the end of
+§6** under the heading **"### Audit ledger (sessions)"** — a complete
+table (Sessions 1–14 + the `final` verdict row, 2026-05-16,
+TESTNET ✅ + MAINNET ✅, 0 open / 0 partial).
+
+This appendix was an unfilled Session-1 planning placeholder (every row
+"TBD / ⏳"); it is **superseded** and intentionally not duplicated here to
+avoid a second, drift-prone copy. See the §6 table for the canonical
+ledger.

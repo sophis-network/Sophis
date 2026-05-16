@@ -9,31 +9,19 @@ include.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[features]
-default = ["keccak?/asm"]
-no-asm = ["keccak"]
-
 [dependencies]
 blake2b_simd.workspace = true
 borsh.workspace = true
 faster-hex.workspace = true
 js-sys.workspace = true
 sophis-utils.workspace = true
-keccak = { workspace = true, optional = true }
 serde.workspace = true
 wasm-bindgen.workspace = true
 workflow-wasm.workspace = true
 
-[target.'cfg(not(target_arch = "x86_64"))'.dependencies]
-keccak.workspace = true
-
 [dev-dependencies]
 criterion.workspace = true
 rand.workspace = true
-sha3.workspace = true
-
-[build-dependencies]
-cc.workspace = true
 
 [[bench]]
 name = "bench"
