@@ -257,10 +257,7 @@ mod tests {
             RuleError::DuplicateTransactions(h(11)),
             RuleError::InvalidPoW,
             RuleError::WrongHeaderPruningPoint(h(12), h(13)),
-            RuleError::UnexpectedIndirectParents(
-                TwoDimVecDisplay(vec![vec![h(1)]]),
-                TwoDimVecDisplay(vec![vec![h(2)]]),
-            ),
+            RuleError::UnexpectedIndirectParents(TwoDimVecDisplay(vec![vec![h(1)]]), TwoDimVecDisplay(vec![vec![h(2)]])),
             RuleError::BadUTXOCommitment(h(14), h(15), h(16)),
             RuleError::BadAcceptedIDMerkleRoot(h(17), mh(3), mh(4)),
             RuleError::BadCoinbaseTransaction,
@@ -268,11 +265,7 @@ mod tests {
             RuleError::InvalidTransactionsInNewBlock(HashMap::new()),
             RuleError::InsufficientDaaWindowSize(3),
             RuleError::PrunedBlock, // documented never-created defensive variant
-            RuleError::InsufficientChainWork {
-                got: bw(1),
-                required: bw(2),
-                floor: ChainWorkFloor::HardcodedMinimum,
-            },
+            RuleError::InsufficientChainWork { got: bw(1), required: bw(2), floor: ChainWorkFloor::HardcodedMinimum },
         ];
         for e in &variants {
             let s = e.to_string();
@@ -289,18 +282,10 @@ mod tests {
     fn rule_error_format_args_are_wired() {
         // Spot-check that format placeholders actually interpolate.
         assert!(RuleError::WrongBlockVersion(7).to_string().contains('7'));
-        assert!(
-            RuleError::WrongBlockVersion(7)
-                .to_string()
-                .contains(&constants::BLOCK_VERSION.to_string())
-        );
+        assert!(RuleError::WrongBlockVersion(7).to_string().contains(&constants::BLOCK_VERSION.to_string()));
         assert!(RuleError::TooManyParents(20, 10).to_string().contains("20"));
         assert!(RuleError::WrongSubsidy(100, 99).to_string().contains("99"));
-        let cw = RuleError::InsufficientChainWork {
-            got: bw(1),
-            required: bw(2),
-            floor: ChainWorkFloor::PersistedMaxSeen,
-        };
+        let cw = RuleError::InsufficientChainWork { got: bw(1), required: bw(2), floor: ChainWorkFloor::PersistedMaxSeen };
         assert!(cw.to_string().contains("persisted max_chain_work_seen"));
     }
 

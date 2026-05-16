@@ -310,22 +310,17 @@ fn lower_median_u64(sorted: &[u64]) -> u64 {
 /// lower-bound-respecting proxy for "≥ min_publishers sustained".
 fn distinct_publishers_in_window(rounds: &[Round], _st: &AssetState, policy: &FlipPolicy, now: u64) -> u8 {
     let window_start = now.saturating_sub(policy.min_consistency_window_secs);
-    rounds
-        .iter()
-        .filter(|r| r.publish_ts >= window_start)
-        .map(|r| r.publishers.min(u8::MAX as u32) as u8)
-        .max()
-        .unwrap_or(0)
+    rounds.iter().filter(|r| r.publish_ts >= window_start).map(|r| r.publishers.min(u8::MAX as u32) as u8).max().unwrap_or(0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sophis_oracle_pqc_core::PriceAttestationCore;
     use sophis_oracle_pqc_core::{
         DILITHIUM_PUBKEY_SIZE, KEY_GENERATION_RANDOMNESS_SIZE, SIGNING_RANDOMNESS_SIZE, asset_id_from_symbol, generate_keypair,
         sign_attestation,
     };
-    use sophis_oracle_pqc_core::PriceAttestationCore;
 
     fn att(asset: &[u8], price_e8: i64, conf_e8: u64, ts: u64, seq: u64, kp_seed: u8, sig_seed: u8) -> PriceAttestation {
         let (vk, sk) = generate_keypair([kp_seed; KEY_GENERATION_RANDOMNESS_SIZE]);

@@ -130,10 +130,7 @@ mod tests {
         // (Some(a), Some(a)) → Some(a)
         assert_eq!((with(Some(&[9])) + with(Some(&[9]))).unwrap().redeem_script, Some(vec![9]));
         // (Some(a), Some(b)) → NotCompatibleRedeemScripts
-        assert!(matches!(
-            with(Some(&[1])) + with(Some(&[2])),
-            Err(CombineError::NotCompatibleRedeemScripts { .. })
-        ));
+        assert!(matches!(with(Some(&[1])) + with(Some(&[2])), Err(CombineError::NotCompatibleRedeemScripts { .. })));
     }
 
     #[test]

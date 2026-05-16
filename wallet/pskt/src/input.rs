@@ -175,7 +175,7 @@ pub enum CombineError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::{DilithiumPubKey, Signature, DILITHIUM44_SIG_SIZE, DILITHIUM44_VK_SIZE};
+    use crate::crypto::{DILITHIUM44_SIG_SIZE, DILITHIUM44_VK_SIZE, DilithiumPubKey, Signature};
     use sophis_consensus_core::tx::{ScriptPublicKey, ScriptVec, TransactionId, UtxoEntry};
 
     fn op(txid_byte: u8, index: u32) -> TransactionOutpoint {
@@ -258,15 +258,9 @@ mod tests {
         assert_eq!((with(None, None) + with(None, None)).unwrap().redeem_script, None);
         assert_eq!((with(Some(&[1]), None) + with(None, None)).unwrap().redeem_script, Some(vec![1]));
         assert_eq!((with(Some(&[7]), None) + with(Some(&[7]), None)).unwrap().redeem_script, Some(vec![7]));
-        assert!(matches!(
-            with(Some(&[1]), None) + with(Some(&[2]), None),
-            Err(CombineError::NotCompatibleRedeemScripts { .. })
-        ));
+        assert!(matches!(with(Some(&[1]), None) + with(Some(&[2]), None), Err(CombineError::NotCompatibleRedeemScripts { .. })));
         // final_script_sig mismatch reuses NotCompatibleRedeemScripts by design.
-        assert!(matches!(
-            with(None, Some(&[1])) + with(None, Some(&[2])),
-            Err(CombineError::NotCompatibleRedeemScripts { .. })
-        ));
+        assert!(matches!(with(None, Some(&[1])) + with(None, Some(&[2])), Err(CombineError::NotCompatibleRedeemScripts { .. })));
         assert_eq!((with(None, Some(&[3])) + with(None, None)).unwrap().final_script_sig, Some(vec![3]));
     }
 

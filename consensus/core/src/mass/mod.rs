@@ -885,12 +885,7 @@ mod tests {
     fn calc_storage_mass_zero_value_input_returns_none_not_panic() {
         let storm = 10u64.pow(12);
         // Relaxed path (1 output): a spent value==0 protocol UTXO as input.
-        let relaxed = calc_storage_mass(
-            false,
-            [UtxoCell::new(1, 0)].into_iter(),
-            [UtxoCell::new(1, 500_000)].into_iter(),
-            storm,
-        );
+        let relaxed = calc_storage_mass(false, [UtxoCell::new(1, 0)].into_iter(), [UtxoCell::new(1, 500_000)].into_iter(), storm);
         assert_eq!(relaxed, None, "zero-amount input (relaxed path) must be None, never panic");
 
         // Arithmetic path (>2 inputs, outs_plurality != 1): all inputs 0.
