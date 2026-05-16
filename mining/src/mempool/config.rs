@@ -137,3 +137,69 @@ impl Config {
         self.minimum_relay_transaction_fee as f64 / 1000.0
     }
 }
+
+// Audit category-D coverage closure, item 4 (Session 16, 2026-05-16):
+// config.rs was 28% — `Config` is pure (new / build_default /
+// apply_ram_scale / minimum_feerate). All exercised here.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_default_derives_fields_from_block_time() {
+        let c = Config::build_default(1000, true, 500_000);
+        assert_eq!(c.maximum_transaction_count, DEFAULT_MAXIMUM_TRANSACTION_COUNT);
+        assert_eq!(c.mempool_size_limit, DEFAULT_MEMPOOL_SIZE_LIMIT);
+        assert!(c.accept_non_standard); // relay_non_std_transactions = true
+        assert_eq!(c.maximum_mass_per_block, 500_000);
+        // 1000 ms/block → 1 block/s; daa-score interval = secs * 1000 / ms_per_block
+        assert_eq!(c.network_blocks_per_second, 1);
+        assert_eq!(c.transaction_expire_interval_daa_score, DEFAULT_TRANSACTION_EXPIRE_INTERVAL_SECONDS);
+        assert_eq!(c.minimum_relay_transaction_fee, DEFAULT_MINIMUM_RELAY_TRANSACTION_FEE);
+        assert_eq!(c.minimum_standard_transaction_version, DEFAULT_MINIMUM_STANDARD_TRANSACTION_VERSION);
+        assert_eq!(c.maximum_standard_transaction_version, DEFAULT_MAXIMUM_STANDARD_TRANSACTION_VERSION);
+
+        // 100 ms/block → 10 blocks/s.
+        let fast = Config::build_default(100, false, 1);
+        assert_eq!(fast.network_blocks_per_second, 10);
+        assert!(!fast.accept_non_standard);
+    }
+
+    #[test]
+    fn apply_ram_scale_only_scales_down() {
+        let base = Config::build_default(1000, false, 1);
+        let (bc, bs) = (base.maximum_transaction_count, base.mempool_size_limit);
+        let halved = Config::build_default(1000, false, 1).apply_ram_scale(0.5);
+        assert_eq!(halved.maximum_transaction_count, bc / 2);
+        assert_eq!(halved.mempool_size_limit, bs / 2);
+        // ram_scale > 1.0 is clamped to 1.0 (only scaling down allowed).
+        let up = Config::build_default(1000, false, 1).apply_ram_scale(4.0);
+        assert_eq!(up.maximum_transaction_count, bc);
+        assert_eq!(up.mempool_size_limit, bs);
+    }
+
+    #[test]
+    fn minimum_feerate_is_fee_per_kg_over_1000() {
+        let mut c = Config::build_default(1000, false, 1);
+        c.minimum_relay_transaction_fee = 2500;
+        assert_eq!(c.minimum_feerate(), 2.5);
+    }
+
+    #[test]
+    fn new_sets_every_field_verbatim() {
+        let c = Config::new(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, true, 14, 15, 16, 17, 18);
+        assert_eq!(c.maximum_transaction_count, 1);
+        assert_eq!(c.mempool_size_limit, 2);
+        assert_eq!(c.maximum_build_block_template_attempts, 3);
+        assert_eq!(c.transaction_expire_interval_daa_score, 4);
+        assert!(c.accept_non_standard);
+        assert_eq!(c.maximum_mass_per_block, 14);
+        assert_eq!(c.minimum_relay_transaction_fee, 15);
+        assert_eq!(c.minimum_standard_transaction_version, 16);
+        assert_eq!(c.maximum_standard_transaction_version, 17);
+        assert_eq!(c.network_blocks_per_second, 18);
+        // Clone + Debug derives.
+        assert_eq!(c.clone().maximum_orphan_transaction_count, c.maximum_orphan_transaction_count);
+        assert!(!format!("{c:?}").is_empty());
+    }
+}

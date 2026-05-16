@@ -25,3 +25,28 @@ pub struct GroupedOwnerTransactions {
     pub transactions: HashMap<TransactionId, MutableTransaction>,
     pub owners: HashMap<ScriptPublicKey, OwnerTransactions>,
 }
+
+// Audit category-D coverage closure, item 4 (Session 16, 2026-05-16):
+// owner_txs.rs was 0% — the `is_empty` predicate + Default ctors.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn owner_transactions_is_empty_semantics() {
+        let mut o = OwnerTransactions::default();
+        assert!(o.is_empty());
+        o.sending_txs.insert(TransactionId::from_slice(&[1u8; 32]));
+        assert!(!o.is_empty());
+        let mut o2 = OwnerTransactions::default();
+        o2.receiving_txs.insert(TransactionId::from_slice(&[2u8; 32]));
+        assert!(!o2.is_empty());
+    }
+
+    #[test]
+    fn grouped_owner_transactions_default_is_empty() {
+        let g = GroupedOwnerTransactions::default();
+        assert!(g.transactions.is_empty());
+        assert!(g.owners.is_empty());
+    }
+}
