@@ -530,4 +530,63 @@ mod tests {
         // After combine, expect 2 sigs (pubkey_a + pubkey_b), not 3.
         assert_eq!(combined.partial_sigs.len(), 2, "duplicate pubkey deduplicated by combine logic");
     }
+
+    // Audit category-D coverage closure (Session 16, 2026-05-16):
+    // bundle.rs pure helpers + Bundle container API not previously hit
+    // (was 57.53%). The wallet/network-heavy `unlock_*` and
+    // `display_format` paths remain a documented bounded residual
+    // (E2E-covered — need a full UTXO/address/network harness).
+
+    #[test]
+    fn lock_script_sig_templating_bytes_variants() {
+        // No pubkey → payload unchanged.
+        assert_eq!(lock_script_sig_templating_bytes(vec![1, 2, 3], None).unwrap(), vec![1, 2, 3]);
+        // Placeholder present → replaced by the pubkey bytes.
+        let mut payload = b"AA".to_vec();
+        payload.extend_from_slice(b"{{pubkey}}");
+        payload.extend_from_slice(b"BB");
+        let out = lock_script_sig_templating_bytes(payload, Some(&[0xde, 0xad])).unwrap();
+        assert_eq!(out, b"AA\xde\xadBB".to_vec());
+        // Pubkey given but no placeholder → unchanged.
+        assert_eq!(lock_script_sig_templating_bytes(vec![9, 9], Some(&[1])).unwrap(), vec![9, 9]);
+    }
+
+    #[test]
+    fn lock_script_sig_templating_hex_and_error() {
+        assert_eq!(lock_script_sig_templating("00ff".to_string(), None).unwrap(), vec![0x00, 0xff]);
+        assert!(matches!(lock_script_sig_templating("zz".to_string(), None), Err(Error::HexDecodeError(_))));
+    }
+
+    #[test]
+    fn script_sig_to_address_ok() {
+        // Any byte sequence wraps into a P2SH script that yields an address.
+        let addr = script_sig_to_address(&[1u8; 32], sophis_addresses::Prefix::Testnet).unwrap();
+        assert_eq!(addr.prefix, sophis_addresses::Prefix::Testnet);
+    }
+
+    #[test]
+    fn bundle_container_api_and_serde_roundtrip() {
+        let mut b = Bundle::default();
+        assert!(b.iter().next().is_none());
+        b.add_pskt(mock_pskt_constructor());
+        assert_eq!(b.as_ref().len(), 1);
+        assert_eq!(b.iter().count(), 1);
+
+        let s = b.serialize().unwrap();
+        assert!(s.starts_with("PSKB"));
+        let back = Bundle::deserialize(&s).unwrap();
+        assert_eq!(back.as_ref().len(), 1);
+
+        // Prefix error + String/&str TryFrom conversions (Bundle is not
+        // Clone, so consume a fresh temp for the owned-String path).
+        assert!(matches!(Bundle::deserialize("NOPE"), Err(Error::PskbPrefixError)));
+        let as_string: String = String::try_from({
+            let mut x = Bundle::new();
+            x.add_pskt(mock_pskt_constructor());
+            x
+        })
+        .unwrap();
+        assert_eq!(Bundle::try_from(as_string).unwrap().as_ref().len(), 1);
+        assert_eq!(Bundle::try_from(s.as_str()).unwrap().as_ref().len(), 1);
+    }
 }

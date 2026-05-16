@@ -285,4 +285,55 @@ mod tests {
         assert!(s.contains("ababab"));
         assert!(s.len() < 100);
     }
+
+    // Audit category-D coverage closure (Session 16, 2026-05-16):
+    // remaining crypto.rs gaps (was 76.82%) — accessors, Display, the
+    // Future variant arms, and the non-human-readable serde path.
+
+    #[test]
+    fn pubkey_as_bytes_and_display() {
+        let pk = DilithiumPubKey::from_bytes([0xcd; DILITHIUM44_VK_SIZE]);
+        assert_eq!(pk.as_bytes(), &[0xcd; DILITHIUM44_VK_SIZE]);
+        assert!(format!("{pk}").contains("cdcdcd"));
+    }
+
+    #[test]
+    fn signature_accessors_both_variants() {
+        let d = Signature::dilithium_ml44_from_bytes([5u8; DILITHIUM44_SIG_SIZE]);
+        assert_eq!(d.as_dilithium_ml44(), Some(&[5u8; DILITHIUM44_SIG_SIZE]));
+        assert_eq!(d.raw_bytes().len(), DILITHIUM44_SIG_SIZE);
+        assert_eq!(d.variant(), SIGNATURE_VARIANT_DILITHIUM_ML44);
+
+        let f = Signature::Future { variant: 0x7f, payload: vec![9, 9] };
+        assert_eq!(f.as_dilithium_ml44(), None);
+        assert_eq!(f.raw_bytes(), &[9, 9]);
+        assert_eq!(f.variant(), 0x7f);
+        // Future arm of Debug
+        assert!(format!("{f:?}").contains("variant: 0x7f"));
+    }
+
+    #[test]
+    fn non_human_readable_serde_roundtrip_bincode() {
+        // bincode is NOT human-readable → exercises the `serialize_bytes`
+        // / Vec-deserialize branch of the fixed-array (de)serializers.
+        let pk = DilithiumPubKey::from_bytes([3u8; DILITHIUM44_VK_SIZE]);
+        let bytes = bincode::serialize(&pk).unwrap();
+        let de: DilithiumPubKey = bincode::deserialize(&bytes).unwrap();
+        assert_eq!(pk, de);
+
+        let sig = Signature::dilithium_ml44_from_bytes([8u8; DILITHIUM44_SIG_SIZE]);
+        let sb = bincode::serialize(&sig).unwrap();
+        let sde: Signature = bincode::deserialize(&sb).unwrap();
+        assert_eq!(sig, sde);
+    }
+
+    #[test]
+    fn deserialize_wrong_length_errors() {
+        // Human-readable (JSON) path: hex decodes to the wrong number of
+        // bytes → the `try_into` custom error branch.
+        assert!(serde_json::from_str::<DilithiumPubKey>("\"00\"").is_err());
+        // Non-human-readable path with a short byte vec.
+        let short = bincode::serialize(&vec![0u8, 1, 2]).unwrap();
+        assert!(bincode::deserialize::<DilithiumPubKey>(&short).is_err());
+    }
 }
