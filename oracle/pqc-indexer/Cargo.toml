@@ -1,0 +1,28 @@
+[package]
+name = "sophis-oracle-pqc-indexer"
+description = "Phase 9 PQC-native oracle reference indexer — deterministic J4-event aggregation + Phase5/Phase9 dual-path dispatch (SIP-11 / PHASE9_3_DUAL_PATH)"
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-oracle-indexer"
+path = "src/main.rs"
+
+[lib]
+name = "sophis_oracle_pqc_indexer"
+path = "src/lib.rs"
+
+[dependencies]
+sophis-oracle-pqc-core.workspace = true
+sophis-oracle-pqc-contract.workspace = true
+borsh.workspace = true
+clap = { workspace = true }
+faster-hex.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

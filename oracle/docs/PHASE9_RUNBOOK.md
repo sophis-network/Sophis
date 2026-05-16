@@ -15,7 +15,7 @@
 | Role | What they run | What they need |
 |---|---|---|
 | Publisher | `sophis-oracle-publisher` CLI | BIP-39 mnemonic, price feed source (CEX API, on-prem market data), wallet-side tool that wraps signed bytes into Sophis transactions |
-| Indexer operator | Custom watcher reading J4 `PriceAttestation` events + Phase 5 `OracleJournal` events | Sophis full node, persistent storage for event log, public HTTP/RPC surface |
+| Indexer operator | **Reference indexer `oracle/pqc-indexer`** (`sophis-oracle-indexer` bin) — deterministic round-median (D4) + quorum (D6) + `evaluate_flip` dispatch + price/source registry. Use/extend it instead of writing a watcher from scratch; the live-node J4 subscription is the operator's thin adapter seam (out of v1 core, exactly as `pqc-publisher` punts submission to `dilithium-wallet`) | Sophis full node, persistent storage for event log, public HTTP/RPC surface |
 | Consumer integrator | Their dApp / wallet / settlement engine | Indexer URL OR Sophis full node (for self-verification) |
 
 A single party may wear multiple hats. The architecture is permissionless;

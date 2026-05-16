@@ -90,6 +90,7 @@ members = [
     "oracle/pqc-core",
     "oracle/pqc-contract",
     "oracle/pqc-publisher",
+    "oracle/pqc-indexer",
     "oracle/pqc-tests",
     # Phase 5 — DEPRECATED ZK-Oracle Aggregator (ed25519 STARK trust chain).
     # Superseded by Phase 9 (oracle/pqc-*). Scheduled for removal after Phase 9
@@ -193,6 +194,7 @@ sophis-bridge-withdrawal = { version = "1.1.0", path = "rollup/bridge/withdrawal
 sophis-oracle-pqc-core      = { version = "1.1.0", path = "oracle/pqc-core" }
 sophis-oracle-pqc-contract  = { version = "1.1.0", path = "oracle/pqc-contract" }
 sophis-oracle-publisher     = { version = "1.1.0", path = "oracle/pqc-publisher" }
+sophis-oracle-pqc-indexer   = { version = "1.1.0", path = "oracle/pqc-indexer" }
 # Phase 5 — DEPRECATED (see members list above for retirement criteria)
 sophis-oracle-core       = { version = "1.1.0", path = "oracle/core" }
 sophis-oracle-feeds      = { version = "1.1.0", path = "oracle/feeds" }

@@ -239,6 +239,7 @@ The Phase 9.3 module ships with eight unit tests (see
 | 9.1 Submission contract | on-chain validation + J4 event emission | indexer (event ingestion) |
 | 9.2 Publisher CLI | per-operator signed attestations | submitted to 9.1 contract |
 | **9.3 Dual-path** | `FeedSource` + `evaluate_flip` + registry | indexer dispatch + consumer SDK |
+| 9.5 Reference indexer | `oracle/pqc-indexer` — deterministic core (round median D4 + quorum D6 + `evaluate_flip` dispatch + price/source registry) + `sophis-oracle-indexer` bin | operators (use/extend instead of writing a watcher from scratch) |
 | 9.4 End-to-end tests | full pipeline coverage | CI / pre-testnet acceptance |
 
 Phase 9.3 is the **consumer-side glue** that makes Phase 5 and Phase 9
