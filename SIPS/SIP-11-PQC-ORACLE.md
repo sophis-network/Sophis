@@ -13,9 +13,10 @@ Requires: 0
 > **Status note:** this SIP ratifies the design committed in
 > `docs/PQC_NATIVE_ORACLE_DESIGN.md`. The foundation crate
 > `oracle/pqc-core` (wire-format types + sign/verify helpers + tests)
-> ships in the same PR as this SIP. The aggregator contract, publisher
-> CLI, dual-path Phase 5 integration, and pipeline tests follow in
-> companion PRs — **all pre-testnet**, as Phase 9 must reach feature
+> ships in the same PR as this SIP. The stateless submission-validation
+> contract (`oracle/pqc-contract`), publisher CLI, off-chain dual-path
+> dispatch, and pipeline tests follow in companion PRs — **all
+> pre-testnet**, as Phase 9 must reach feature
 > parity with Phase 5 before any chain goes live carrying an oracle
 > consumer in production.
 
@@ -33,8 +34,14 @@ Sophis L1 ingests the resulting (forged) price.
 SIP-11 replaces that trust chain with a Sophis-native publisher set
 that signs each price attestation directly with Dilithium ML-DSA-44
 (the same primitive used at the L1 signing layer). Publishers submit
-ordinary on-chain transactions; an sVM aggregator contract collects
-submissions within a per-feed time window and reports the median.
+ordinary on-chain transactions, each carrying a single signed
+attestation; a **stateless** sVM contract validates the Dilithium
+signature and emits a structured J4 event. **In v1 the per-round
+median, quorum and staleness are computed off-chain by independent
+indexers over that public event log** — ratified in
+`oracle/docs/PHASE9_3_DUAL_PATH.md` (this SIP's D11). The on-chain
+aggregator-coordinator contract that collects-and-medians (design doc
+§ 4) is the **eventual** Phase 9.3.x target, **not the v1 mechanism**.
 
 Phase 5 and Phase 9 coexist during migration: per-feed source flips
 from Phase 5 to Phase 9 when ≥ 3 Sophis-native publishers have been
@@ -66,8 +73,11 @@ The technically complete specification is at
 
 - 12 ratified design decisions (D1–D12, § 2)
 - Wire format with byte-level borsh layout (§ 3)
-- Aggregator contract semantics — submission validation steps,
-  median computation, staleness handling (§ 4)
+- Aggregator-contract semantics — the **eventual** on-chain target
+  (§ 4) — **plus the ratified v1 off-chain re-scope** (§ 6 +
+  `oracle/docs/PHASE9_3_DUAL_PATH.md`, D11): v1 ships stateless
+  on-chain validation + J4 emit; median / quorum / staleness are
+  computed off-chain by indexers
 - Cost / scaling analysis at 10 BPS with current block mass (§ 5)
 - Migration path from Phase 5 (§ 6)
 - Comparison with Pyth pull pattern (§ 7)
@@ -113,8 +123,9 @@ data collection but not the algorithm.
 
 ## 5. Backwards compatibility
 
-Phase 9 introduces a **new aggregator contract** and a **new wire
-format**. Phase 5 remains operational; existing Phase 5 consumers see
+Phase 9 introduces a **new sVM submission-validation contract** (v1
+stateless; the on-chain aggregator-coordinator of § 4 is the deferred
+eventual target) and a **new wire format**. Phase 5 remains operational; existing Phase 5 consumers see
 no change. Feeds flip from Phase 5 to Phase 9 individually, on a
 per-feed timetable. **In v1 this flip is operator-side off-chain
 dispatch** — deterministic over public chain state, ratified in
@@ -139,7 +150,7 @@ This PR ships:
 
 Companion PRs (pre-testnet) ship:
 
-- `oracle/pqc-contract/` — aggregator contract template + WASM build
+- `oracle/pqc-contract/` — stateless submission-validation contract (validates Dilithium sig, emits J4) + WASM build
 - `oracle/pqc-publisher/` — publisher CLI binary that signs and
   submits attestations on a configurable schedule
 - Phase 5 / Phase 9 dual-path dispatch in the aggregator
@@ -159,10 +170,10 @@ In-scope for this PR:
 
 In-scope for companion PRs:
 
-- Aggregator: submission acceptance / rejection paths (8 validation
-  steps per § 4.2 of the design doc).
-- Aggregator: median computation with quorum / below-quorum / staleness
-  transitions.
+- Contract (stateless): submission acceptance / rejection paths (8
+  validation steps per § 4.2 of the design doc) + J4 event emission.
+- Indexer (off-chain): per-round median with quorum / below-quorum /
+  staleness transitions over the J4 event log.
 - Publisher CLI: end-to-end submit + read with multiple publishers.
 - Phase 5 / Phase 9 dual-path: a feed served by both sources, source
   flip flow.

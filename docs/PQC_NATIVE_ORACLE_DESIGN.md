@@ -35,6 +35,11 @@ A Sophis-native oracle removes that dependency by having publishers
 sign updates directly with Dilithium ML-DSA-44 and submit them as
 ordinary on-chain transactions. The aggregator contract (sVM) collects
 submissions within a time window and reports the median to consumers.
+**v1 re-scope (D11): the shipped v1 does NOT aggregate on-chain — the
+on-chain contract is a stateless validator that emits a J4 event, and
+median / quorum / staleness are computed off-chain by independent
+indexers. The on-chain aggregator described here (and specced in § 4)
+is the eventual frozen target — see § 6.**
 
 Trade-offs are honest:
 
