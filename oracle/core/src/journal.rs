@@ -45,3 +45,56 @@ pub fn hash_oracle_payload(update: &PriceUpdate) -> [u8; 32] {
     h.update(&bytes);
     h.finalize().into()
 }
+
+// Audit category-D coverage closure, item 7 (Session 16, 2026-05-16):
+// closes journal.rs (was 88.89%) — `hash_oracle_payload` determinism /
+// domain separation and the `OracleJournal` borsh round-trip.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn upd(price: i64) -> PriceUpdate {
+        PriceUpdate {
+            feed: FeedId(*b"BTC/USD\0"),
+            publisher: PublisherKey([1u8; 32]),
+            price,
+            conf: 1,
+            exponent: -8,
+            publish_time: 100,
+        }
+    }
+
+    #[test]
+    fn hash_oracle_payload_is_deterministic_and_sensitive() {
+        let a = hash_oracle_payload(&upd(100));
+        assert_eq!(a, hash_oracle_payload(&upd(100)), "deterministic");
+        assert_ne!(a, hash_oracle_payload(&upd(101)), "sensitive to the payload");
+        assert_eq!(a.len(), 32);
+        // Domain separation: the prefix means the digest is not a bare
+        // SHA3 of the borsh bytes.
+        let bare = {
+            let mut h = Sha3_256::new();
+            h.update(borsh::to_vec(&upd(100)).unwrap());
+            <[u8; 32]>::from(h.finalize())
+        };
+        assert_ne!(a, bare, "domain-separated, not a bare hash");
+    }
+
+    #[test]
+    fn oracle_journal_borsh_roundtrip() {
+        let j = OracleJournal {
+            sequence: 7,
+            feed: FeedId(*b"ETH/USD\0"),
+            publisher: PublisherKey([2u8; 32]),
+            price: 1234,
+            exponent: -6,
+            publish_time: 200,
+            min_price: 0,
+            max_price: 9999,
+            max_age_secs: 60,
+            payload_hash: [3u8; 32],
+        };
+        let back: OracleJournal = borsh::from_slice(&borsh::to_vec(&j).unwrap()).unwrap();
+        assert_eq!(j, back);
+    }
+}

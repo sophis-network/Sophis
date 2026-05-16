@@ -75,3 +75,74 @@ pub struct PythnetSubmission {
     /// Solana slot at which the submission was confirmed (diagnostic).
     pub slot: u64,
 }
+
+// Audit category-D coverage closure, item 7 (Session 16, 2026-05-16):
+// `price.rs` was at 0% coverage. These are pure data types — borsh
+// round-trips, the manual `PublisherKey` hex `Display`, and the derived
+// equality/hash. (Item 7 = the deprecated Phase-5 crates; this is a
+// bounded high-ROI pure-code pass — the network `feeds/rpc.rs` and the
+// heavy STARK `oracle/host` AIR files are documented residual-by-
+// deprecation: code scheduled for deletion at SIP-11 D11.)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn upd() -> PriceUpdate {
+        PriceUpdate {
+            feed: FeedId(*b"BTC/USD\0"),
+            publisher: PublisherKey([0xab; 32]),
+            price: -12345,
+            conf: 42,
+            exponent: -8,
+            publish_time: 1_700_000_000,
+        }
+    }
+
+    #[test]
+    fn publisher_key_display_is_lowercase_hex() {
+        let mut k = [0u8; 32];
+        k[0] = 0x0f;
+        k[1] = 0xa0;
+        let s = PublisherKey(k).to_string();
+        assert!(s.starts_with("0fa0"));
+        assert!(s.ends_with("00"));
+        assert_eq!(s.len(), 64); // 32 bytes * 2 hex chars
+    }
+
+    #[test]
+    fn feed_id_and_keys_eq_clone_hash() {
+        use std::collections::HashSet;
+        let a = FeedId(*b"ETH/USD\0");
+        assert_eq!(a, a);
+        assert_eq!(a, a); // Copy
+        let mut set = HashSet::new();
+        set.insert(PublisherKey([1u8; 32]));
+        assert!(set.contains(&PublisherKey([1u8; 32])));
+        assert!(!set.contains(&PublisherKey([2u8; 32])));
+    }
+
+    #[test]
+    fn price_update_borsh_roundtrip() {
+        let u = upd();
+        let bytes = borsh::to_vec(&u).unwrap();
+        let back: PriceUpdate = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(u, back);
+    }
+
+    #[test]
+    fn signed_and_pythnet_submission_borsh_roundtrip() {
+        let s = SignedPriceUpdate { update: upd(), signature: Box::new([7u8; 64]) };
+        let sb = borsh::to_vec(&s).unwrap();
+        let sback: SignedPriceUpdate = borsh::from_slice(&sb).unwrap();
+        assert_eq!(sback.update, s.update);
+        assert_eq!(*sback.signature, [7u8; 64]);
+
+        let p = PythnetSubmission { update: upd(), tx_message: vec![1, 2, 3], signature: Box::new([9u8; 64]), slot: 555 };
+        let pb = borsh::to_vec(&p).unwrap();
+        let pback: PythnetSubmission = borsh::from_slice(&pb).unwrap();
+        assert_eq!(pback.update, p.update);
+        assert_eq!(pback.tx_message, vec![1, 2, 3]);
+        assert_eq!(pback.slot, 555);
+        assert!(!format!("{pback:?}").is_empty());
+    }
+}
