@@ -331,9 +331,14 @@ impl MassCalculator {
 ///   * Carriers (v=`SCRIPT_VERSION_CARRIER`=5) → `transient_mass`
 ///   * ALT-creation outputs                    → `alt_creation_mass`
 ///
-/// **Frozen contract.** Any new zero-value output kind must be added
-/// here AND have its own non-contextual mass contribution to keep the
-/// storm-param-bounded fee policy honest.
+/// **Correctness layer (not the safety net).** Since the F-22 deep
+/// hardening (Session 16), `calc_storage_mass` is total — a value==0
+/// output that slips past this allow-list yields `None` (tx rejected),
+/// NOT a consensus panic. So a missing entry here is a *feature* bug
+/// (that protocol output kind's txs are spuriously rejected), not a P0
+/// chain halt. Any new zero-value output kind should still be added
+/// here AND given its own non-contextual mass contribution, so its txs
+/// are accepted and the storm-param-bounded fee policy stays honest.
 #[inline]
 fn is_zero_value_protocol_output(output: &TransactionOutput) -> bool {
     if output.value != 0 {
@@ -389,15 +394,33 @@ fn is_zero_value_protocol_output(output: &TransactionOutput) -> bool {
 ///
 /// Refer to KIP-0009 for more details.
 ///
-/// Assumptions which must be verified before this call:
+/// Assumptions which *should* be verified before this call (for a
+/// meaningful, non-rejecting result):
 ///   1. All input/output values are non-zero
 ///   2. At least one input (unless coinbase)
 ///
-/// If these assumptions hold, this function should never fail. A `None` return
-/// indicates that the mass is incomputable and can be considered too high.
+/// # Totality (F-22 deep hardening, Session 16, 2026-05-16)
+///
+/// This function is **total**: it never panics, regardless of input.
+/// Every division uses `checked_div`, so a zero divisor — a zero
+/// `amount` on any input/output cell, an empty input set, or a zero
+/// mean — yields `None` rather than an integer divide-by-zero panic.
+/// `checked_mul` likewise turns a `C·p²` overflow into `None`.
+///
+/// A `None` return means the mass is *incomputable and must be treated
+/// as too high* — the caller rejects the transaction. This is the
+/// **generic safety net** that defuses the F-22 landmine: a future
+/// value==0 protocol output kind that is *not* added to
+/// `is_zero_value_protocol_output` no longer causes a consensus panic
+/// (chain halt, P0) — at worst that one new tx kind is spuriously
+/// rejected (a feature bug, P2) until the allow-list is updated. The
+/// allow-list is now a *correctness* layer (don't reject recognized
+/// protocol outputs), not the sole *safety* mechanism. Rejecting on a
+/// zero divisor is also exploit-safe: it never *accepts* a tx it
+/// shouldn't (e.g. it cannot be used to zero-out storage mass).
 pub fn calc_storage_mass(
     is_coinbase: bool,
-    inputs: impl ExactSizeIterator<Item = UtxoCell> + Clone,
+    mut inputs: impl ExactSizeIterator<Item = UtxoCell> + Clone,
     mut outputs: impl Iterator<Item = UtxoCell>,
     storm_param: u64,
 ) -> Option<u64> {
@@ -419,7 +442,11 @@ pub fn calc_storage_mass(
         |(acc_plurality, acc_harm), UtxoCell { plurality, amount }| {
             Some((
                 acc_plurality + plurality, // represents in-memory bytes, cannot overflow
-                acc_harm.checked_add(storm_param.checked_mul(plurality)?.checked_mul(plurality)? / amount)?,
+                // F-22 deep hardening: `checked_div` (not raw `/`) so a
+                // zero `amount` yields None (incomputable → caller
+                // rejects) instead of a divide-by-zero *panic*. This is
+                // the generic safety net — see the function docstring.
+                acc_harm.checked_add(storm_param.checked_mul(plurality)?.checked_mul(plurality)?.checked_div(amount)?)?,
             ))
         },
     )?;
@@ -447,10 +474,14 @@ pub fn calc_storage_mass(
     };
 
     if relaxed_formula_path {
-        // Each input i contributes C · p(i)^2 / amount(i)
-        let harmonic_ins = inputs
-            .map(|UtxoCell { plurality, amount }| storm_param * plurality * plurality / amount) // we assume no overflow (see verify_utxo_plurality_limits)
-            .fold(0u64, |total, current| total.saturating_add(current));
+        // Each input i contributes C · p(i)^2 / amount(i).
+        // F-22 deep hardening: checked mul/div — a zero input `amount`
+        // (e.g. a spent value==0 protocol UTXO) or a C·p² overflow yields
+        // None (incomputable → caller rejects) instead of a panic.
+        let harmonic_ins = inputs.try_fold(0u64, |total, UtxoCell { plurality, amount }| {
+            let term = storm_param.checked_mul(plurality)?.checked_mul(plurality)?.checked_div(amount)?;
+            Some(total.saturating_add(term))
+        })?;
 
         // max(0, harmonic_outs - harmonic_ins)
         return Some(harmonic_outs.saturating_sub(harmonic_ins));
@@ -462,10 +493,13 @@ pub fn calc_storage_mass(
         inputs.fold((0u64, 0u64), |(acc_plur, acc_amt), UtxoCell { plurality, amount }| (acc_plur + plurality, acc_amt + amount));
 
     // mean_ins = (Σ amounts) / (Σ plurality)
-    let mean_ins = sum_ins / ins_plurality;
+    // F-22 deep hardening: checked div — `ins_plurality == 0` (no inputs)
+    // or `mean_ins == 0` (all inputs amount 0) yields None (incomputable
+    // → caller rejects) instead of a divide-by-zero panic.
+    let mean_ins = sum_ins.checked_div(ins_plurality)?;
 
     // arithmetic_ins:  C · (|I| / A(I)) = |I| · (C / mean_ins)
-    let arithmetic_ins = ins_plurality.saturating_mul(storm_param / mean_ins);
+    let arithmetic_ins = ins_plurality.saturating_mul(storm_param.checked_div(mean_ins)?);
 
     // max(0, harmonic_outs - arithmetic_ins)
     Some(harmonic_outs.saturating_sub(arithmetic_ins))
@@ -825,6 +859,67 @@ mod tests {
         // Regular value-bearing output → NOT filtered.
         let normal = TransactionOutput { value: 1000, script_public_key: ScriptPublicKey::new(0, ScriptVec::from_slice(&[])) };
         assert!(!is_zero_value_protocol_output(&normal));
+    }
+
+    /// F-22 deep hardening (Session 16, 2026-05-16): the generic safety
+    /// net. `calc_storage_mass` must be **total** — a zero-amount cell
+    /// that bypasses the `is_zero_value_protocol_output` allow-list (the
+    /// landmine: a future value==0 output kind nobody added) must yield
+    /// `None`, NOT an integer divide-by-zero panic. These call
+    /// `calc_storage_mass` directly with raw `UtxoCell`s so the allow-list
+    /// filter is not in the path at all.
+    #[test]
+    fn calc_storage_mass_zero_value_output_returns_none_not_panic() {
+        let storm = 10u64.pow(12);
+        // 1 input (1_000_000) ; outputs: one value==0 + one value-bearing.
+        let r = calc_storage_mass(
+            false,
+            [UtxoCell::new(1, 1_000_000)].into_iter(),
+            [UtxoCell::new(1, 0), UtxoCell::new(1, 500_000)].into_iter(),
+            storm,
+        );
+        assert_eq!(r, None, "zero-amount output must be incomputable (reject), never panic");
+    }
+
+    #[test]
+    fn calc_storage_mass_zero_value_input_returns_none_not_panic() {
+        let storm = 10u64.pow(12);
+        // Relaxed path (1 output): a spent value==0 protocol UTXO as input.
+        let relaxed = calc_storage_mass(
+            false,
+            [UtxoCell::new(1, 0)].into_iter(),
+            [UtxoCell::new(1, 500_000)].into_iter(),
+            storm,
+        );
+        assert_eq!(relaxed, None, "zero-amount input (relaxed path) must be None, never panic");
+
+        // Arithmetic path (>2 inputs, outs_plurality != 1): all inputs 0.
+        let arithmetic = calc_storage_mass(
+            false,
+            [UtxoCell::new(1, 0), UtxoCell::new(1, 0), UtxoCell::new(1, 0)].into_iter(),
+            [UtxoCell::new(1, 100), UtxoCell::new(1, 100)].into_iter(),
+            storm,
+        );
+        assert_eq!(arithmetic, None, "zero-amount inputs (arithmetic path) must be None, never panic");
+    }
+
+    /// End-to-end landmine-defused proof: a value==0 output whose SPK
+    /// version is NEITHER a carrier (v=5) NOR an ALT-creation — i.e. a
+    /// hypothetical *future* zero-value protocol output that a developer
+    /// forgot to add to `is_zero_value_protocol_output`. Pre-hardening
+    /// this panicked every validator (P0 chain halt). Post-hardening
+    /// `calc_contextual_masses` returns `None` → that one tx kind is
+    /// rejected (P2 feature bug), the chain stays up.
+    #[test]
+    fn unfiltered_future_zero_value_output_rejects_not_panics() {
+        let mut tx = generate_tx_from_amounts(&[1_000_000], &[0, 500_000]);
+        // v=4 is "reserved" (not carrier=5, not ALT) — stands in for a
+        // future protocol output kind missing from the allow-list.
+        tx.tx.outputs[0].script_public_key = ScriptPublicKey::new(4, ScriptVec::from_slice(&[0u8; 8]));
+        assert!(!is_zero_value_protocol_output(&tx.tx.outputs[0]), "precondition: NOT covered by the allow-list");
+
+        let result = MassCalculator::new(0, 0, 0, 10u64.pow(12)).calc_contextual_masses(&tx.as_verifiable());
+        assert_eq!(result, None, "F-22 landmine defused: unfiltered value==0 output → reject, not panic");
     }
 
     fn generate_tx_from_amounts(ins: &[u64], outs: &[u64]) -> MutableTransaction<Transaction> {

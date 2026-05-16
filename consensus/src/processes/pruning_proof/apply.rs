@@ -25,7 +25,7 @@ use crate::{
         stores::{
             ghostdag::{GhostdagData, GhostdagStore},
             headers::HeaderStore,
-            pruning::PruningProofDescriptor,
+            pruning::{PruningProofDescriptor, PruningStoreReader},
             reachability::StagingReachabilityStore,
             relations::StagingRelationsStore,
             selected_chain::SelectedChainStore,
@@ -43,17 +43,36 @@ use super::PruningProofManager;
 
 impl PruningProofManager {
     pub fn apply_proof(&self, proof: PruningPointProof, trusted_set: &[TrustedBlock]) -> PruningImportResult<()> {
-        // Audit/F-18 (Session 7, 2026-05-15): apply_proof writes the proof's
-        // genesis header (proof[0][0]) into headers_store unconditionally
-        // via `.unwrap()` further down (`populate_reachability_and_headers`
-        // line ~172). On a non-pristine DB the insert returns
-        // `HashAlreadyExists` and the unwrap panics. Production IBD always
-        // calls this on a `StagingConsensus` whose DB is pristine
-        // (`protocol/flows/src/ibd/flow.rs:160, 469, 500`), so the panic is
-        // unreachable in practice. This precondition turns the latent panic
-        // into a typed error for defensive programming and test ergonomics.
+        // Audit/F-18 (Session 7, 2026-05-15; deep hardening Session 16,
+        // 2026-05-16): apply_proof populates headers/ghostdag/reachability
+        // via `.unwrap()` inserts that panic on a non-pristine DB
+        // (`HashAlreadyExists`). Production IBD always calls this on a
+        // pristine `StagingConsensus`
+        // (`protocol/flows/src/ibd/flow.rs:160, 469, 500`).
+        //
+        // On a non-pristine DB, distinguish:
+        //   (a) the *same* proof is already fully applied — a legitimate
+        //       higher-level retry. The stored `PruningProofDescriptor`
+        //       (written near the end of a successful apply) equals the
+        //       descriptor this call would write. Safe idempotent no-op.
+        //   (b) anything else — no stored descriptor (an apply aborted
+        //       before the descriptor write) or a *different* descriptor
+        //       (a different proof). Genuinely inconsistent: refuse with
+        //       the typed error exactly as the Session-7 fix did. IBD
+        //       recovers by rebuilding a fresh pristine staging consensus.
         if self.headers_store.has(self.genesis_hash).unwrap_or(false) {
-            return Err(PruningImportError::ApplyOnNonPristineDb(self.genesis_hash));
+            let pruning_point = proof[0].last().expect("validated proof has a non-empty level 0").hash;
+            let incoming = PruningProofDescriptor::from_proof(&proof, pruning_point, true);
+            match self.pruning_point_store.read().pruning_proof_descriptor() {
+                Ok(existing) if *existing == incoming => {
+                    debug!(
+                        "apply_proof: pruning proof for {} already applied (identical descriptor); idempotent no-op",
+                        pruning_point
+                    );
+                    return Ok(());
+                }
+                _ => return Err(PruningImportError::ApplyOnNonPristineDb(self.genesis_hash)),
+            }
         }
 
         // Following validation of a pruning proof, various consensus storages must be updated

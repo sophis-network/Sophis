@@ -28,7 +28,11 @@ impl PruningPointInfo {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+// `PartialEq`/`Eq`: F-18 deep hardening (Session 16, 2026-05-16) — used
+// by `apply_proof` to decide whether a non-pristine DB already holds the
+// *same* proof (safe idempotent no-op) vs a different/partial one
+// (refuse). Equality is structural over all fields, including `external`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PruningProofDescriptor {
     /// The pruning point associated with this proof descriptor
     pub(crate) pruning_point: Hash,
@@ -162,5 +166,45 @@ impl PruningStoreReader for DbPruningStore {
 impl PruningStore for DbPruningStore {
     fn set(&mut self, pruning_point: Hash, index: u64) -> StoreResult<()> {
         self.access.write(DirectDbWriter::new(&self.db), &PruningPointInfo::new(pruning_point, index))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// F-18 deep hardening (Session 16, 2026-05-16): `apply_proof`'s
+    /// idempotency predicate is `stored_descriptor == incoming_descriptor`
+    /// ⟹ "the same proof is already applied → safe no-op". This test pins
+    /// the equality contract that decision rests on: descriptors are
+    /// structurally equal iff every field matches, and a no-op must NOT
+    /// fire on any divergence (different pruning point / tips / roots /
+    /// counts, or a locally-built vs externally-received descriptor).
+    fn h(b: u8) -> Hash {
+        Hash::from_slice(&[b; 32])
+    }
+
+    #[test]
+    fn descriptor_equality_is_structural() {
+        let base = PruningProofDescriptor {
+            pruning_point: h(1),
+            external: true,
+            tips: vec![h(1), h(2)],
+            roots: vec![h(3), h(4)],
+            counts: vec![10, 20],
+        };
+
+        // Identical proof applied again → equal → idempotent no-op fires.
+        assert_eq!(base, base.clone());
+
+        // Any field divergence → NOT equal → apply_proof refuses (typed
+        // error), never a silent no-op on inconsistent state.
+        assert_ne!(base, PruningProofDescriptor { pruning_point: h(9), ..base.clone() });
+        assert_ne!(base, PruningProofDescriptor { tips: vec![h(1), h(9)], ..base.clone() });
+        assert_ne!(base, PruningProofDescriptor { roots: vec![h(3), h(9)], ..base.clone() });
+        assert_ne!(base, PruningProofDescriptor { counts: vec![10, 99], ..base.clone() });
+        // `external` participates: a locally-built descriptor must not be
+        // mistaken for an externally-received (IBD) one.
+        assert_ne!(base, PruningProofDescriptor { external: false, ..base.clone() });
     }
 }

@@ -488,7 +488,7 @@ Test recipe (mirrors `staging_consensus_test` at line 1097):
 
 Run: `cargo test -p sophis-testing-integration apply_pruning_proof` → **1 passed / 0 failed / 8.25 s wall**. Cumulative pruning_proof tests (F-6 + F-7): **3 passed, 0 failed, 0 ignored** at this commit.
 
-#### F-18 — `apply_proof` panics via `.unwrap()` on `HashAlreadyExists` when called on a non-pristine DB (P2 — precondition-only) ✅ FIXED
+#### F-18 — `apply_proof` panics via `.unwrap()` on `HashAlreadyExists` when called on a non-pristine DB (P2 — precondition-only) ✅ FIXED + DEEP-HARDENED (S16)
 
 **Severity:** P2 — precondition documentation gap, not exploitable.
 **Found:** Session 5, 2026-05-14, during F-7 test attempt.
@@ -505,6 +505,8 @@ The previously-latent panic at `apply.rs:172` (`headers_store.insert(...).unwrap
 **Test coverage:** extended `apply_pruning_proof_accepts_validated_proof` (the F-7 happy-path test) with a negative vector that calls `producer.apply_pruning_proof(proof, &trusted_set)` on the producer's own consensus (which has genesis seeded at construction) and asserts the result is `Err(ApplyOnNonPristineDb(genesis_hash))`. Combined test: **1 pass / 8.99 s wall**.
 
 **Impact on production:** zero behavior change. Every production IBD code path calls `apply_pruning_proof` through `new_staging_consensus()` (`protocol/flows/src/ibd/flow.rs:160, 469, 500`), which produces a pristine DB. The precondition check is defense-in-depth + better test surface, not a fix for an exploitable bug.
+
+**Deep hardening (Session 16, 2026-05-16) — option (1), true idempotency.** The Session-7 fix rejected *all* non-pristine DBs (option 2, surgical). Option 1 (tolerate "already applied" as a no-op) was deferred because a blind no-op on inconsistent state would mask corruption. Now done with the consistency guard that made it safe: on a non-pristine DB, `apply_proof` compares the `PruningProofDescriptor` this call would write against the one already stored (written near the end of a successful apply). If they are **structurally equal** (`derive(PartialEq, Eq)` added to `PruningProofDescriptor`), the *same* proof is already applied → idempotent `Ok(())` no-op (a legitimate higher-level retry recovers cleanly). Any other non-pristine state — no stored descriptor (an apply aborted before the descriptor write) or a *different* descriptor (a different proof) — still returns `Err(ApplyOnNonPristineDb)` exactly as before; IBD then rebuilds a fresh pristine staging consensus. This never no-ops on inconsistent/partial state (conservative) and is strictly more robust than the surgical reject. New unit test `model::stores::pruning::tests::descriptor_equality_is_structural` pins the equality contract (every field, incl. `external`, participates). Direct coverage of the no-op branch itself is deferred to the IBD/pruning integration suite + devnet (it requires a full consensus DB harness; the equality primitive is the unit-testable, load-bearing part).
 
 **Description.** `consensus/src/processes/pruning_proof/apply.rs:172`:
 ```rust
@@ -1240,11 +1242,11 @@ This audit was launched on 2026-05-14 in response to the founder's pre-testnet r
 | F-15 | P1 | ✅ fixed (S14 — definitive) | math/fuzz Cargo.toml transitive deps — construct_uint WASM blocks now cfg-gated | — |
 | F-16 | test-data | ✅ closed (S7 — no code) | stale rothschild_wallet.json (audit machine) | — |
 | F-17 | P1 | ✅ fixed (S5) | math/fuzz harness wrapping semantics | — |
-| F-18 | P2 | ✅ fixed (S7) | apply_proof pristine DB precondition + typed error | — |
+| F-18 | P2 | ✅ fixed (S7) + **deep-hardened (S16)** | apply_proof: typed error → **true idempotency** (same-proof descriptor ⇒ no-op; else typed error) | — |
 | F-19 | P2 | ✅ fixed (S5) | fetch_spendable_utxos script-space compare | — |
 | F-20 | P2 | ✅ fixed (S6) | daemon_utxos_propagation_test 4-layer fix | — |
 | F-21 | P3 | ✅ fixed (S7) | daemon_mining_test sleep-1s → wait_for | — |
-| F-22 | **P0** | ✅ fixed `d7c877e` (S11) | mass-calc divide-by-zero on V5 carriers + ALT-creation | — |
+| F-22 | **P0** | ✅ fixed `d7c877e` (S11) + **deep-hardened (S16)** | mass-calc divide-by-zero; **landmine defused: calc_storage_mass now total (checked_div → None), allow-list is correctness-only** | — |
 | F-23 | P3 | ✅ fixed (S12) | wRPC observer in da_stress_check.py — method names + field path | — |
 | F-24 | P2 | ✅ **fixed (S15 — code)** | RandomX OOM: retry+backoff in sophis-pow + miner auto fast→light fallback (was doc'd S12) | — |
 
@@ -1475,7 +1477,7 @@ Outcomes (~65 min actual; soak stopped early due to miner OOM):
 
 ### 8.4 Bugs surfaced + fixed during soak setup
 
-#### F-22 — `calc_contextual_masses` divides by zero on V5 carriers + ALT-creation (P0) ✅ FIXED `d7c877e`
+#### F-22 — `calc_contextual_masses` divides by zero on V5 carriers + ALT-creation (P0) ✅ FIXED `d7c877e` + DEEP-HARDENED (S16)
 
 **Severity:** P0 — consensus panic on the production Phase 6 carrier path.
 **Found:** Session 11, 2026-05-15, on the first carrier tx submitted to a fresh daemon.
@@ -1493,6 +1495,8 @@ attempt to divide by zero
 * ALT-creation (`classify_alt_script == Creation`, `amount == 0`)
 
 `calc_contextual_masses` filters these from the iterator before passing to `calc_storage_mass`. The change is consensus-neutral: both kinds already contribute to compute mass via the non-contextual path (`TRANSIENT_BYTE_TO_MASS_FACTOR` for carriers, `BASE_ALT_CREATION_MASS + payload_bytes·ALT_STORAGE_MASS_FACTOR` for ALT-creation). Excluding them from the harmonic storage-mass formula avoids the divide-by-zero while preserving the same total mass contribution.
+
+**Deep hardening (Session 16, 2026-05-16) — generic safety net, landmine defused.** The `d7c877e` fix was a manual allow-list: any *future* value==0 output kind not added to `is_zero_value_protocol_output` silently re-armed the exact P0 (the documented "F-22 landmine"). `calc_storage_mass` is now **total** — every raw integer division was replaced with `checked_div(...)?` and the input-side `*` with `checked_mul(...)?` (the original fix only filtered *outputs*; a spent value==0 protocol UTXO on the *input* side was a second latent divide-by-zero the allow-list never covered). Any zero divisor — zero output amount, zero input amount, empty input set, zero mean — now yields `None` (= "mass incomputable → caller rejects the tx"), never an integer-divide panic. Returning `None` is also exploit-safe: it can only *reject*, never accept (it cannot be used to zero-out storage mass). Net effect: forgetting the allow-list is no longer a P0 chain halt — at worst that one new output kind's txs are spuriously rejected (a P2 feature bug) until the allow-list is updated. The allow-list is now a *correctness* layer (don't reject recognized protocol outputs), not the sole *safety* mechanism. 3 new `mass::tests` prove totality independent of the allow-list (zero-amount output → None; zero-amount input, relaxed + arithmetic paths → None; an unfiltered v=4 "future" zero-value output → `calc_contextual_masses` returns None, not panic). Full `sophis-consensus-core` + `sophis-consensus` suites green (165 + 149), clippy `-D warnings` clean.
 
 **Tests.** 3 new in `mass::tests`:
 * `test_storage_mass_skips_v5_carrier` — 1-in / 1-carrier / 1-change → returns 1 M storage mass, no panic
