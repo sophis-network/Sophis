@@ -70,3 +70,29 @@ pub enum ConversionError {
     #[error("Invalid output conversion")]
     InvalidOutput,
 }
+
+// Audit category-D coverage closure (Session 16, 2026-05-16):
+// `error.rs` was at 0% coverage. The `From<String>`/`From<&str>`
+// conversions and the `Display` of representative variants are pure.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_string_and_str_map_to_custom() {
+        assert!(matches!(Error::from("boom".to_string()), Error::Custom(s) if s == "boom"));
+        assert!(matches!(Error::from("bang"), Error::Custom(s) if s == "bang"));
+    }
+
+    #[test]
+    fn display_messages() {
+        assert_eq!(Error::MissingUtxoEntry.to_string(), "Missing UTXO entry");
+        assert_eq!(Error::MissingRedeemScript.to_string(), "Missing redeem script");
+        assert_eq!(Error::PskbPrefixError.to_string(), "PSKB serialization requires 'PSKB' prefix");
+        assert_eq!(ConstructorError::InputNotModifiable.to_string(), "InputNotModifiable");
+        assert_eq!(ConversionError::InvalidOutput.to_string(), "Invalid output conversion");
+        // `#[error(transparent)]` delegates to the inner error.
+        let e: Error = ConstructorError::OutputNotModifiable.into();
+        assert_eq!(e.to_string(), "OutputNotModifiable");
+    }
+}

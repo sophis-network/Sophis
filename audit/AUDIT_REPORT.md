@@ -350,6 +350,25 @@ Generated with `cargo llvm-cov --workspace --exclude sophis-rollup-host --exclud
 
 **Reading.** T2 (ZK plumbing — Phase 3/5/6/9) is the best-tested category, reflecting the FIPS/RFC-grade witness validation and oracle-host AIR test density (~50 chips × multiple tests each). T0 (consensus) is the next-strongest at 77% lines, but has critical zero-pct files (F-5, F-6, F-7 below). T1 (operational) has the largest gap by absolute lines missed (11,520 lines uncovered) — protocol flow handlers and IBD code dominate. T3 low coverage is expected for binaries (faucet, explorer, dashboard, calculator, da-stress all have `main.rs` at 0% — these are exercised by smoke/manual testing, not unit tests).
 
+### Category-D coverage closure — measured-by-value initiative (Session 16, 2026-05-16, in progress)
+
+Founder-requested closure of the 7 admitted coverage gaps. Scope decision: **measured by value** (real `llvm-cov`, not estimates), GHOSTDAG bounded to key invariants, Phase 5 included (founder override of the exclude recommendation). This is a multi-session effort tracked here as milestones.
+
+Per-crate re-baseline (`cargo llvm-cov --lib --summary-only`, ground truth replacing the table's estimates):
+- `sophis-consensus` + `-core` + `-p2p-flows` + `-mining` aggregate: **58.65% lines** (the table's "~85% pruning" estimate was optimistic).
+- `sophis-wallet-pskt` non-wasm helpers baseline: utils 39%, output 0%, input 62%, error 0%, convert 0%, global 9%, pskt 8%.
+
+**Milestone 1 — item 3 (pskt helpers), tractable pure files closed:**
+
+| File | Lines before | Lines after | Verified by |
+|---|---|---|---|
+| `wallet/pskt/src/utils.rs` | 39.39% | **100.00%** | llvm-cov |
+| `wallet/pskt/src/output.rs` | 0.00% | **100.00%** | llvm-cov |
+| `wallet/pskt/src/input.rs` | 62.50% | **100.00%** | llvm-cov |
+| `wallet/pskt/src/error.rs` | 0.00% | **100.00%** | llvm-cov |
+
+21 new pure-logic unit tests (combine/merge branches, error conversions); `cargo test -p sophis-wallet-pskt` 30/30 green; clippy `-D warnings` clean. **Remaining:** pskt `convert.rs`/`global.rs`/`pskt.rs` (heavier — need consensus-client/state-machine harness); items 1, 2, 4, 5 (bounded), 6, 7. The wasm-bindgen `wallet/pskt/src/wasm/*` files (0%) are excluded by the same architectural reasoning as F-2/F-15 (wasm-bindgen ABI is not unit-testable on a native target).
+
 ### Tier 0 zero-coverage files (19 total)
 
 | File | Lines | Fns | Verdict |

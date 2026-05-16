@@ -76,3 +76,72 @@ pub enum CombineError {
     #[error("Two different proprietary values")]
     NotCompatibleProprietary(crate::utils::Error<String, serde_value::Value>),
 }
+
+// Audit category-D coverage closure (Session 16, 2026-05-16):
+// `output.rs` was at 0% line coverage. `Output::add` is the PSKT
+// "combine" merge — pure, every branch (amount/spk mismatch, all four
+// redeem-script combinations, proprietary conflict) is exercised here.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sophis_consensus_core::tx::{ScriptPublicKey, ScriptVec};
+
+    fn spk(b: u8) -> ScriptPublicKey {
+        ScriptPublicKey::new(0, ScriptVec::from_slice(&[b]))
+    }
+
+    fn out(amount: u64, spk_byte: u8) -> Output {
+        OutputBuilder::default().amount(amount).script_public_key(spk(spk_byte)).build().unwrap()
+    }
+
+    #[test]
+    fn identical_outputs_combine() {
+        let r = (out(100, 1) + out(100, 1)).unwrap();
+        assert_eq!(r.amount, 100);
+        assert_eq!(r.script_public_key, spk(1));
+    }
+
+    #[test]
+    fn amount_mismatch_errors() {
+        assert!(matches!(out(100, 1) + out(200, 1), Err(CombineError::AmountMismatch { this: 100, that: 200 })));
+    }
+
+    #[test]
+    fn script_pubkey_mismatch_errors() {
+        let e = out(100, 1) + out(100, 2);
+        assert!(matches!(e, Err(CombineError::ScriptPubkeyMismatch { .. })));
+    }
+
+    #[test]
+    fn redeem_script_all_combinations() {
+        let with = |rs: Option<&[u8]>| {
+            let mut b = OutputBuilder::default();
+            b.amount(100).script_public_key(spk(1));
+            if let Some(r) = rs {
+                b.redeem_script(r.to_vec());
+            }
+            b.build().unwrap()
+        };
+        // (None, None) → None
+        assert_eq!((with(None) + with(None)).unwrap().redeem_script, None);
+        // (Some, None) and (None, Some) → Some
+        assert_eq!((with(Some(&[1])) + with(None)).unwrap().redeem_script, Some(vec![1]));
+        assert_eq!((with(None) + with(Some(&[2]))).unwrap().redeem_script, Some(vec![2]));
+        // (Some(a), Some(a)) → Some(a)
+        assert_eq!((with(Some(&[9])) + with(Some(&[9]))).unwrap().redeem_script, Some(vec![9]));
+        // (Some(a), Some(b)) → NotCompatibleRedeemScripts
+        assert!(matches!(
+            with(Some(&[1])) + with(Some(&[2])),
+            Err(CombineError::NotCompatibleRedeemScripts { .. })
+        ));
+    }
+
+    #[test]
+    fn conflicting_proprietary_errors() {
+        let mut a = out(100, 1);
+        let mut b = out(100, 1);
+        a.proprietaries.insert("k".into(), serde_value::Value::U32(1));
+        b.proprietaries.insert("k".into(), serde_value::Value::U32(2));
+        assert!(matches!(a + b, Err(CombineError::NotCompatibleProprietary(_))));
+    }
+}
