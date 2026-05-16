@@ -66,9 +66,15 @@ address) is automatically falsified.
 - [ ] Tag with `v1.0.0-mainnet` (or whichever version stamp ships)
 - [ ] Post the announcement (Twitter/X, GitHub Discussions, any
       relevant communities) with the commit hash + tag
-- [ ] Compute and publish SHA-256 hashes of the four canonical docs:
-      `MONETARY_POLICY.md`, `FOUNDER_SELF_RESTRICTION.md`,
-      `OPERATIONAL_BOUNDARIES.md`, `LAUNCH_CHECKLIST.md`
+- [ ] Compute and publish SHA-256 hashes of the **three canonical
+      commitment docs**: `MONETARY_POLICY.md`,
+      `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`
+      (the ratified 2026-05-04 trio — Decisões 2/3/6). This file
+      (`LAUNCH_CHECKLIST.md`) is intentionally **excluded**: it is a
+      mutable operational runbook whose content changes during the
+      T-72h→T+24h window (items get checked off), so anchoring its hash
+      would produce false drift and no governance value. Anchor only the
+      binding commitment statements.
 
 ---
 
