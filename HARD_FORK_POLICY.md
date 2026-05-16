@@ -32,8 +32,8 @@ no "yearly HF", no "spring/autumn release of consensus changes".
 Every hard fork is initiated only by a specific need that justifies
 the disruption.
 
-This is a direct lesson from Monero (`project_monero_lessons.md`):
-from 2017 to 2022, Monero ran a 6-month scheduled cadence which
+This is a direct lesson from Monero: from 2017 to 2022, Monero ran a
+6-month scheduled cadence which
 created predictable attack windows around activation dates and
 slowly entrenched "we have to ship something every 6 months" as a
 forcing function for unnecessary changes. Monero abandoned scheduled
@@ -172,5 +172,3 @@ This policy follows from observation of three reference points:
 - SIP process: `SIPS/SIP-0-process.md`, `SIPS/SIP-template.md`
 - Companion documents: `POW_POLICY.md`, `MONETARY_POLICY.md`,
   `OPERATIONAL_BOUNDARIES.md`, `FOUNDER_SELF_RESTRICTION.md`
-- Cultural references: `project_bitcoin_lessons.md`,
-  `project_monero_lessons.md` (memory)
