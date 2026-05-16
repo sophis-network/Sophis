@@ -85,6 +85,8 @@ Three mass types (all must fit within `max_block_mass`):
 
 Dilithium transactions have large signatures (~2420 bytes), so `max_block_mass` for devnet/simnet is set to `10_000_000` (vs `500_000` for mainnet) to accommodate them in tests.
 
+> ⚠️ **F-22 LANDMINE (audit P0, fix `d7c877e`).** Storage mass divides `C·p²/amount` per output. Any new output type with a consensus-mandated `value == 0` (Phase 6 V5 carriers, ALT-creation, and anything added later) **MUST** be added to `is_zero_value_protocol_output()` in `mass/mod.rs` or it re-introduces a divide-by-zero that panics `sophisd` on the first such tx (crashes every validator). The filter is a manual allow-list; the panic is invisible to unit/integration tests + static analysis (F-22 only surfaced under live stress soak). On any output-type change: grep `is_zero_value_protocol_output`, add the case, add a `mass::tests` unit test mirroring `test_storage_mass_skips_v5_carrier`.
+
 ### sVM (`svm/`)
 
 Four crates:
