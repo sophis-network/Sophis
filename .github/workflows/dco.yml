@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR commits
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Fetch full history so we can compare against the base branch
           fetch-depth: 0
