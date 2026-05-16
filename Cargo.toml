@@ -344,7 +344,7 @@ tower-http = { version = "0.5.2", features = [
     "cors",
     "trace",
 ] }
-axum = { version = "0.7", features = ["json"] }
+axum = { version = "0.8", features = ["json"] }
 tower = "0.5.3"
 chrono = "0.4.44"
 indexed_db_futures = "0.5.0"
