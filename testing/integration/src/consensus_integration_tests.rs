@@ -2067,6 +2067,26 @@ async fn apply_pruning_proof_accepts_validated_proof() {
         "F-7: apply_pruning_proof must commit the validated proof on a pristine staging DB; got {apply_result:?}"
     );
 
+    // ---- F-18 deep-hardening (S16) idempotency: re-applying the SAME
+    // proof to the now-non-pristine `staging` must be an idempotent
+    // `Ok(())` no-op — the stored `PruningProofDescriptor` (written by
+    // the apply above) equals the descriptor this call would write, so
+    // the new code short-circuits instead of returning
+    // `ApplyOnNonPristineDb` or panicking. This covers the new branch
+    // added in Session 16; the negative vector below still covers the
+    // mismatched/partial-state reject.
+    let proof_for_idem: sophis_consensus_core::pruning::PruningPointProof = proof.as_ref().clone();
+    let trusted_set_for_idem = trusted_set.clone();
+    let idem_result = staging
+        .clone()
+        .unguarded_session()
+        .spawn_blocking(move |c| c.apply_pruning_proof(proof_for_idem, &trusted_set_for_idem))
+        .await;
+    assert!(
+        idem_result.is_ok(),
+        "F-18 deep hardening: re-applying the identical proof must be an idempotent Ok(()) no-op; got {idem_result:?}"
+    );
+
     // ---- F-18 negative vector: apply_proof on a non-pristine DB must return
     // the typed `ApplyOnNonPristineDb` error instead of panicking. The
     // producer's own consensus has genesis seeded at construction; the apply
