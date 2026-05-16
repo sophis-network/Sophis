@@ -10,7 +10,7 @@ include.workspace = true
 repository.workspace = true
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-mimalloc = { version = "0.1.48", default-features = false, features = [
+mimalloc = { version = "0.1.50", default-features = false, features = [
     'override',
 ] }
 
