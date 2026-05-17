@@ -6,7 +6,7 @@
 **Format:** Monolithic report (per founder decision 2026-05-14)
 **Cadence:** Multi-session (1-2 weeks)
 
-> **Status:** 🟡 IN PROGRESS — Session 1 (baseline + inventory)
+> **Status:** ✅ **CLOSED — TESTNET ✅ + MAINNET ✅ APPROVED** (final verdict 2026-05-16; §6 ledger 24/24 terminal, 0 open / 0 partial). Sessions 1–16 + post-final F-1 Option-3; §10 coverage snapshot + §11 `unsafe` block-by-block audit added 2026-05-17. **Post-cleanup behavioral validation green:** the 2051-test suite + `Test Suite (svm-zk)` + WASM jobs passed on the post-`f21b5af` (orphan-dep cleanup) tree — CI run 25988792347; the lone `Lints` ❌ was a transient risc0-`rzup` GitHub-API rate-limit infra flake (not code, re-run triggered). Remaining work is **operational only** (soak Stage 2/3/4, testnet ≥30 d, bug bounty, founder ops setup) — **decoupled from the static audit**, validated in the testnet phase (§9.5 / §10.2). The verdict was never coverage-%-gated.
 
 ---
 
@@ -44,7 +44,7 @@ Each session below either appends new findings or updates the Veredito section. 
 | Workspace version | `1.1.0` |
 | License | Apache-2.0 |
 
-> ⚠️ **Drift vs. project CLAUDE.md:** project CLAUDE.md references `1eead7b` as HEAD ("ROADMAP COMPLETE"). Actual HEAD = `a83bf79`, a docs-only commit *after* the roadmap closer. The roadmap commit `1eead7b` is preserved in history. This is not a regression — it is documentation drift to be re-synced before audit closure.
+> ✅ **RESOLVED (2026-05-17, at audit closure):** the CLAUDE.md HEAD-pin drift no longer exists. Verified de facto: project `C:\Projetos\sophis\CLAUDE.md` carries **no pinned HEAD commit** (zero reference to `1eead7b` / `a83bf79` / any SHA) — it is the living technical SoT, not a HEAD-stamped doc, so there is nothing to "re-sync". The `HEAD = a83bf79` in the §1 baseline table above is a **frozen Session-1 historical snapshot** (correct as history; not mutated — current HEAD is far ahead, `04ebd93` at closure). Both `1eead7b` (roadmap closer) and `a83bf79` remain in history. Not a regression; drift dissolved.
 
 ### 1.2 Workspace inventory
 
@@ -384,7 +384,7 @@ Generated with `cargo llvm-cov --workspace --exclude sophis-rollup-host --exclud
 
 **Reading.** T2 (ZK plumbing — Phase 3/5/6/9) is the best-tested category, reflecting the FIPS/RFC-grade witness validation and oracle-host AIR test density (~50 chips × multiple tests each). T0 (consensus) is the next-strongest at 77% lines, but has critical zero-pct files (F-5, F-6, F-7 below). T1 (operational) has the largest gap by absolute lines missed (11,520 lines uncovered) — protocol flow handlers and IBD code dominate. T3 low coverage is expected for binaries (faucet, explorer, dashboard, calculator, da-stress all have `main.rs` at 0% — these are exercised by smoke/manual testing, not unit tests).
 
-### Category-D coverage closure — measured-by-value initiative (Session 16, 2026-05-16, in progress)
+### Category-D coverage closure — measured-by-value initiative (Sessions 16–17 — DONE: tractable pure-logic gaps closed; remaining residuals are documented & bounded, deferred to testnet/CI per §10.2 — not a gate)
 
 Founder-requested closure of the 7 admitted coverage gaps. Scope decision: **measured by value** (real `llvm-cov`, not estimates), GHOSTDAG bounded to key invariants, Phase 5 included (founder override of the exclude recommendation). This is a multi-session effort tracked here as milestones.
 
