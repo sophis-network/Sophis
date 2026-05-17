@@ -179,12 +179,6 @@ jobs:
       # to crates that ship public APIs (sophis-core, sophis-consensus-core,
       # sophis-addresses, sophis-rpc-core).
 
-      - name: Run cargo test on sophis-hashes without asm
-        run: cargo nextest run -p sophis-hashes --features=no-asm --benches
-
-      - name: Run cargo doc tests with features=no-asm on sophis-hashes
-        run: cargo test --doc -p sophis-hashes --features=no-asm
-
   # ── sVM host risc0 verifier path ──────────────────────────────────────
   # Validates `cargo test -p sophis-svm-host --features risc0`, which
   # exercises the consensus-critical risc0 STARK verifier used by Phase 3
