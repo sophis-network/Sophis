@@ -78,3 +78,68 @@ impl std::fmt::Display for Capability {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    /// All 11 variants — kept in sync with the enum (documented invariant).
+    fn all_variants() -> Vec<Capability> {
+        vec![
+            Capability::ReadUtxo,
+            Capability::ProduceOutput,
+            Capability::VerifyDilithium,
+            Capability::ReadBlockHeight,
+            Capability::HashSha3,
+            Capability::VerifyRisc0Proof,
+            Capability::VerifyPlonky3Proof,
+            Capability::VerifyDataAvailability,
+            Capability::ResolveAlt,
+            Capability::EmitEvent,
+            Capability::VrfRandomness,
+        ]
+    }
+
+    #[test]
+    fn invariant_eleven_variants() {
+        assert_eq!(all_variants().len(), 11);
+    }
+
+    #[test]
+    fn display_is_pascalcase_and_distinct() {
+        let mut seen = HashSet::new();
+        for c in all_variants() {
+            let s = c.to_string();
+            assert_eq!(s, format!("{c:?}"), "Display must match the variant name");
+            assert!(seen.insert(s), "Display strings must be distinct across variants");
+        }
+        assert_eq!(seen.len(), 11);
+    }
+
+    #[test]
+    fn borsh_roundtrip_all_variants() {
+        for c in all_variants() {
+            let bytes = borsh::to_vec(&c).unwrap();
+            let back: Capability = borsh::from_slice(&bytes).unwrap();
+            assert_eq!(back, c);
+        }
+    }
+
+    #[test]
+    fn serde_json_roundtrip_all_variants() {
+        for c in all_variants() {
+            let j = serde_json::to_string(&c).unwrap();
+            let back: Capability = serde_json::from_str(&j).unwrap();
+            assert_eq!(back, c);
+        }
+    }
+
+    #[test]
+    fn eq_and_hash_consistent() {
+        let set: HashSet<Capability> = all_variants().into_iter().collect();
+        assert_eq!(set.len(), 11);
+        assert_eq!(Capability::EmitEvent, Capability::EmitEvent);
+        assert_ne!(Capability::EmitEvent, Capability::ReadUtxo);
+    }
+}

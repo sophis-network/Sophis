@@ -7547,6 +7547,7 @@ dependencies = [
  "blake2b_simd",
  "borsh",
  "serde",
+ "serde_json",
  "sophis-hashes",
  "thiserror 1.0.64",
 ]

@@ -16,5 +16,8 @@ thiserror.workspace = true
 sophis-hashes.workspace = true
 blake2b_simd.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

@@ -89,3 +89,86 @@ impl UpgradePolicy {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pk(b: u8) -> DilithiumPublicKey {
+        DilithiumPublicKey([b; 1312])
+    }
+
+    #[test]
+    fn dilithium_pubkey_borsh_roundtrip() {
+        let k = pk(0xab);
+        let bytes = borsh::to_vec(&k).unwrap();
+        assert_eq!(bytes.len(), 1312);
+        let back: DilithiumPublicKey = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(back, k);
+    }
+
+    #[test]
+    fn dilithium_pubkey_serde_json_roundtrip() {
+        let k = pk(0x42);
+        let j = serde_json::to_string(&k).unwrap();
+        let back: DilithiumPublicKey = serde_json::from_str(&j).unwrap();
+        assert_eq!(back, k);
+    }
+
+    #[test]
+    fn dilithium_pubkey_serde_rejects_wrong_length() {
+        let err = serde_json::from_str::<DilithiumPublicKey>("[1,2,3]");
+        assert!(err.is_err(), "must reject a byte vec whose length != 1312");
+    }
+
+    #[test]
+    fn min_blocks_per_variant() {
+        assert_eq!(UpgradePolicy::Immutable.min_blocks(), None);
+        assert_eq!(UpgradePolicy::OwnerTimelock { owner_pk: pk(1), min_blocks: 12_345 }.min_blocks(), Some(12_345));
+        assert_eq!(
+            UpgradePolicy::MultisigTimelock { threshold: 2, keys: vec![pk(1), pk(2)], min_blocks: 99_999 }.min_blocks(),
+            Some(99_999)
+        );
+    }
+
+    #[test]
+    fn is_valid_immutable_and_owner_timelock() {
+        assert!(UpgradePolicy::Immutable.is_valid());
+        assert!(UpgradePolicy::OwnerTimelock { owner_pk: pk(1), min_blocks: UPGRADE_MIN_BLOCKS }.is_valid());
+        assert!(!UpgradePolicy::OwnerTimelock { owner_pk: pk(1), min_blocks: UPGRADE_MIN_BLOCKS - 1 }.is_valid());
+    }
+
+    #[test]
+    fn is_valid_multisig_timelock_branches() {
+        let ok = UpgradePolicy::MultisigTimelock { threshold: 2, keys: vec![pk(1), pk(2), pk(3)], min_blocks: UPGRADE_MIN_BLOCKS };
+        assert!(ok.is_valid());
+
+        // min_blocks too low
+        assert!(!UpgradePolicy::MultisigTimelock { threshold: 1, keys: vec![pk(1)], min_blocks: UPGRADE_MIN_BLOCKS - 1 }.is_valid());
+        // threshold == 0
+        assert!(!UpgradePolicy::MultisigTimelock { threshold: 0, keys: vec![pk(1)], min_blocks: UPGRADE_MIN_BLOCKS }.is_valid());
+        // no keys
+        assert!(!UpgradePolicy::MultisigTimelock { threshold: 1, keys: vec![], min_blocks: UPGRADE_MIN_BLOCKS }.is_valid());
+        // threshold > n
+        assert!(
+            !UpgradePolicy::MultisigTimelock { threshold: 3, keys: vec![pk(1), pk(2)], min_blocks: UPGRADE_MIN_BLOCKS }.is_valid()
+        );
+        // too many keys (> MAX_MULTISIG_KEYS)
+        let many: Vec<DilithiumPublicKey> = (0..(MAX_MULTISIG_KEYS as u32 + 1)).map(|i| pk(i as u8)).collect();
+        assert!(!UpgradePolicy::MultisigTimelock { threshold: 1, keys: many, min_blocks: UPGRADE_MIN_BLOCKS }.is_valid());
+    }
+
+    #[test]
+    fn upgrade_policy_borsh_roundtrip_all_variants() {
+        for p in [
+            UpgradePolicy::Immutable,
+            UpgradePolicy::OwnerTimelock { owner_pk: pk(7), min_blocks: UPGRADE_MIN_BLOCKS },
+            UpgradePolicy::MultisigTimelock { threshold: 2, keys: vec![pk(1), pk(2)], min_blocks: UPGRADE_MIN_BLOCKS },
+        ] {
+            let bytes = borsh::to_vec(&p).unwrap();
+            let back: UpgradePolicy = borsh::from_slice(&bytes).unwrap();
+            assert_eq!(back.min_blocks(), p.min_blocks());
+            assert_eq!(back.is_valid(), p.is_valid());
+        }
+    }
+}

@@ -48,3 +48,48 @@ impl ContractUtxoData {
         Self { contract_id, datum, manifest }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::capability::Capability;
+    use crate::upgrade_policy::UpgradePolicy;
+
+    #[test]
+    fn datum_new_len_is_empty() {
+        let empty = Datum::new(vec![]);
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
+
+        let d = Datum::new(vec![1, 2, 3, 4]);
+        assert_eq!(d.len(), 4);
+        assert!(!d.is_empty());
+        assert_eq!(d.0, vec![1, 2, 3, 4]);
+
+        assert!(Datum::default().is_empty());
+    }
+
+    #[test]
+    fn datum_borsh_roundtrip() {
+        let d = Datum::new(vec![9, 8, 7]);
+        let bytes = borsh::to_vec(&d).unwrap();
+        let back: Datum = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(back.0, d.0);
+    }
+
+    #[test]
+    fn contract_utxo_data_new_holds_fields() {
+        let cid = ContractId::from_bytes([3u8; 32]);
+        let datum = Datum::new(vec![0xaa, 0xbb]);
+        let manifest = ContractManifest::new(ContractId::from_bytes([4u8; 32]), UpgradePolicy::Immutable, vec![Capability::ReadUtxo]);
+        let u = ContractUtxoData::new(cid, datum.clone(), manifest);
+        assert_eq!(u.contract_id, cid);
+        assert_eq!(u.datum.0, datum.0);
+        assert!(u.manifest.has_capability(&Capability::ReadUtxo));
+
+        let bytes = borsh::to_vec(&u).unwrap();
+        let back: ContractUtxoData = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(back.contract_id, cid);
+        assert_eq!(back.datum.0, datum.0);
+    }
+}

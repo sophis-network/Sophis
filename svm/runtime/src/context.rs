@@ -165,3 +165,86 @@ impl ExecutionContext {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::host::{StubAlt, StubCrypto, StubDa, StubVrf};
+    use sophis_svm_core::{ContractId, SvmError, UpgradePolicy};
+
+    fn manifest(caps: Vec<Capability>) -> ContractManifest {
+        ContractManifest::new(ContractId::from_bytes([0u8; 32]), UpgradePolicy::Immutable, caps)
+    }
+
+    fn ctx(caps: Vec<Capability>) -> ExecutionContext {
+        ExecutionContext::new(vec![vec![1, 2, 3]], vec![vec![4, 5]], 42, manifest(caps), GasConfig::default(), Arc::new(StubCrypto))
+    }
+
+    #[test]
+    fn new_sets_passthrough_and_defaults() {
+        let c = ctx(vec![Capability::ReadUtxo]);
+        assert_eq!(c.input_utxos, vec![vec![1, 2, 3]]);
+        assert_eq!(c.output_utxos, vec![vec![4, 5]]);
+        assert_eq!(c.block_height, 42);
+        assert_eq!(c.gas_used, Gas::default());
+        assert_eq!(c.contract_id, [0u8; 32]);
+        assert!(c.events.is_empty());
+    }
+
+    #[test]
+    fn da_and_alt_constructors_build() {
+        let c1 = ExecutionContext::new_with_da(
+            vec![],
+            vec![],
+            1,
+            manifest(vec![]),
+            GasConfig::default(),
+            Arc::new(StubCrypto),
+            Arc::new(StubDa),
+        );
+        assert_eq!(c1.block_height, 1);
+        let c2 = ExecutionContext::new_with_da_and_alt(
+            vec![],
+            vec![],
+            2,
+            manifest(vec![]),
+            GasConfig::default(),
+            Arc::new(StubCrypto),
+            Arc::new(StubDa),
+            Arc::new(StubAlt),
+        );
+        assert_eq!(c2.block_height, 2);
+    }
+
+    #[test]
+    fn builder_chain_sets_contract_id_and_vrf() {
+        let c = ctx(vec![]).with_contract_id([7u8; 32]).with_vrf_backend(Arc::new(StubVrf));
+        assert_eq!(c.contract_id, [7u8; 32]);
+    }
+
+    #[test]
+    fn check_capability_ok_and_err() {
+        let c = ctx(vec![Capability::ReadUtxo]);
+        assert!(c.check_capability(&Capability::ReadUtxo).is_ok());
+        match c.check_capability(&Capability::EmitEvent) {
+            Err(SvmError::UndeclaredCapability(cap)) => assert_eq!(cap, Capability::EmitEvent),
+            other => panic!("expected UndeclaredCapability, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn charge_accumulates_then_exhausts() {
+        let mut c = ctx(vec![]);
+        assert!(c.charge(Gas(6_000_000)).is_ok());
+        assert_eq!(c.gas_used, Gas(6_000_000));
+        match c.charge(Gas(5_000_000)) {
+            Err(SvmError::GasExhausted { budget, used }) => {
+                assert_eq!(budget, GasConfig::default().max_gas_per_tx);
+                assert_eq!(used, 11_000_000);
+            }
+            other => panic!("expected GasExhausted, got {other:?}"),
+        }
+        // failed charge must not mutate accumulated gas.
+        assert_eq!(c.gas_used, Gas(6_000_000));
+    }
+}

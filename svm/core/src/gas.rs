@@ -100,3 +100,55 @@ impl GasConfig {
         STORAGE_BASE_DEPOSIT.saturating_add((datum_bytes as u64).saturating_mul(STORAGE_BYTE_RATE))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gas_saturating_add_saturates() {
+        assert_eq!(Gas(2).saturating_add(Gas(3)), Gas(5));
+        assert_eq!(Gas(u64::MAX).saturating_add(Gas(1)), Gas(u64::MAX));
+    }
+
+    #[test]
+    fn gas_add_operator_and_ord() {
+        assert_eq!(Gas(10) + Gas(5), Gas(15));
+        assert!(Gas(1) < Gas(2));
+        assert_eq!(Gas::default(), Gas(0));
+        assert_eq!(Gas(7), Gas(7));
+    }
+
+    #[test]
+    #[should_panic(expected = "gas overflow")]
+    fn gas_add_operator_panics_on_overflow() {
+        let _ = Gas(u64::MAX) + Gas(1);
+    }
+
+    #[test]
+    fn gas_config_default_matches_constants() {
+        let c = GasConfig::default();
+        assert_eq!(c.max_gas_per_tx, 10_000_000);
+        assert_eq!(c.wasm_fuel_ratio, 1);
+        assert_eq!(c.dilithium_verify_cost, GAS_DILITHIUM_VERIFY);
+        assert_eq!(c.sha3_cost, GAS_SHA3_384);
+        assert_eq!(c.datum_byte_cost, GAS_PER_DATUM_BYTE);
+        assert_eq!(c.tx_byte_cost, GAS_PER_TX_BYTE);
+        assert_eq!(c.risc0_verify_cost, GAS_RISC0_VERIFY);
+        assert_eq!(c.plonky3_verify_cost, GAS_PLONKY3_VERIFY);
+        assert_eq!(c.da_verify_cost, GAS_DA_VERIFY);
+        assert_eq!(c.alt_resolve_cost, GAS_ALT_RESOLVE);
+        assert_eq!(c.event_emit_base_cost, GAS_EVENT_EMIT_BASE);
+        assert_eq!(c.event_emit_per_byte_cost, GAS_EVENT_EMIT_PER_BYTE);
+        assert_eq!(c.vrf_random_cost, GAS_VRF_RANDOM);
+    }
+
+    #[test]
+    fn storage_deposit_scales_and_saturates() {
+        let c = GasConfig::default();
+        assert_eq!(c.storage_deposit(0), STORAGE_BASE_DEPOSIT);
+        assert_eq!(c.storage_deposit(10), STORAGE_BASE_DEPOSIT + 10 * STORAGE_BYTE_RATE);
+        // saturating: enormous datum size must not panic/overflow.
+        assert_eq!(c.storage_deposit(usize::MAX), u64::MAX);
+    }
+}

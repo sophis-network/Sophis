@@ -450,4 +450,42 @@ mod tests {
         assert_eq!(run(), run(), "indexer is deterministic over identical inputs");
         let _ = DILITHIUM_PUBKEY_SIZE;
     }
+
+    #[test]
+    fn default_indexer_is_empty() {
+        let ix = Indexer::default();
+        assert!(ix.tracked_assets().next().is_none());
+        assert!(ix.read_price(&[9u8; 32]).is_none(), "untracked asset → None");
+        // unknown asset: default source Phase5, no decision yet.
+        assert_eq!(ix.feed_source(&[9u8; 32]), FeedSource::Phase5);
+        assert!(ix.last_decision(&[9u8; 32]).is_none());
+        assert!(ix.registry().is_empty());
+    }
+
+    #[test]
+    fn stale_phase5_no_phase9_routes_unavailable_and_read_price_none() {
+        let pol = FlipPolicy::default();
+        let now = 1_700_000_000;
+        let aid = asset_id_from_symbol(b"BTC/USD");
+        let mut ix = Indexer::default();
+        // Phase5 last seen 10 min ago (> 5 min stale window); no Phase9.
+        ix.ingest_phase5(aid, PriceSample { publish_ts: now - 600, price_e8: 65_000_00000000 });
+        let d = ix.reevaluate(aid, now, &pol);
+        assert!(matches!(d, FlipDecision::StaleSource { .. }));
+        assert_eq!(ix.feed_source(&aid), FeedSource::Unavailable);
+        assert!(ix.read_price(&aid).is_none(), "Unavailable source → read_price None");
+        assert_eq!(ix.last_decision(&aid), Some(d));
+    }
+
+    #[test]
+    fn aggregate_is_noop_when_asset_has_no_pending() {
+        let pol = FlipPolicy::default();
+        let now = 1_700_000_000;
+        let aid = asset_id_from_symbol(b"ETH/USD");
+        let mut ix = Indexer::new(60);
+        // Asset exists (via phase5) but has zero pending Phase9 submissions.
+        ix.ingest_phase5(aid, PriceSample { publish_ts: now - 10, price_e8: 1 });
+        ix.aggregate_due_rounds(now, &pol); // exercises the empty-pending continue
+        assert!(ix.assets[&aid].rounds.is_empty());
+    }
 }

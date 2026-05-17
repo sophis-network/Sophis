@@ -459,4 +459,40 @@ mod tests {
             assert_eq!(decoded, source);
         }
     }
+
+    #[test]
+    fn registry_is_empty_then_not() {
+        let mut r = InMemoryFeedSourceRegistry::new();
+        assert!(r.is_empty());
+        assert_eq!(r.len(), 0);
+        r.set([1u8; 32], FeedSource::Phase5);
+        assert!(!r.is_empty());
+    }
+
+    #[test]
+    fn within_spread_bp_negative_reference_falls_back_to_equality() {
+        // reference_e8 <= 0 → exact-equality fallback (defence vs div-by-zero).
+        assert!(within_spread_bp(-5, -5, 50));
+        assert!(!within_spread_bp(-5, -6, 50));
+    }
+
+    #[test]
+    fn phase9_window_rejects_future_dated_samples() {
+        let policy = FlipPolicy::default();
+        // latest.publish_ts > now → nonsensical → false.
+        let future = [PriceSample { publish_ts: 1_000, price_e8: 1 }];
+        assert!(!phase9_window_satisfied(&future, &policy, 500));
+        // empty history → false (no oldest/last).
+        assert!(!phase9_window_satisfied(&[], &policy, 1_000_000));
+    }
+
+    #[test]
+    fn spread_fails_closed_when_no_near_phase5_sample() {
+        let policy = FlipPolicy::default();
+        let now = 1_000_000;
+        // p9 in-window but the only p5 sample is > stale_after_secs away → None → false.
+        let p5 = [PriceSample { publish_ts: 0, price_e8: 100 }];
+        let p9 = [PriceSample { publish_ts: now, price_e8: 100 }];
+        assert!(!spread_within_bounds(&p5, &p9, &policy, now));
+    }
 }

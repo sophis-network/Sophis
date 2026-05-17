@@ -20,3 +20,31 @@ impl MintingPolicyPayload {
         hash_mint_policy(&self.wasm)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_id_is_deterministic_and_matches_hash_mint_policy() {
+        let p = MintingPolicyPayload { wasm: vec![0x00, 0x61, 0x73, 0x6d, 1, 2, 3] };
+        assert_eq!(p.token_id(), p.token_id());
+        assert_eq!(p.token_id(), hash_mint_policy(&p.wasm));
+    }
+
+    #[test]
+    fn token_id_differs_for_different_wasm() {
+        let a = MintingPolicyPayload { wasm: vec![1, 2, 3] };
+        let b = MintingPolicyPayload { wasm: vec![1, 2, 4] };
+        assert_ne!(a.token_id(), b.token_id());
+    }
+
+    #[test]
+    fn borsh_roundtrip() {
+        let p = MintingPolicyPayload { wasm: vec![9, 9, 9, 9] };
+        let bytes = borsh::to_vec(&p).unwrap();
+        let back: MintingPolicyPayload = borsh::from_slice(&bytes).unwrap();
+        assert_eq!(back.wasm, p.wasm);
+        assert_eq!(back.token_id(), p.token_id());
+    }
+}
