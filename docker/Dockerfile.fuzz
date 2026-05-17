@@ -11,7 +11,7 @@
 #   docker run --rm sophis-fuzz cat /tmp/fuzz-results.log
 # ────────────────────────────────────────────────────────────────────────────
 
-FROM rust:1.94-bookworm AS fuzz
+FROM rust:1.95-bookworm AS fuzz
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       cmake clang libclang-dev protobuf-compiler pkg-config libssl-dev \
