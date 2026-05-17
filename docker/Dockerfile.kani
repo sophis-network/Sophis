@@ -12,7 +12,7 @@
 #   docker run --rm sophis-kani-proofs cat /tmp/kani-proofs.log
 # ────────────────────────────────────────────────────────────────────────────
 
-FROM rust:1.94-bookworm AS kani
+FROM rust:1.95-bookworm AS kani
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       cmake clang libclang-dev protobuf-compiler pkg-config libssl-dev \
