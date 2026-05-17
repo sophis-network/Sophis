@@ -236,7 +236,7 @@ event-listener = "2.5.3" # TODO "3.0.1"
 faster-hex = "0.9.0"
 fixedstr = { version = "0.5.4", features = ["serde"] }
 flate2 = "1.0.35"
-futures = { version = "0.3.29" }
+futures = { version = "0.3.32" }
 futures-util = { version = "0.3.32", default-features = false, features = ["alloc"] }
 getrandom = { version = "0.2.10", features = ["js"] }
 h2 = "0.4.14"
