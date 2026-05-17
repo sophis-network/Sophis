@@ -6,7 +6,7 @@
 **Format:** Monolithic report (per founder decision 2026-05-14)
 **Cadence:** Multi-session (1-2 weeks)
 
-> **Status:** ✅ **CLOSED — TESTNET ✅ + MAINNET ✅ APPROVED** (final verdict 2026-05-16; §6 ledger 24/24 terminal, 0 open / 0 partial). Sessions 1–16 + post-final F-1 Option-3; §10 coverage snapshot + §11 `unsafe` block-by-block audit added 2026-05-17. **Post-cleanup behavioral validation green:** the 2051-test suite + `Test Suite (svm-zk)` + WASM jobs passed on the post-`f21b5af` (orphan-dep cleanup) tree — CI run 25988792347; the lone `Lints` ❌ was a transient risc0-`rzup` GitHub-API rate-limit infra flake (not code, re-run triggered). Remaining work is **operational only** (soak Stage 2/3/4, testnet ≥30 d, bug bounty, founder ops setup) — **decoupled from the static audit**, validated in the testnet phase (§9.5 / §10.2). The verdict was never coverage-%-gated.
+> **Status:** ✅ **PRE-TESTNET AUDIT CLOSED & APPROVED — TESTNET ✅ + MAINNET ✅** (final verdict 2026-05-16; §6 ledger 24/24 terminal, 0 open / 0 partial). Sessions 1–16 + post-final F-1 Option-3; §10 coverage snapshot + §11 `unsafe` block-by-block audit added 2026-05-17. **Post-cleanup behavioral validation green:** the full CI `Tests` run on the post-`f21b5af` (orphan-dep cleanup) tree passed — **all 10 jobs** (2051-test suite + `Test Suite (svm-zk)` + WASM + Lints + Build Linux + …), CI run 25988792347. **➡️ Next step: the real public Testnet.** Pre-testnet work is done; everything remaining is **operational-only** (soak Stage 2/3/4, testnet ≥30 d, bug bounty, founder ops setup) — **decoupled from the static audit**, validated *in* the testnet phase (§9.5 / §10.2). The verdict was never coverage-%-gated.
 
 ---
 
