@@ -11,12 +11,14 @@ use sophis_consensus::model::stores::ghostdag::{GhostdagStoreReader, KType as Gh
 use sophis_consensus::model::stores::headers::HeaderStoreReader;
 use sophis_consensus::model::stores::reachability::DbReachabilityStore;
 use sophis_consensus::model::stores::relations::DbRelationsStore;
+use sophis_consensus::model::stores::da::{CarrierIndex, DaStoreReader};
 use sophis_consensus::model::stores::selected_chain::SelectedChainStoreReader;
 use sophis_consensus::params::{DEVNET_PARAMS, ForkActivation, MAINNET_PARAMS};
 use sophis_consensus::pipeline::ProcessingCounters;
 use sophis_consensus::processes::reachability::tests::{DagBlock, DagBuilder, StoreValidationExtensions};
 use sophis_consensus::processes::window::{WindowManager, WindowType};
 use sophis_consensus_core::api::args::TransactionValidationArgs;
+use sophis_consensus_core::da::{PayloadEntry, PayloadIdHash};
 use sophis_consensus_core::api::{BlockValidationFutures, ConsensusApi};
 use sophis_consensus_core::block::Block;
 use sophis_consensus_core::blockhash::{self, new_unique};
@@ -1754,6 +1756,108 @@ async fn pruning_test() {
         consensus.validate_and_insert_block(genesis_child_child_block).virtual_state_task.await,
         Err(RuleError::MissingParents(_))
     );
+
+    consensus.shutdown(wait_handles);
+}
+
+/// F-26 Fix A — deterministic proof that the real pruning processor invokes
+/// `DbDaStore::prune_block_batch` for pruned blocks (removing their carrier
+/// index entries from every DA sub-store) while leaving recent blocks'
+/// carriers intact. This is the G8 prune-correctness gate, validated
+/// without the soak's RocksDB-compaction-lag confound. Modeled on
+/// `pruning_test` (same proven tiny coherent params that advance the
+/// pruning point deterministically).
+#[tokio::test]
+async fn da_carrier_prune_test() {
+    init_allocator_with_default_settings();
+    let config = ConfigBuilder::new(MAINNET_PARAMS)
+        .skip_proof_of_work()
+        .edit_consensus_params(|p| {
+            p.finality_depth = 2;
+            p.mergeset_size_limit = 2;
+            p.ghostdag_k = 2;
+            p.merge_depth = 3;
+            p.pruning_depth = 100;
+        })
+        .build();
+
+    let consensus = TestConsensus::new(&config);
+    let wait_handles = consensus.init();
+    let da = consensus.da_store().clone();
+
+    let mut selected_chain = vec![config.genesis.hash];
+
+    // Early block — will be pruned. Inject a carrier keyed by its hash
+    // (out-of-band, simulating a block that carried DA data).
+    let early: Hash = 1.into();
+    consensus.add_empty_utxo_valid_block_with_parents(early, vec![*selected_chain.last().unwrap()]).await.unwrap();
+    selected_chain.push(early);
+    let early_pid = PayloadIdHash([0xE1u8; 48]);
+    let early_bid = PayloadIdHash([0xE2u8; 48]);
+    da.index_carrier_direct(
+        early,
+        &[CarrierIndex {
+            payload_id: early_pid,
+            entry: PayloadEntry {
+                script: vec![0xAAu8; 64],
+                accepting_block_hash: early,
+                blue_score: 1,
+                fragment_index: 0,
+                fragment_count: 1,
+                bundle_id: early_bid,
+                domain_byte: 0,
+            },
+        }],
+    )
+    .unwrap();
+    assert!(da.get_payload(early_pid).unwrap().is_some(), "precondition: carrier indexed for the early block");
+
+    // Grow the chain so the pruning point advances well past `early`.
+    for i in 2..config.pruning_depth() + config.finality_depth() + 100 {
+        let hash: Hash = i.into();
+        consensus.add_empty_utxo_valid_block_with_parents(hash, vec![*selected_chain.last().unwrap()]).await.unwrap();
+        selected_chain.push(hash);
+    }
+
+    // Recent block near the tip (within pruning_depth) — its carrier must
+    // survive (proves prune_block_batch is selective, not a blanket wipe).
+    let recent = *selected_chain.last().unwrap();
+    let recent_pid = PayloadIdHash([0x71u8; 48]);
+    let recent_bid = PayloadIdHash([0x72u8; 48]);
+    da.index_carrier_direct(
+        recent,
+        &[CarrierIndex {
+            payload_id: recent_pid,
+            entry: PayloadEntry {
+                script: vec![0xBBu8; 64],
+                accepting_block_hash: recent,
+                blue_score: 999_999,
+                fragment_index: 0,
+                fragment_count: 1,
+                bundle_id: recent_bid,
+                domain_byte: 0,
+            },
+        }],
+    )
+    .unwrap();
+
+    // Wait for the real pruning processor to prune `early`.
+    let start = Instant::now();
+    while consensus.get_block_status(early).unwrap() == BlockStatus::StatusUTXOValid {
+        if start.elapsed() > Duration::from_secs(15) {
+            panic!("Timed out waiting 15 seconds for pruning to occur");
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    // F-26 Fix A — the pruned block's carrier is gone from EVERY DA
+    // sub-store (payloads / bundles / by_block); the recent block's
+    // carrier is untouched.
+    assert!(da.get_payload(early_pid).unwrap().is_none(), "F-26: pruned block's payload must be deleted by prune_block_batch");
+    assert!(da.get_bundle(early_bid).unwrap().is_none(), "F-26: pruned block's bundle must be deleted");
+    assert!(da.list_by_block(early).unwrap().is_none(), "F-26: pruned block's by_block entry must be deleted");
+    assert!(da.get_payload(recent_pid).unwrap().is_some(), "recent (un-pruned) carrier must survive");
+    assert!(da.list_by_block(recent).unwrap().is_some(), "recent by_block entry must survive");
 
     consensus.shutdown(wait_handles);
 }

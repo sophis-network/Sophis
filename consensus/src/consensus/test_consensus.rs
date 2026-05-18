@@ -265,6 +265,12 @@ impl TestConsensus {
         &self.consensus.storage.headers_selected_tip_store
     }
 
+    /// F-26 — exposes the self-DA carrier store so integration tests can
+    /// assert `prune_block_batch` runs in the real pruning path.
+    pub fn da_store(&self) -> &Arc<crate::model::stores::da::DbDaStore> {
+        &self.consensus.storage.da_store
+    }
+
     /// Anti long-range attack — exposes the persisted `max_chain_work_seen`
     /// floor so integration tests can assert it advances with virtual state
     /// commits (Feature 2).

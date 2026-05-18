@@ -94,6 +94,18 @@ pub struct Args {
 
     pub override_params_file: Option<String>,
 
+    /// F-26 M2 — devnet-only test instrumentation: shrink pruning_depth so
+    /// Fix A's DA-store pruning becomes observable inside a short soak.
+    /// Refused unless --devnet (enforced in daemon.rs); never affects
+    /// testnet/mainnet pruning_depth (a consensus security parameter).
+    pub soak_pruning_depth: Option<u64>,
+
+    /// F-26 M2 — devnet-only companion to soak_pruning_depth: the pruning
+    /// point advances through samples spaced `finality_depth` apart
+    /// (processes/pruning.rs), so a short soak must shrink this too.
+    /// Refused unless --devnet; never affects testnet/mainnet.
+    pub soak_finality_depth: Option<u64>,
+
     pub rocksdb_preset: Option<String>,
     pub rocksdb_wal_dir: Option<String>,
     pub rocksdb_cache_size: Option<usize>,
@@ -149,6 +161,8 @@ impl Default for Args {
             ram_scale: 1.0,
             retention_period_days: None,
             override_params_file: None,
+            soak_pruning_depth: None,
+            soak_finality_depth: None,
             rocksdb_preset: None,
             rocksdb_wal_dir: None,
             rocksdb_cache_size: None,
@@ -415,6 +429,20 @@ a large RAM (~64GB) can set this value to ~3.0-4.0 and gain superior performance
                 .help("Path to a JSON file containing override parameters.")
         )
         .arg(
+            Arg::new("soak-pruning-depth")
+                .long("soak-pruning-depth")
+                .require_equals(true)
+                .value_parser(clap::value_parser!(u64))
+                .help("DEVNET-ONLY test instrumentation (F-26): override pruning_depth in blocks so DA-store pruning is observable in a short soak. Refused unless --devnet.")
+        )
+        .arg(
+            Arg::new("soak-finality-depth")
+                .long("soak-finality-depth")
+                .require_equals(true)
+                .value_parser(clap::value_parser!(u64))
+                .help("DEVNET-ONLY test instrumentation (F-26): override finality_depth (pruning-sample interval) so the pruning point can advance in a short soak. Refused unless --devnet.")
+        )
+        .arg(
             Arg::new("rocksdb-preset")
                 .long("rocksdb-preset")
                 .env("SOPHISD_ROCKSDB_PRESET")
@@ -545,6 +573,8 @@ impl Args {
             #[cfg(feature = "devnet-prealloc")]
             prealloc_amount: arg_match_unwrap_or::<u64>(&m, "prealloc-amount", defaults.prealloc_amount),
             override_params_file: m.get_one::<String>("override-params-file").cloned(),
+            soak_pruning_depth: m.get_one::<u64>("soak-pruning-depth").cloned(),
+            soak_finality_depth: m.get_one::<u64>("soak-finality-depth").cloned(),
             rocksdb_preset: m.get_one::<String>("rocksdb-preset").cloned().or(defaults.rocksdb_preset),
             rocksdb_wal_dir: m.get_one::<String>("rocksdb-wal-dir").cloned().or(defaults.rocksdb_wal_dir),
             rocksdb_cache_size: m.get_one::<usize>("rocksdb-cache-size").cloned().or(defaults.rocksdb_cache_size),

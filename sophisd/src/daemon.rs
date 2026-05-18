@@ -296,7 +296,7 @@ pub fn create_core_with_runtime(runtime: &Runtime, args: &Args, fd_total_budget:
 
     let params = {
         let params: Params = network.into();
-        match &args.override_params_file {
+        let mut params = match &args.override_params_file {
             Some(path) => {
                 if network.is_mainnet() {
                     println!("Overriding params on mainnet is not allowed.");
@@ -321,7 +321,35 @@ pub fn create_core_with_runtime(runtime: &Runtime, args: &Args, fd_total_budget:
                 params.override_params(override_params)
             }
             None => params,
+        };
+        // F-26 M2 — devnet-only soak instrumentation: shrink pruning_depth
+        // so Fix A's DA-store pruning becomes observable inside a short
+        // soak. NOT a consensus/ship change; refused unless --devnet so
+        // testnet/mainnet pruning_depth (a security parameter) is untouched.
+        if args.soak_pruning_depth.is_some() || args.soak_finality_depth.is_some() {
+            if !args.devnet {
+                println!("--soak-pruning-depth/--soak-finality-depth are devnet-only test instrumentation; refusing (not --devnet).");
+                exit(1);
+            }
+            // finality_depth = pruning-sample interval; the pruning point
+            // only advances through samples spaced this far apart, so a
+            // short soak must shrink it alongside pruning_depth.
+            if let Some(fd) = args.soak_finality_depth {
+                println!(
+                    "SOAK INSTRUMENTATION (F-26): devnet finality_depth {} -> {} (sample interval; observability only; never testnet/mainnet)",
+                    params.finality_depth, fd
+                );
+                params.finality_depth = fd;
+            }
+            if let Some(pd) = args.soak_pruning_depth {
+                println!(
+                    "SOAK INSTRUMENTATION (F-26): devnet pruning_depth {} -> {} (observability only; never testnet/mainnet)",
+                    params.pruning_depth, pd
+                );
+                params.pruning_depth = pd;
+            }
         }
+        params
     };
 
     let config = Arc::new(
