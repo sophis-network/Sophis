@@ -181,6 +181,70 @@ impl DbDaStore {
 
         Ok(())
     }
+
+    /// Fix A (F-26) — inverse of `index_carrier_batch`: removes every DA
+    /// index entry for `accepting_block_hash`, which is being pruned at the
+    /// consensus pruning point. Idempotent (missing keys are skipped, so a
+    /// re-prune or a partially-pruned block is harmless) and batch-atomic
+    /// (all writes go through the caller's `WriteBatch`, landing together
+    /// with the rest of the consensus prune). The RMW on `bundles`/
+    /// `by_domain` mirrors the same cache-coherent pattern that
+    /// `index_carrier_batch` already relies on.
+    pub fn prune_block_batch(
+        &self,
+        batch: &mut WriteBatch,
+        accepting_block_hash: Hash,
+    ) -> Result<(), StoreError> {
+        let pids = match self.by_block.read(accepting_block_hash) {
+            Ok(bc) => bc.payload_ids,
+            Err(StoreError::KeyNotFound(_)) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        for pid in pids {
+            // Read metadata first to locate the bundle / domain back-refs.
+            let entry = match self.payloads.read(pid) {
+                Ok(e) => e,
+                Err(StoreError::KeyNotFound(_)) => continue, // already removed
+                Err(e) => return Err(e),
+            };
+            self.payloads.delete(BatchDbWriter::new(batch), pid)?;
+
+            // Shrink (or drop) the bundle index.
+            match self.bundles.read(entry.bundle_id) {
+                Ok(mut bundle) => {
+                    bundle.payload_ids.retain(|p| *p != pid);
+                    if bundle.payload_ids.is_empty() {
+                        self.bundles.delete(BatchDbWriter::new(batch), entry.bundle_id)?;
+                    } else {
+                        self.bundles.write(BatchDbWriter::new(batch), entry.bundle_id, bundle)?;
+                    }
+                }
+                Err(StoreError::KeyNotFound(_)) => {}
+                Err(e) => return Err(e),
+            }
+
+            // Shrink (or drop) the by_domain bucket — non-zero domains only,
+            // keyed by the same (domain_byte, blue_score) used at index time.
+            if entry.domain_byte != 0 {
+                let key = DomainBucketKey::new(entry.domain_byte, entry.blue_score);
+                match self.by_domain.read(key) {
+                    Ok(mut bucket) => {
+                        bucket.payload_ids.retain(|p| *p != pid);
+                        if bucket.payload_ids.is_empty() {
+                            self.by_domain.delete(BatchDbWriter::new(batch), key)?;
+                        } else {
+                            self.by_domain.write(BatchDbWriter::new(batch), key, bucket)?;
+                        }
+                    }
+                    Err(StoreError::KeyNotFound(_)) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        // Finally drop the by_block entry itself.
+        self.by_block.delete(BatchDbWriter::new(batch), accepting_block_hash)?;
+        Ok(())
+    }
 }
 
 impl DaStoreReader for DbDaStore {
@@ -236,6 +300,15 @@ impl DbDaStore {
         self.index_carrier_batch(&mut batch, accepting_block_hash, carriers)?;
         // We can't use BatchDbWriter outside a real WriteBatch context; the
         // simplest path is to hand the batch to the DB.
+        self.db.write(batch).map_err(StoreError::DbError)?;
+        Ok(())
+    }
+
+    /// Direct (non-batched) variant of `prune_block_batch` — tests / admin
+    /// tooling, symmetric with `index_carrier_direct`.
+    pub fn prune_block_direct(&self, accepting_block_hash: Hash) -> Result<(), StoreError> {
+        let mut batch = WriteBatch::default();
+        self.prune_block_batch(&mut batch, accepting_block_hash)?;
         self.db.write(batch).map_err(StoreError::DbError)?;
         Ok(())
     }
@@ -392,5 +465,101 @@ mod tests {
         assert_eq!(bc.payload_ids.len(), 2);
         assert!(bc.payload_ids.contains(&p1));
         assert!(bc.payload_ids.contains(&p2));
+    }
+
+    // ----- Fix A (F-26): prune_block_batch -----------------------------
+
+    #[test]
+    fn prune_block_removes_single_payload_everywhere() {
+        let (_lt, store) = build_store();
+        let block = Hash::from_slice(&[7u8; 32]);
+        let pid = PayloadIdHash([0x10; 48]);
+        let bid = PayloadIdHash([0x20; 48]);
+        let dom = sophis_consensus_core::da::CARRIER_FLAG_DOMAIN_ROLLUP;
+        store
+            .index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 42, 0, 1, dom) }])
+            .unwrap();
+        assert!(store.get_payload(pid).unwrap().is_some());
+
+        store.prune_block_direct(block).unwrap();
+
+        assert!(store.get_payload(pid).unwrap().is_none());
+        assert!(store.get_bundle(bid).unwrap().is_none());
+        assert!(store.list_by_block(block).unwrap().is_none());
+        assert!(store.list_by_domain(dom, 42).unwrap().is_none());
+    }
+
+    #[test]
+    fn prune_is_idempotent_and_tolerates_missing_block() {
+        let (_lt, store) = build_store();
+        let block = Hash::from_slice(&[8u8; 32]);
+        // Missing block → Ok, no panic.
+        store.prune_block_direct(block).unwrap();
+        // Index, then prune twice — second prune is a no-op.
+        let pid = PayloadIdHash([0x33; 48]);
+        let bid = PayloadIdHash([0x44; 48]);
+        store
+            .index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 1, 0, 1, 0) }])
+            .unwrap();
+        store.prune_block_direct(block).unwrap();
+        store.prune_block_direct(block).unwrap();
+        assert!(store.get_payload(pid).unwrap().is_none());
+        assert!(store.get_bundle(bid).unwrap().is_none());
+    }
+
+    #[test]
+    fn prune_straddling_bundle_keeps_unpruned_fragment() {
+        let (_lt, store) = build_store();
+        let block_a = Hash::from_slice(&[9u8; 32]);
+        let block_b = Hash::from_slice(&[10u8; 32]);
+        let bid = PayloadIdHash([0x55; 48]);
+        let p0 = PayloadIdHash([0u8; 48]);
+        let p1 = PayloadIdHash([1u8; 48]);
+        store
+            .index_carrier_direct(block_a, &[CarrierIndex { payload_id: p0, entry: make_entry(bid, block_a, 10, 0, 2, 0) }])
+            .unwrap();
+        store
+            .index_carrier_direct(block_b, &[CarrierIndex { payload_id: p1, entry: make_entry(bid, block_b, 11, 1, 2, 0) }])
+            .unwrap();
+
+        store.prune_block_direct(block_a).unwrap();
+
+        // Pruned fragment gone; the other survives; the bundle survives
+        // PARTIAL (len 1 != fragment_count 2) — i.e. verify_bundle → false,
+        // the §10.7 "post-prune ⇒ not present" semantics. No panic.
+        assert!(store.get_payload(p0).unwrap().is_none());
+        assert!(store.get_payload(p1).unwrap().is_some());
+        let bundle = store.get_bundle(bid).unwrap().unwrap();
+        assert_eq!(bundle.payload_ids, vec![p1]);
+        assert_eq!(bundle.fragment_count, 2);
+        assert!(store.list_by_block(block_a).unwrap().is_none());
+        assert!(store.list_by_block(block_b).unwrap().is_some());
+    }
+
+    #[test]
+    fn prune_shrinks_then_deletes_by_domain_bucket() {
+        let (_lt, store) = build_store();
+        let dom = sophis_consensus_core::da::CARRIER_FLAG_DOMAIN_ROLLUP;
+        let ba = Hash::from_slice(&[11u8; 32]);
+        let bb = Hash::from_slice(&[12u8; 32]);
+        let pa = PayloadIdHash([0xA1; 48]);
+        let pb = PayloadIdHash([0xB1; 48]);
+        let ba_bid = PayloadIdHash([0xA2; 48]);
+        let bb_bid = PayloadIdHash([0xB2; 48]);
+        // Same domain + same blue_score ⇒ same by_domain bucket.
+        store
+            .index_carrier_direct(ba, &[CarrierIndex { payload_id: pa, entry: make_entry(ba_bid, ba, 500, 0, 1, dom) }])
+            .unwrap();
+        store
+            .index_carrier_direct(bb, &[CarrierIndex { payload_id: pb, entry: make_entry(bb_bid, bb, 500, 0, 1, dom) }])
+            .unwrap();
+
+        store.prune_block_direct(ba).unwrap();
+        // Bucket shrunk, not deleted.
+        let bucket = store.list_by_domain(dom, 500).unwrap().unwrap();
+        assert_eq!(bucket.payload_ids, vec![pb]);
+
+        store.prune_block_direct(bb).unwrap();
+        assert!(store.list_by_domain(dom, 500).unwrap().is_none());
     }
 }

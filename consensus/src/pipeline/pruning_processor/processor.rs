@@ -486,6 +486,12 @@ impl PruningProcessor {
                 self.utxo_diffs_store.delete_batch(&mut batch, current).unwrap();
                 self.acceptance_data_store.delete_batch(&mut batch, current).unwrap();
                 self.block_transactions_store.delete_batch(&mut batch, current).unwrap();
+                // F-26 — prune the self-DA carrier index for this block in
+                // the same WriteBatch. Was missing entirely → the DA store
+                // (prefixes 196-199) grew unbounded forever. Determinism:
+                // runs over the exact consensus pruning block set, so every
+                // node flips VerifyDataAvailability→0 uniformly (§10.7).
+                self.storage.da_store.prune_block_batch(&mut batch, current).unwrap();
 
                 if let Some(&affiliated_proof_level) = keep_relations.get(&current) {
                     if statuses_write.get(current).optional().unwrap().is_some_and(|s| s.is_valid()) {
