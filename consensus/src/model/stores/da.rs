@@ -11,8 +11,8 @@
 use rocksdb::WriteBatch;
 use sophis_consensus_core::BlockHasher;
 use sophis_consensus_core::da::{
-    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadBody, PayloadEntry, PayloadIdHash, PayloadMeta,
-    domain_bucket_key_bytes,
+    BlockCarriers, BodyGcWatermark, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadBody, PayloadEntry, PayloadIdHash,
+    PayloadMeta, domain_bucket_key_bytes,
 };
 use sophis_database::prelude::CachePolicy;
 use sophis_database::prelude::DB;
@@ -78,6 +78,7 @@ pub struct DbDaStore {
     db: Arc<DB>,
     payloads: CachedDbAccess<PayloadIdHash, PayloadMeta>,
     bodies: CachedDbAccess<PayloadIdHash, PayloadBody>,
+    body_gc_watermark: CachedDbAccess<Hash, BodyGcWatermark>,
     bundles: CachedDbAccess<PayloadIdHash, BundleIndex>,
     by_block: CachedDbAccess<Hash, BlockCarriers, BlockHasher>,
     by_domain: CachedDbAccess<DomainBucketKey, DomainBucket>,
@@ -87,10 +88,12 @@ impl DbDaStore {
     pub fn new(db: Arc<DB>, cache_policy: CachePolicy) -> Self {
         let payloads = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierPayloads.into());
         let bodies = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBodies.into());
+        let body_gc_watermark =
+            CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaBodyGcWatermark.into());
         let bundles = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBundles.into());
         let by_block = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByBlock.into());
         let by_domain = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByDomain.into());
-        Self { db, payloads, bodies, bundles, by_block, by_domain }
+        Self { db, payloads, bodies, body_gc_watermark, bundles, by_block, by_domain }
     }
 
     pub fn clone_with_new_cache(&self, cache_policy: CachePolicy) -> Self {
@@ -254,6 +257,45 @@ impl DbDaStore {
         self.by_block.delete(BatchDbWriter::new(batch), accepting_block_hash)?;
         Ok(())
     }
+
+    // --- F-26 Fix B (M3.2): short body-retention horizon GC ---------------
+    // The body store (209) is dropped well before the pruning point so the
+    // unbounded-growth window shrinks from ~pruning_depth to ~H_body. The
+    // metadata (196) + indexes stay to pruning_depth (Fix A prunes those).
+    // Consensus never reads the body (H1), so this is non-consensus and runs
+    // outside the consensus WriteBatch.
+
+    fn body_gc_wm_key() -> Hash {
+        Hash::from_slice(&[0u8; 32])
+    }
+
+    /// Selected-chain index up to which carrier bodies have already been
+    /// GC'd. `0` if the GC has never run.
+    pub fn body_gc_watermark(&self) -> u64 {
+        match self.body_gc_watermark.read(Self::body_gc_wm_key()) {
+            Ok(w) => w.0,
+            _ => 0,
+        }
+    }
+
+    pub fn set_body_gc_watermark(&self, batch: &mut WriteBatch, idx: u64) -> Result<(), StoreError> {
+        self.body_gc_watermark.write(BatchDbWriter::new(batch), Self::body_gc_wm_key(), BodyGcWatermark(idx))
+    }
+
+    /// Drop only the bodies (209) of every carrier accepted by `block_hash`,
+    /// leaving metadata/bundle/by_block intact (those are pruned later at
+    /// `pruning_depth` by `prune_block_batch`). Idempotent.
+    pub fn gc_block_bodies(&self, batch: &mut WriteBatch, block_hash: Hash) -> Result<(), StoreError> {
+        let pids = match self.by_block.read(block_hash) {
+            Ok(bc) => bc.payload_ids,
+            Err(StoreError::KeyNotFound(_)) => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        for pid in pids {
+            self.bodies.delete(BatchDbWriter::new(batch), pid)?;
+        }
+        Ok(())
+    }
 }
 
 impl DaStoreReader for DbDaStore {
@@ -327,6 +369,22 @@ impl DbDaStore {
     pub fn prune_block_direct(&self, accepting_block_hash: Hash) -> Result<(), StoreError> {
         let mut batch = WriteBatch::default();
         self.prune_block_batch(&mut batch, accepting_block_hash)?;
+        self.db.write(batch).map_err(StoreError::DbError)?;
+        Ok(())
+    }
+
+    /// Direct (non-batched) F-26 Fix B body GC — tests/admin.
+    pub fn gc_block_bodies_direct(&self, block_hash: Hash) -> Result<(), StoreError> {
+        let mut batch = WriteBatch::default();
+        self.gc_block_bodies(&mut batch, block_hash)?;
+        self.db.write(batch).map_err(StoreError::DbError)?;
+        Ok(())
+    }
+
+    /// Direct (non-batched) watermark setter — tests/admin.
+    pub fn set_body_gc_watermark_direct(&self, idx: u64) -> Result<(), StoreError> {
+        let mut batch = WriteBatch::default();
+        self.set_body_gc_watermark(&mut batch, idx)?;
         self.db.write(batch).map_err(StoreError::DbError)?;
         Ok(())
     }
@@ -580,5 +638,44 @@ mod tests {
 
         store.prune_block_direct(bb).unwrap();
         assert!(store.list_by_domain(dom, 500).unwrap().is_none());
+    }
+
+    // ----- F-26 Fix B (M3.2): body GC -----------------------------------
+
+    #[test]
+    fn body_gc_drops_body_keeps_metadata() {
+        let (_lt, store) = build_store();
+        let block = Hash::from_slice(&[0x6Au8; 32]);
+        let pid = PayloadIdHash([0x6Bu8; 48]);
+        let bid = PayloadIdHash([0x6Cu8; 48]);
+        let entry = make_entry(bid, block, 77, 0, 1, sophis_consensus_core::da::CARRIER_FLAG_DOMAIN_ROLLUP);
+        store.index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: entry.clone() }]).unwrap();
+        assert_eq!(store.get_payload(pid).unwrap().unwrap().script, entry.script, "body present before GC");
+
+        store.gc_block_bodies_direct(block).unwrap();
+
+        // Body dropped by the short horizon; metadata + indexes retained
+        // (those are pruned later at pruning_depth by Fix A).
+        let after = store.get_payload(pid).unwrap().unwrap();
+        assert!(after.script.is_empty(), "F-26 Fix B: body dropped by horizon GC");
+        assert_eq!(after.bundle_id, bid, "metadata retained after body GC");
+        assert_eq!(after.blue_score, 77, "metadata retained after body GC");
+        assert!(store.has_payload(pid).unwrap(), "payload metadata still present");
+        assert!(store.get_bundle(bid).unwrap().is_some(), "bundle index retained");
+        assert!(store.list_by_block(block).unwrap().is_some(), "by_block retained");
+
+        // Idempotent.
+        store.gc_block_bodies_direct(block).unwrap();
+        assert!(store.get_payload(pid).unwrap().unwrap().script.is_empty());
+    }
+
+    #[test]
+    fn body_gc_watermark_roundtrip() {
+        let (_lt, store) = build_store();
+        assert_eq!(store.body_gc_watermark(), 0, "watermark defaults to 0");
+        store.set_body_gc_watermark_direct(123_456).unwrap();
+        assert_eq!(store.body_gc_watermark(), 123_456);
+        store.set_body_gc_watermark_direct(200_000).unwrap();
+        assert_eq!(store.body_gc_watermark(), 200_000);
     }
 }

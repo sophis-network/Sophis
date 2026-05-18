@@ -326,9 +326,9 @@ pub fn create_core_with_runtime(runtime: &Runtime, args: &Args, fd_total_budget:
         // so Fix A's DA-store pruning becomes observable inside a short
         // soak. NOT a consensus/ship change; refused unless --devnet so
         // testnet/mainnet pruning_depth (a security parameter) is untouched.
-        if args.soak_pruning_depth.is_some() || args.soak_finality_depth.is_some() {
+        if args.soak_pruning_depth.is_some() || args.soak_finality_depth.is_some() || args.soak_body_horizon.is_some() {
             if !args.devnet {
-                println!("--soak-pruning-depth/--soak-finality-depth are devnet-only test instrumentation; refusing (not --devnet).");
+                println!("--soak-pruning-depth/--soak-finality-depth/--soak-body-horizon are devnet-only test instrumentation; refusing (not --devnet).");
                 exit(1);
             }
             // finality_depth = pruning-sample interval; the pruning point

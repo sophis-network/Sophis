@@ -135,7 +135,70 @@ impl PruningProcessor {
                 }
                 recovered = true;
             }
+            let sink_blue_score = sink_ghostdag_data.blue_score;
             self.advance_pruning_point_if_possible(sink_ghostdag_data);
+            // F-26 Fix B (M3.2) — drop carrier bodies past the short
+            // retention horizon. Non-consensus (H1), own WriteBatch, on the
+            // pruning thread off the block-commit critical path.
+            self.gc_carrier_bodies(sink_blue_score);
+        }
+    }
+
+    /// F-26 Fix B (M3.2) — delete carrier bodies (DaCarrierBodies/209) for
+    /// chain blocks older than the short body-retention horizon, leaving
+    /// metadata + indexes (kept to `pruning_depth` by Fix A) intact.
+    /// Skipped on archival nodes. Bounded per cycle; resumes from a
+    /// persisted selected-chain watermark (crash-safe, incremental).
+    fn gc_carrier_bodies(&self, sink_blue_score: u64) {
+        if self.config.is_archival {
+            return;
+        }
+        let horizon = self.config.body_retention_blocks;
+        if horizon == 0 {
+            return;
+        }
+        let cutoff = sink_blue_score.saturating_sub(horizon);
+        if cutoff == 0 {
+            return; // chain not yet `horizon` deep
+        }
+        let da = &self.storage.da_store;
+
+        // Below the pruning point Fix A already removed bodies + metadata,
+        // so start no lower than the pruning point's chain index.
+        let pp = self.pruning_point_store.read().pruning_point().unwrap();
+        let sc = self.selected_chain_store.read();
+        let pp_idx = sc.get_by_hash(pp).unwrap_or(0);
+        let start = da.body_gc_watermark().max(pp_idx);
+
+        const MAX_PER_CYCLE: u64 = 50_000;
+        let mut batch = WriteBatch::default();
+        let mut idx = start;
+        let mut processed = 0u64;
+        while processed < MAX_PER_CYCLE {
+            let hash = match sc.get_by_index(idx) {
+                Ok(h) => h,
+                Err(_) => break, // reached the tip / no further chain blocks
+            };
+            let bs = self.ghostdag_store.get_blue_score(hash).unwrap_or(0);
+            if bs >= cutoff {
+                break; // caught up to the body retention horizon
+            }
+            if let Err(e) = da.gc_block_bodies(&mut batch, hash) {
+                info!("F-26 body GC: stopping cycle, gc_block_bodies failed for {hash}: {e}");
+                break;
+            }
+            idx += 1;
+            processed += 1;
+        }
+        drop(sc);
+        if idx != start {
+            if let Err(e) = da.set_body_gc_watermark(&mut batch, idx) {
+                info!("F-26 body GC: watermark write failed, skipping commit: {e}");
+                return;
+            }
+            if let Err(e) = self.db.write(batch) {
+                info!("F-26 body GC: batch write failed: {e}");
+            }
         }
     }
 

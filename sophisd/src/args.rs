@@ -106,6 +106,11 @@ pub struct Args {
     /// Refused unless --devnet; never affects testnet/mainnet.
     pub soak_finality_depth: Option<u64>,
 
+    /// F-26 Fix B M3.2 — devnet-only: override the carrier-body retention
+    /// horizon (blocks) so the body GC is observable in a short soak.
+    /// Refused unless --devnet; never affects testnet/mainnet.
+    pub soak_body_horizon: Option<u64>,
+
     pub rocksdb_preset: Option<String>,
     pub rocksdb_wal_dir: Option<String>,
     pub rocksdb_cache_size: Option<usize>,
@@ -163,6 +168,7 @@ impl Default for Args {
             override_params_file: None,
             soak_pruning_depth: None,
             soak_finality_depth: None,
+            soak_body_horizon: None,
             rocksdb_preset: None,
             rocksdb_wal_dir: None,
             rocksdb_cache_size: None,
@@ -175,6 +181,12 @@ impl Args {
         config.utxoindex = self.utxoindex;
         config.disable_upnp = self.disable_upnp;
         config.unsafe_rpc = self.unsafe_rpc;
+        // F-26 Fix B — devnet-only body-horizon instrumentation. The
+        // --devnet guard is enforced in daemon.rs before Config is built;
+        // here we only apply the value when present.
+        if let Some(h) = self.soak_body_horizon {
+            config.body_retention_blocks = h;
+        }
         config.enable_unsynced_mining = self.enable_unsynced_mining;
         config.enable_mainnet_mining = self.enable_mainnet_mining;
         config.is_archival = self.archival;
@@ -443,6 +455,13 @@ a large RAM (~64GB) can set this value to ~3.0-4.0 and gain superior performance
                 .help("DEVNET-ONLY test instrumentation (F-26): override finality_depth (pruning-sample interval) so the pruning point can advance in a short soak. Refused unless --devnet.")
         )
         .arg(
+            Arg::new("soak-body-horizon")
+                .long("soak-body-horizon")
+                .require_equals(true)
+                .value_parser(clap::value_parser!(u64))
+                .help("DEVNET-ONLY test instrumentation (F-26 Fix B): override the carrier-body retention horizon (blocks) so body GC is observable in a short soak. Refused unless --devnet.")
+        )
+        .arg(
             Arg::new("rocksdb-preset")
                 .long("rocksdb-preset")
                 .env("SOPHISD_ROCKSDB_PRESET")
@@ -575,6 +594,7 @@ impl Args {
             override_params_file: m.get_one::<String>("override-params-file").cloned(),
             soak_pruning_depth: m.get_one::<u64>("soak-pruning-depth").cloned(),
             soak_finality_depth: m.get_one::<u64>("soak-finality-depth").cloned(),
+            soak_body_horizon: m.get_one::<u64>("soak-body-horizon").cloned(),
             rocksdb_preset: m.get_one::<String>("rocksdb-preset").cloned().or(defaults.rocksdb_preset),
             rocksdb_wal_dir: m.get_one::<String>("rocksdb-wal-dir").cloned().or(defaults.rocksdb_wal_dir),
             rocksdb_cache_size: m.get_one::<usize>("rocksdb-cache-size").cloned().or(defaults.rocksdb_cache_size),

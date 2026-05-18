@@ -95,6 +95,9 @@ pub enum DatabaseStorePrefixes {
     // be dropped on a short retention horizon while metadata stays to
     // pruning_depth. key = payload_id (48 B); value = PayloadBody (raw bytes).
     DaCarrierBodies = 209,
+    // F-26 Fix B (M3.2): single-value watermark (selected-chain index up to
+    // which carrier bodies have been GC'd by the short retention horizon).
+    DaBodyGcWatermark = 210,
 
     // ---- L1 Address Lookup Tables (sub-fase L1.2) ----
     // See `consensus/src/model/stores/alt.rs` and `docs/L1_ALT_DESIGN.md` §4.

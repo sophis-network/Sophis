@@ -40,8 +40,8 @@ pub use codec::{
     parse_and_reassemble, payload_id, reassemble,
 };
 pub use store_types::{
-    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadBody, PayloadEntry, PayloadId, PayloadIdHash,
-    PayloadMeta, domain_bucket_key_bytes,
+    BlockCarriers, BodyGcWatermark, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadBody, PayloadEntry, PayloadId,
+    PayloadIdHash, PayloadMeta, domain_bucket_key_bytes,
 };
 
 /// First 8 bytes of every carrier `script`. Frozen ABI.

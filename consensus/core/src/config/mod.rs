@@ -71,6 +71,14 @@ pub struct Config {
 
     /// The number of days to keep data for
     pub retention_period_days: Option<f64>,
+
+    /// F-26 Fix B — short retention horizon (in blocks) for carrier
+    /// *bodies*. Bodies older than `sink_blue_score - body_retention_blocks`
+    /// are GC'd from `DaCarrierBodies` while metadata is kept to
+    /// `pruning_depth`. Non-consensus node policy (consensus never reads the
+    /// body — H1). `--archival` nodes ignore it (keep bodies forever).
+    /// Default ≈ 6 h @ 10 BPS. Overridable on devnet via `--soak-body-horizon`.
+    pub body_retention_blocks: u64,
 }
 
 impl Config {
@@ -99,6 +107,7 @@ impl Config {
             disable_upnp: false,
             ram_scale: 1.0,
             retention_period_days: None,
+            body_retention_blocks: 6 * 3600 * 10, // F-26 Fix B: ~6 h @ 10 BPS (all Sophis nets)
         }
     }
 

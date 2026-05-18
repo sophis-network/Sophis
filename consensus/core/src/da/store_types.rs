@@ -185,6 +185,18 @@ impl MemSizeEstimator for PayloadBody {
     }
 }
 
+/// F-26 Fix B (M3.2) — single-value watermark: the selected-chain index up
+/// to which carrier bodies have already been dropped by the short body
+/// retention horizon. Stored under `DaBodyGcWatermark` (one fixed key).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct BodyGcWatermark(pub u64);
+
+impl MemSizeEstimator for BodyGcWatermark {
+    fn estimate_mem_bytes(&self) -> usize {
+        size_of::<Self>()
+    }
+}
+
 impl PayloadEntry {
     /// Split into the two persisted halves (F-26 Fix B).
     pub fn into_meta_and_body(self) -> (PayloadMeta, PayloadBody) {
