@@ -10,7 +10,7 @@ license.workspace = true
 repository.workspace = true
 
 [build-dependencies]
-duct = "0.13.7"
+duct = "1.1.1"
 
 [dependencies]
 arc-swap.workspace = true
