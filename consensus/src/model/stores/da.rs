@@ -11,7 +11,8 @@
 use rocksdb::WriteBatch;
 use sophis_consensus_core::BlockHasher;
 use sophis_consensus_core::da::{
-    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadEntry, PayloadIdHash, domain_bucket_key_bytes,
+    BlockCarriers, BundleIndex, DOMAIN_BUCKET_SIZE, DomainBucket, PayloadBody, PayloadEntry, PayloadIdHash, PayloadMeta,
+    domain_bucket_key_bytes,
 };
 use sophis_database::prelude::CachePolicy;
 use sophis_database::prelude::DB;
@@ -75,7 +76,8 @@ pub struct CarrierIndex {
 #[derive(Clone)]
 pub struct DbDaStore {
     db: Arc<DB>,
-    payloads: CachedDbAccess<PayloadIdHash, PayloadEntry>,
+    payloads: CachedDbAccess<PayloadIdHash, PayloadMeta>,
+    bodies: CachedDbAccess<PayloadIdHash, PayloadBody>,
     bundles: CachedDbAccess<PayloadIdHash, BundleIndex>,
     by_block: CachedDbAccess<Hash, BlockCarriers, BlockHasher>,
     by_domain: CachedDbAccess<DomainBucketKey, DomainBucket>,
@@ -84,10 +86,11 @@ pub struct DbDaStore {
 impl DbDaStore {
     pub fn new(db: Arc<DB>, cache_policy: CachePolicy) -> Self {
         let payloads = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierPayloads.into());
+        let bodies = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBodies.into());
         let bundles = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBundles.into());
         let by_block = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByBlock.into());
         let by_domain = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByDomain.into());
-        Self { db, payloads, bundles, by_block, by_domain }
+        Self { db, payloads, bodies, bundles, by_block, by_domain }
     }
 
     pub fn clone_with_new_cache(&self, cache_policy: CachePolicy) -> Self {
@@ -121,7 +124,11 @@ impl DbDaStore {
             if self.payloads.has(ci.payload_id)? {
                 continue;
             }
-            self.payloads.write(BatchDbWriter::new(batch), ci.payload_id, ci.entry.clone())?;
+            // F-26 Fix B — split metadata (196, kept to pruning_depth) from
+            // the body (209, droppable on a short horizon). Same WriteBatch.
+            let (meta, body) = ci.entry.clone().into_meta_and_body();
+            self.payloads.write(BatchDbWriter::new(batch), ci.payload_id, meta)?;
+            self.bodies.write(BatchDbWriter::new(batch), ci.payload_id, body)?;
             block_payload_ids.push(ci.payload_id);
 
             // Append to bundle index. Read-modify-write; later fragments
@@ -208,6 +215,8 @@ impl DbDaStore {
                 Err(e) => return Err(e),
             };
             self.payloads.delete(BatchDbWriter::new(batch), pid)?;
+            // Body lives in a separate store (F-26 Fix B) — drop it too.
+            self.bodies.delete(BatchDbWriter::new(batch), pid)?;
 
             // Shrink (or drop) the bundle index.
             match self.bundles.read(entry.bundle_id) {
@@ -249,11 +258,20 @@ impl DbDaStore {
 
 impl DaStoreReader for DbDaStore {
     fn get_payload(&self, payload_id: PayloadIdHash) -> Result<Option<PayloadEntry>, StoreError> {
-        match self.payloads.read(payload_id) {
-            Ok(e) => Ok(Some(e)),
-            Err(StoreError::KeyNotFound(_)) => Ok(None),
-            Err(e) => Err(e),
-        }
+        let meta = match self.payloads.read(payload_id) {
+            Ok(m) => m,
+            Err(StoreError::KeyNotFound(_)) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        // F-26 Fix B — body may already be dropped by the short retention
+        // horizon while metadata is kept to pruning_depth; return empty
+        // script in that case (consensus never reads the body — H1).
+        let body = match self.bodies.read(payload_id) {
+            Ok(b) => b.0,
+            Err(StoreError::KeyNotFound(_)) => Vec::new(),
+            Err(e) => return Err(e),
+        };
+        Ok(Some(PayloadEntry::reassemble(meta, body)))
     }
 
     fn has_payload(&self, payload_id: PayloadIdHash) -> Result<bool, StoreError> {
@@ -373,6 +391,7 @@ mod tests {
         let read = store.get_payload(pid).unwrap().unwrap();
         assert_eq!(read.bundle_id, bid);
         assert_eq!(read.blue_score, 100);
+        assert_eq!(read.script, entry.script, "F-26 Fix B: body roundtrips through the metadata/body store split");
         assert!(store.has_payload(pid).unwrap());
 
         // bundles

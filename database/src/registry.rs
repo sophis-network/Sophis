@@ -91,6 +91,10 @@ pub enum DatabaseStorePrefixes {
     DaCarrierBundles = 197,  // key = bundle_id  (48 B);  value = Vec<payload_id> ordered by fragment_index
     DaCarrierByBlock = 198,  // key = block_hash;         value = Vec<payload_id> accepted in that block
     DaCarrierByDomain = 199, // key = (domain, blue_score_bucket);  value = Vec<payload_id>
+    // F-26 Fix B: carrier body bytes split out of PayloadEntry so they can
+    // be dropped on a short retention horizon while metadata stays to
+    // pruning_depth. key = payload_id (48 B); value = PayloadBody (raw bytes).
+    DaCarrierBodies = 209,
 
     // ---- L1 Address Lookup Tables (sub-fase L1.2) ----
     // See `consensus/src/model/stores/alt.rs` and `docs/L1_ALT_DESIGN.md` §4.

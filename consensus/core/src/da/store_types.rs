@@ -152,6 +152,71 @@ impl MemSizeEstimator for PayloadEntry {
     }
 }
 
+/// F-26 Fix B — metadata half of a `PayloadEntry`, persisted in
+/// `DaCarrierPayloads` (196). Kept to `pruning_depth`. The `script`/body
+/// is split out to `PayloadBody`/`DaCarrierBodies` (209) so it can be
+/// dropped on a much shorter retention horizon. Consensus reads only
+/// these metadata fields (H1), never the body.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayloadMeta {
+    pub accepting_block_hash: Hash,
+    pub blue_score: u64,
+    pub fragment_index: u8,
+    pub fragment_count: u8,
+    pub bundle_id: PayloadIdHash,
+    pub domain_byte: u8,
+}
+
+impl MemSizeEstimator for PayloadMeta {
+    fn estimate_mem_bytes(&self) -> usize {
+        size_of::<Self>()
+    }
+}
+
+/// F-26 Fix B — body half of a `PayloadEntry`, persisted in
+/// `DaCarrierBodies` (209). Droppable on a short retention horizon
+/// independently of the metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayloadBody(pub Vec<u8>);
+
+impl MemSizeEstimator for PayloadBody {
+    fn estimate_mem_bytes(&self) -> usize {
+        size_of::<Self>() + self.0.len()
+    }
+}
+
+impl PayloadEntry {
+    /// Split into the two persisted halves (F-26 Fix B).
+    pub fn into_meta_and_body(self) -> (PayloadMeta, PayloadBody) {
+        (
+            PayloadMeta {
+                accepting_block_hash: self.accepting_block_hash,
+                blue_score: self.blue_score,
+                fragment_index: self.fragment_index,
+                fragment_count: self.fragment_count,
+                bundle_id: self.bundle_id,
+                domain_byte: self.domain_byte,
+            },
+            PayloadBody(self.script),
+        )
+    }
+
+    /// Reassemble from the metadata store + the (possibly already-pruned)
+    /// body. `body` is empty when the short body horizon dropped it while
+    /// the metadata is still retained — consensus never reads it (H1).
+    pub fn reassemble(meta: PayloadMeta, body: Vec<u8>) -> Self {
+        Self {
+            script: body,
+            accepting_block_hash: meta.accepting_block_hash,
+            blue_score: meta.blue_score,
+            fragment_index: meta.fragment_index,
+            fragment_count: meta.fragment_count,
+            bundle_id: meta.bundle_id,
+            domain_byte: meta.domain_byte,
+        }
+    }
+}
+
 /// All `payload_id`s that share a `bundle_id`, sorted by `fragment_index`
 /// ascending. Stored in `DaCarrierBundles` keyed by `bundle_id`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
