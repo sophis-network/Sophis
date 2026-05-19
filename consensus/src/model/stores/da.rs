@@ -88,8 +88,7 @@ impl DbDaStore {
     pub fn new(db: Arc<DB>, cache_policy: CachePolicy) -> Self {
         let payloads = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierPayloads.into());
         let bodies = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBodies.into());
-        let body_gc_watermark =
-            CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaBodyGcWatermark.into());
+        let body_gc_watermark = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaBodyGcWatermark.into());
         let bundles = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierBundles.into());
         let by_block = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByBlock.into());
         let by_domain = CachedDbAccess::new(db.clone(), cache_policy, DatabaseStorePrefixes::DaCarrierByDomain.into());
@@ -200,11 +199,7 @@ impl DbDaStore {
     /// with the rest of the consensus prune). The RMW on `bundles`/
     /// `by_domain` mirrors the same cache-coherent pattern that
     /// `index_carrier_batch` already relies on.
-    pub fn prune_block_batch(
-        &self,
-        batch: &mut WriteBatch,
-        accepting_block_hash: Hash,
-    ) -> Result<(), StoreError> {
+    pub fn prune_block_batch(&self, batch: &mut WriteBatch, accepting_block_hash: Hash) -> Result<(), StoreError> {
         let pids = match self.by_block.read(accepting_block_hash) {
             Ok(bc) => bc.payload_ids,
             Err(StoreError::KeyNotFound(_)) => return Ok(()),
@@ -553,9 +548,7 @@ mod tests {
         let pid = PayloadIdHash([0x10; 48]);
         let bid = PayloadIdHash([0x20; 48]);
         let dom = sophis_consensus_core::da::CARRIER_FLAG_DOMAIN_ROLLUP;
-        store
-            .index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 42, 0, 1, dom) }])
-            .unwrap();
+        store.index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 42, 0, 1, dom) }]).unwrap();
         assert!(store.get_payload(pid).unwrap().is_some());
 
         store.prune_block_direct(block).unwrap();
@@ -575,9 +568,7 @@ mod tests {
         // Index, then prune twice — second prune is a no-op.
         let pid = PayloadIdHash([0x33; 48]);
         let bid = PayloadIdHash([0x44; 48]);
-        store
-            .index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 1, 0, 1, 0) }])
-            .unwrap();
+        store.index_carrier_direct(block, &[CarrierIndex { payload_id: pid, entry: make_entry(bid, block, 1, 0, 1, 0) }]).unwrap();
         store.prune_block_direct(block).unwrap();
         store.prune_block_direct(block).unwrap();
         assert!(store.get_payload(pid).unwrap().is_none());
@@ -592,12 +583,8 @@ mod tests {
         let bid = PayloadIdHash([0x55; 48]);
         let p0 = PayloadIdHash([0u8; 48]);
         let p1 = PayloadIdHash([1u8; 48]);
-        store
-            .index_carrier_direct(block_a, &[CarrierIndex { payload_id: p0, entry: make_entry(bid, block_a, 10, 0, 2, 0) }])
-            .unwrap();
-        store
-            .index_carrier_direct(block_b, &[CarrierIndex { payload_id: p1, entry: make_entry(bid, block_b, 11, 1, 2, 0) }])
-            .unwrap();
+        store.index_carrier_direct(block_a, &[CarrierIndex { payload_id: p0, entry: make_entry(bid, block_a, 10, 0, 2, 0) }]).unwrap();
+        store.index_carrier_direct(block_b, &[CarrierIndex { payload_id: p1, entry: make_entry(bid, block_b, 11, 1, 2, 0) }]).unwrap();
 
         store.prune_block_direct(block_a).unwrap();
 
@@ -624,12 +611,8 @@ mod tests {
         let ba_bid = PayloadIdHash([0xA2; 48]);
         let bb_bid = PayloadIdHash([0xB2; 48]);
         // Same domain + same blue_score ⇒ same by_domain bucket.
-        store
-            .index_carrier_direct(ba, &[CarrierIndex { payload_id: pa, entry: make_entry(ba_bid, ba, 500, 0, 1, dom) }])
-            .unwrap();
-        store
-            .index_carrier_direct(bb, &[CarrierIndex { payload_id: pb, entry: make_entry(bb_bid, bb, 500, 0, 1, dom) }])
-            .unwrap();
+        store.index_carrier_direct(ba, &[CarrierIndex { payload_id: pa, entry: make_entry(ba_bid, ba, 500, 0, 1, dom) }]).unwrap();
+        store.index_carrier_direct(bb, &[CarrierIndex { payload_id: pb, entry: make_entry(bb_bid, bb, 500, 0, 1, dom) }]).unwrap();
 
         store.prune_block_direct(ba).unwrap();
         // Bucket shrunk, not deleted.
