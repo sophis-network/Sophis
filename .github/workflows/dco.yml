@@ -8,8 +8,10 @@ on:
 
 # CONTRIBUTING.md §DCO requires every commit to carry a
 # `Signed-off-by: Name <email>` trailer (added by `git commit -s`).
-# This workflow enforces it. PRs with unsigned commits fail this check
-# and cannot be merged until amended.
+# This workflow enforces it for authored commits. Merge commits (created
+# by GitHub's PR-merge button) are exempt — they are platform-generated,
+# not authored contributions and cannot carry a contributor sign-off.
+# PRs with unsigned authored commits fail this check until amended.
 #
 # See https://developercertificate.org/ for the full DCO v1.1 text.
 
@@ -45,9 +47,13 @@ jobs:
 
           echo "Checking commits in range ${BASE_SHA}..${HEAD_SHA}"
 
-          # Walk every commit in the range
+          # Walk every commit in the range, EXEMPTING merge commits
+          # (--no-merges): GitHub's PR "Merge" button auto-generates them;
+          # they are platform-created, not authored contributions, so they
+          # cannot carry a contributor Signed-off-by. DCO attests
+          # authorship of contributed commits, hence --no-merges is correct.
           MISSING=""
-          for commit in $(git rev-list "${BASE_SHA}..${HEAD_SHA}"); do
+          for commit in $(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}"); do
             # Extract trailers; look for Signed-off-by
             signoff=$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "${commit}")
             if [ -z "${signoff}" ]; then
