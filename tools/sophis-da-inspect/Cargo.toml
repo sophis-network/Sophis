@@ -1,0 +1,21 @@
+[package]
+name = "sophis-da-inspect"
+description = "Read-only per-prefix breakdown of the consensus RocksDB via secondary instance (no lock contention with a live sophisd). Diagnostic for F-26/F-27 — DA-store pruning effectiveness."
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-da-inspect"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+rocksdb.workspace = true
+
+[lints]
+workspace = true

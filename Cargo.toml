@@ -103,6 +103,7 @@ members = [
     "oracle/host",
     "oracle/relayer",
     "tools/sophis-da-stress",
+    "tools/sophis-da-inspect",
     "tools/sophis-dashboard",
     "tools/sophis-calculator",
     "tools/sophis-cap-monitor",
