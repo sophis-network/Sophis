@@ -30,6 +30,11 @@ struct Args {
     /// DNS TTL for returned A records (seconds)
     #[arg(long, default_value = "30")]
     dns_ttl: u32,
+
+    /// Zone we are authoritative for. Queries for any other name receive RCODE=REFUSED.
+    /// Case-insensitive. Default targets the testnet seed.
+    #[arg(long, default_value = "testnet-seed.sophis.org")]
+    zone: String,
 }
 
 #[tokio::main]
@@ -45,7 +50,13 @@ async fn main() {
         }
     };
 
-    eprintln!("sophis-dnsseeder starting | network={} p2p_port={} dns={}", args.network, p2p_port, args.listen_dns);
+    let zone = args.zone.trim().trim_end_matches('.').to_ascii_lowercase();
+    if zone.is_empty() {
+        eprintln!("--zone cannot be empty");
+        std::process::exit(1);
+    }
+
+    eprintln!("sophis-dnsseeder starting | network={} p2p_port={} dns={} zone={}", args.network, p2p_port, args.listen_dns, zone);
 
     let good_nodes: Arc<RwLock<Vec<Ipv4Addr>>> = Arc::new(RwLock::new(Vec::new()));
 
@@ -53,8 +64,9 @@ async fn main() {
     let dns_nodes = good_nodes.clone();
     let listen_dns = args.listen_dns;
     let ttl = args.dns_ttl;
+    let zone_for_dns = zone.clone();
     tokio::spawn(async move {
-        dns::serve(listen_dns, dns_nodes, ttl).await;
+        dns::serve(listen_dns, dns_nodes, ttl, zone_for_dns).await;
     });
 
     // Crawl loop
