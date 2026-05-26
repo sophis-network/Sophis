@@ -24,9 +24,49 @@ const BATCH_SIZE: u64 = 5_000_000;
 // Intervalo máximo antes de buscar novo template (ms)
 const TEMPLATE_REFRESH_MS: u64 = 500;
 
+// Timeout por RPC call — resilience pattern para gRPC bidi streams
+// long-lived. Mesmo padrão usado pelo testnet-faucet. Em caso de timeout
+// (stream wedged, peer unresponsive, etc), o caller reconecta via
+// `reconnect_grpc` em vez de bloquear indefinidamente.
+const RPC_CALL_TIMEOUT: Duration = Duration::from_secs(10);
+
 // ---------------------------------------------------------------------------
 // Mining
 // ---------------------------------------------------------------------------
+
+/// Reconecta ao gRPC com backoff exponencial.
+/// Usado tanto no setup inicial quanto como fallback de resilience —
+/// quando uma RPC call dá timeout, droppar o GrpcClient e abrir uma
+/// stream HTTP/2 fresca evita ficar preso em qualquer estado degradado
+/// da conexão.
+async fn reconnect_grpc(rpc_server: &str) -> GrpcClient {
+    let mut backoff_ms: u64 = 250;
+    loop {
+        let sub_ctx = SubscriptionContext::new();
+        match GrpcClient::connect_with_args(
+            NotificationMode::Direct,
+            format!("grpc://{}", rpc_server),
+            Some(sub_ctx),
+            true,
+            None,
+            false,
+            Some(500_000),
+            Default::default(),
+        )
+        .await
+        {
+            Ok(r) => {
+                sophis_core::info!("Reconectado a grpc://{}", rpc_server);
+                return r;
+            }
+            Err(e) => {
+                sophis_core::warn!("Falha ao reconectar: {}. Retry em {}ms...", e, backoff_ms);
+                sleep(Duration::from_millis(backoff_ms)).await;
+                backoff_ms = (backoff_ms.saturating_mul(2)).min(5_000);
+            }
+        }
+    }
+}
 
 fn mine_template(state: &State, template_refresh_ms: u64) -> Option<u64> {
     let mut nonce_start: u64 = rand::random::<u64>();
@@ -148,22 +188,10 @@ async fn main() {
         info!("Fast Mode ativado. Dataset sera construido (~2 GB RAM, ~2 min) no primeiro bloco recebido.");
     }
 
-    // Conecta ao gRPC
-    let sub_ctx = SubscriptionContext::new();
-    let rpc = GrpcClient::connect_with_args(
-        NotificationMode::Direct,
-        format!("grpc://{}", rpc_server),
-        Some(sub_ctx),
-        true,
-        None,
-        false,
-        Some(500_000),
-        Default::default(),
-    )
-    .await
-    .expect("Falha ao conectar ao gRPC");
+    // Conecta ao gRPC (usa helper que também faz reconnect on timeout)
+    let mut rpc = reconnect_grpc(&rpc_server).await;
 
-    info!("Conectado a grpc://{}. Iniciando mineracao...", rpc_server);
+    info!("Iniciando mineracao em grpc://{}...", rpc_server);
 
     let mut blocks_found: u64 = 0;
     let mut total_hashes: u64 = 0;
@@ -175,17 +203,24 @@ async fn main() {
     let mut shared_dataset: Option<Arc<SharedDataset>> = None;
 
     loop {
-        // Obtém template
-        let mut template =
-            match rpc.get_block_template_call(None, GetBlockTemplateRequest::new(pay_address.clone(), b"sophis-miner".to_vec())).await
-            {
-                Ok(t) => t,
-                Err(e) => {
-                    warn!("get_block_template falhou: {}. Retry em 2s...", e);
-                    sleep(Duration::from_secs(2)).await;
-                    continue;
-                }
-            };
+        // Obtém template — wrapped em timeout (resilience pattern).
+        // Em caso de stream wedge ou peer unresponsive, reconecta gRPC
+        // pra evitar bloqueio indefinido.
+        let template_fut =
+            rpc.get_block_template_call(None, GetBlockTemplateRequest::new(pay_address.clone(), b"sophis-miner".to_vec()));
+        let mut template = match tokio::time::timeout(RPC_CALL_TIMEOUT, template_fut).await {
+            Ok(Ok(t)) => t,
+            Ok(Err(e)) => {
+                warn!("get_block_template falhou: {}. Retry em 2s...", e);
+                sleep(Duration::from_secs(2)).await;
+                continue;
+            }
+            Err(_) => {
+                warn!("get_block_template timeout apos {}s — gRPC stream wedged, reconectando...", RPC_CALL_TIMEOUT.as_secs());
+                rpc = reconnect_grpc(&rpc_server).await;
+                continue;
+            }
+        };
 
         // Aplica donation split na coinbase (cliente-side, antes de minerar).
         // O nó devolve a coinbase como transactions[0]. Reescrevemos seus
@@ -284,8 +319,10 @@ async fn main() {
             let mut block = template.block;
             block.header.nonce = nonce;
 
-            match rpc.submit_block_call(None, SubmitBlockRequest::new(block, false)).await {
-                Ok(resp) => {
+            // submit_block tambem wrapped em timeout (resilience pattern).
+            let submit_fut = rpc.submit_block_call(None, SubmitBlockRequest::new(block, false));
+            match tokio::time::timeout(RPC_CALL_TIMEOUT, submit_fut).await {
+                Ok(Ok(resp)) => {
                     if resp.report.is_success() {
                         blocks_found += 1;
                         let elapsed = start_time.elapsed().as_secs_f64();
@@ -295,7 +332,11 @@ async fn main() {
                         warn!("Bloco rejeitado: {:?}", resp.report);
                     }
                 }
-                Err(e) => warn!("submit_block falhou: {}", e),
+                Ok(Err(e)) => warn!("submit_block falhou: {}", e),
+                Err(_) => {
+                    warn!("submit_block timeout apos {}s — bloco potencialmente perdido, reconectando...", RPC_CALL_TIMEOUT.as_secs());
+                    rpc = reconnect_grpc(&rpc_server).await;
+                }
             }
         }
     }
