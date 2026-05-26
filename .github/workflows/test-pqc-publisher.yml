@@ -142,8 +142,12 @@ jobs:
         shell: bash
         run: |
           set -e
+          # Skip clap's built-in `help` subcommand — `help --help` is parsed as
+          # `help <SUBCOMMAND>` with `--help` as the subcommand, which fails.
+          # Linux/macOS bash absorbed the non-zero via `||`, Windows git-bash
+          # propagated it and broke the step (CI flake since 2026-05-20).
           for sub in $(cargo run --release -p sophis-oracle-publisher -- --help 2>&1 | \
-                       grep -E "^\s{2,4}[a-z]" | awk '{print $1}' | grep -v '^-'); do
+                       grep -E "^\s{2,4}[a-z]" | awk '{print $1}' | grep -vE '^(help$|-)'); do
             echo "→ $sub --help"
             cargo run --release -p sophis-oracle-publisher -- "$sub" --help || \
               echo "::warning::Subcommand '$sub' --help non-zero — verify CLI structure"

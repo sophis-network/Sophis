@@ -22,11 +22,12 @@ faster-hex.workspace = true
 log.workspace = true
 paste.workspace = true
 prost.workspace = true
-tonic = { workspace = true, features = ["tls", "gzip"] }
+tonic = { workspace = true, features = ["tls-webpki-roots", "gzip"] }
+tonic-prost.workspace = true
 workflow-core.workspace = true
 
 [build-dependencies]
-tonic-build = { workspace = true, features = ["prost"] }
+tonic-prost-build = { workspace = true }
 
 [dev-dependencies]
 itertools.workspace = true
