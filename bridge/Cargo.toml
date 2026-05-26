@@ -60,7 +60,7 @@ windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_
 # For musl builds, we declare mimalloc without 'override' to override sophis-alloc's version
 # The .cargo/config.toml linker flag handles any remaining conflicts
 [target.'cfg(all(not(target_os = "macos"), target_env = "musl"))'.dependencies]
-mimalloc = { version = "0.1.50", default-features = false }
+mimalloc = { version = "0.1.52", default-features = false }
 
 
 [dev-dependencies]
