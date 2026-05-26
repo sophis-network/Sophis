@@ -995,7 +995,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -1974,7 +1974,7 @@ dependencies = [
  "futures",
  "rand 0.8.6",
  "reqwest",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
 ]
 
@@ -4942,7 +4942,7 @@ dependencies = [
  "memchr",
  "parking_lot",
  "protobuf",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -5117,7 +5117,7 @@ dependencies = [
  "rustc-hash 2.1.1",
  "rustls",
  "socket2 0.5.7",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
 ]
@@ -5297,7 +5297,7 @@ dependencies = [
  "bitflags 1.3.2",
  "cmake",
  "libc",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -5343,7 +5343,7 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom 0.2.15",
  "libredox",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -6561,7 +6561,7 @@ dependencies = [
  "sophis-core",
  "sophis-database",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -6589,7 +6589,7 @@ dependencies = [
  "serde",
  "sha2",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "workflow-wasm",
  "zeroize",
@@ -6633,7 +6633,7 @@ dependencies = [
  "hex",
  "sha3",
  "sophis-hashes",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -6699,7 +6699,7 @@ dependencies = [
  "sophis-txscript",
  "sophis-txscript-errors",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "wat",
 ]
@@ -6723,7 +6723,7 @@ dependencies = [
  "sophis-txscript",
  "sophis-utils",
  "sophis-wasm-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "workflow-log",
  "workflow-wasm",
@@ -6758,7 +6758,7 @@ dependencies = [
  "sophis-muhash",
  "sophis-txscript-errors",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",
@@ -6783,7 +6783,7 @@ dependencies = [
  "sophis-hashes",
  "sophis-notify",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "triggered",
 ]
 
@@ -6801,7 +6801,7 @@ dependencies = [
  "sophis-consensus-core",
  "sophis-hashes",
  "sophis-txscript",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "workflow-log",
  "workflow-wasm",
@@ -6835,7 +6835,7 @@ dependencies = [
  "log",
  "log4rs",
  "num_cpus",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "triggered",
  "wasm-bindgen",
@@ -6900,7 +6900,7 @@ dependencies = [
  "sophis-hashes",
  "sophis-utils",
  "tempfile",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -6951,7 +6951,7 @@ dependencies = [
  "sophis-rpc-core",
  "sophis-utils",
  "sophis-utils-tower",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -7001,7 +7001,7 @@ dependencies = [
  "sophis-rpc-service",
  "sophis-utils",
  "sophis-utils-tower",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -7050,7 +7050,7 @@ dependencies = [
  "sophis-hashes",
  "sophis-notify",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "triggered",
 ]
 
@@ -7073,7 +7073,7 @@ dependencies = [
  "sophis-notify",
  "sophis-utils",
  "sophis-utxoindex",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -7099,7 +7099,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "workflow-core",
  "workflow-log",
@@ -7122,7 +7122,7 @@ dependencies = [
  "separator",
  "serde",
  "sophis-rpc-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "workflow-core",
  "workflow-log",
 ]
@@ -7144,7 +7144,7 @@ dependencies = [
  "sophis-pow",
  "sophis-rpc-core",
  "sophis-txscript",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -7167,7 +7167,7 @@ dependencies = [
  "sophis-txscript",
  "sophis-utils",
  "sweep-bptree",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -7176,7 +7176,7 @@ name = "sophis-mining-errors"
 version = "1.1.0"
 dependencies = [
  "sophis-consensus-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7216,7 +7216,7 @@ dependencies = [
  "sophis-math",
  "sophis-txscript",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "workflow-core",
  "workflow-log",
@@ -7230,7 +7230,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "sha3",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7244,7 +7244,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sophis-oracle-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -7267,7 +7267,7 @@ dependencies = [
  "p3-uni-stark",
  "serde",
  "sophis-oracle-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7287,7 +7287,7 @@ dependencies = [
  "borsh",
  "libcrux-ml-dsa",
  "sha3",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7298,7 +7298,7 @@ dependencies = [
  "faster-hex 0.9.0",
  "sophis-oracle-pqc-contract",
  "sophis-oracle-pqc-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7322,7 +7322,7 @@ dependencies = [
  "getrandom 0.2.15",
  "sophis-bip39",
  "sophis-oracle-pqc-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7349,7 +7349,7 @@ dependencies = [
  "sophis-rpc-core",
  "sophis-txscript",
  "tempfile",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.19",
 ]
@@ -7405,7 +7405,7 @@ dependencies = [
  "sophis-mining-errors",
  "sophis-utils",
  "sophis-utils-tower",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
  "tonic",
@@ -7433,7 +7433,7 @@ dependencies = [
  "log",
  "portable-atomic",
  "sophis-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "workflow-perf-monitor",
 ]
@@ -7459,7 +7459,7 @@ version = "1.1.0"
 dependencies = [
  "borsh",
  "sha3",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7473,7 +7473,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "sophis-rollup-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7498,7 +7498,7 @@ dependencies = [
  "sophis-rpc-core",
  "sophis-txscript",
  "sophis-wrpc-client",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -7545,7 +7545,7 @@ dependencies = [
  "sophis-rpc-macros",
  "sophis-txscript",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "uuid 1.23.1",
  "wasm-bindgen",
  "workflow-core",
@@ -7626,7 +7626,7 @@ dependencies = [
  "sophis-compact-filters",
  "sophis-hashes",
  "sophis-merkle",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7663,7 +7663,7 @@ dependencies = [
  "sophis-rpc-core",
  "sophis-utils",
  "sophisd",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "tokio-test",
  "tracing",
@@ -7683,7 +7683,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sophis-hashes",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7711,7 +7711,7 @@ dependencies = [
  "sophis-database",
  "sophis-hashes",
  "sophis-svm-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasmparser 0.224.1",
  "wasmtime",
  "wat",
@@ -7791,7 +7791,7 @@ dependencies = [
  "sophis-txscript-errors",
  "sophis-utils",
  "sophis-wasm-core",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "workflow-wasm",
 ]
@@ -7800,7 +7800,7 @@ dependencies = [
 name = "sophis-txscript-errors"
 version = "1.1.0"
 dependencies = [
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7811,7 +7811,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7843,7 +7843,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "sysinfo",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "triggered",
  "uuid 1.23.1",
@@ -7883,7 +7883,7 @@ dependencies = [
  "sophis-hashes",
  "sophis-index-core",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7896,7 +7896,7 @@ dependencies = [
  "sophis-consensus-core",
  "sophis-txscript",
  "sophis-wallet-pskt",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -7921,7 +7921,7 @@ dependencies = [
  "sophis-txscript",
  "sophis-txscript-errors",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",
@@ -7981,7 +7981,7 @@ dependencies = [
  "sophis-notify",
  "sophis-rpc-core",
  "sophis-rpc-macros",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "toml 0.8.19",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -8019,7 +8019,7 @@ dependencies = [
  "sophis-grpc-client",
  "sophis-rpc-core",
  "sophis-wrpc-server",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "workflow-core",
  "workflow-log",
@@ -8042,7 +8042,7 @@ dependencies = [
  "sophis-rpc-macros",
  "sophis-rpc-service",
  "sophis-utils",
- "thiserror 1.0.64",
+ "thiserror 2.0.18",
  "tokio",
  "workflow-core",
  "workflow-log",
@@ -8410,11 +8410,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.64"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d50af8abc119fb8bb6dbabcfa89656f46f84aa0ac7688088608076ad2b459a84"
+checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
 dependencies = [
- "thiserror-impl 1.0.64",
+ "thiserror-impl 1.0.69",
 ]
 
 [[package]]
@@ -8428,9 +8428,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.64"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08904e7672f5eb876eaaf87e0ce17857500934f4981c4a0ab2b4aa98baac7fc3"
+checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8968,7 +8968,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "sha1",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "utf-8",
 ]
 
@@ -10222,7 +10222,7 @@ dependencies = [
  "rlimit 0.10.2",
  "serde",
  "serde-wasm-bindgen",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
  "triggered",
  "vergen",
@@ -10259,7 +10259,7 @@ dependencies = [
  "futures",
  "js-sys",
  "regex",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -10278,7 +10278,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
  "wasm-bindgen",
  "workflow-core",
@@ -10334,7 +10334,7 @@ dependencies = [
  "cc",
  "libc",
  "mach",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "windows-sys 0.48.0",
 ]
 
@@ -10356,7 +10356,7 @@ dependencies = [
  "rand 0.8.6",
  "serde",
  "serde_json",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
  "tungstenite",
  "wasm-bindgen",
@@ -10399,7 +10399,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d1a90743bb4d3f68606cb4e9a78551a53399ebc35ddba981cbb56bf2b31940a"
 dependencies = [
  "futures",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "workflow-core",
  "workflow-task-macros",
 ]
@@ -10432,7 +10432,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde-wasm-bindgen",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "workflow-core",
@@ -10470,7 +10470,7 @@ dependencies = [
  "futures",
  "futures-util",
  "js-sys",
- "thiserror 1.0.64",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-tungstenite",
  "triggered",
