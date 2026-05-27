@@ -1,0 +1,30 @@
+[package]
+name = "sophis-cap-monitor"
+description = "Founder self-restriction watchdog — auto-pauses the local miner when the declared founder address reaches a configurable share (default 4.9%) of the circulating supply. Public + verifiable: anyone can run it against any node to independently audit the cap."
+rust-version.workspace = true
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+include.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "sophis-cap-monitor"
+path = "src/main.rs"
+
+[dependencies]
+sophis-addresses.workspace = true
+sophis-core.workspace = true
+sophis-grpc-client.workspace = true
+sophis-notify.workspace = true
+sophis-rpc-core.workspace = true
+
+clap = { workspace = true }
+log.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "time"] }
+
+[lints]
+workspace = true
