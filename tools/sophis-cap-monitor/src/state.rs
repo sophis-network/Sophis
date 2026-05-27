@@ -33,7 +33,8 @@ impl State {
     pub fn load_or_init(path: &Path, address: &str) -> Result<Self, String> {
         match std::fs::read_to_string(path) {
             Ok(s) => {
-                let loaded: State = serde_json::from_str(&s).map_err(|e| format!("state file malformed at {}: {e}", path.display()))?;
+                let loaded: State =
+                    serde_json::from_str(&s).map_err(|e| format!("state file malformed at {}: {e}", path.display()))?;
                 if loaded.address != address {
                     return Err(format!(
                         "state file address mismatch: file has {}, CLI gave {}. Refuse to reuse — point --state-file to a fresh path, or fix --address.",

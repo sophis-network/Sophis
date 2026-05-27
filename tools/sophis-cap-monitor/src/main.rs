@@ -103,7 +103,9 @@ async fn main() {
         std::process::exit(1);
     }
     if threshold_bps > 500 {
-        warn!("--threshold-bps={threshold_bps} exceeds the 5.0% public commitment (500); proceeding anyway, but this defeats the purpose of the cap.");
+        warn!(
+            "--threshold-bps={threshold_bps} exceeds the 5.0% public commitment (500); proceeding anyway, but this defeats the purpose of the cap."
+        );
     }
     if interval_secs == 0 {
         eprintln!("invalid --interval-secs=0");
@@ -194,11 +196,7 @@ async fn main() {
         // a cap on the founder's share: if anyone burns, the denominator
         // shrinks and the watchdog trips earlier rather than later.
         let denom = supply.circulating_sompi;
-        let ratio_bps: u64 = if denom == 0 {
-            0
-        } else {
-            (st.hwm_sompi as u128 * 10_000u128 / denom as u128) as u64
-        };
+        let ratio_bps: u64 = if denom == 0 { 0 } else { (st.hwm_sompi as u128 * 10_000u128 / denom as u128) as u64 };
 
         st.last_check_unix = now;
         st.last_circulating_sompi = denom;
