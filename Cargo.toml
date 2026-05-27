@@ -105,6 +105,7 @@ members = [
     "tools/sophis-da-stress",
     "tools/sophis-dashboard",
     "tools/sophis-calculator",
+    "tools/sophis-cap-monitor",
 ]
 
 [workspace.package]
