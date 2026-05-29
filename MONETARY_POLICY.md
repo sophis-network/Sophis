@@ -20,7 +20,7 @@ documented in `OPERATIONAL_BOUNDARIES.md` and `FOUNDER_SELF_RESTRICTION.md`.
 | Total supply (lifetime cap) | **210,000,000 SPHS** |
 | Sompi per SPHS | 100,000,000 (8 decimals) |
 | Block production target | 10 blocks per second |
-| Coinbase maturity | 100 blocks (mainnet) |
+| Coinbase maturity | 1000 blocks (mainnet) |
 | Proof-of-work | RandomX (memory-hard, CPU-first, anti-ASIC) |
 | Signature scheme | ML-DSA-44 (Dilithium, FIPS 204) — post-quantum |
 
@@ -63,8 +63,8 @@ SEC). There is:
 
 - No ICO, no IDO, no IEO, no presale, no airdrop financed by issuance.
 - No legal entity (no foundation, no LLC, no Cayman vehicle, no MEI/CNPJ
-  attached to "Sophis"). See `project_no_entity_decision.md` for the
-  policy decision.
+  attached to "Sophis"). See § 4.2 of `FOUNDER_SELF_RESTRICTION.md` and
+  § 5 of `OPERATIONAL_BOUNDARIES.md` for the binding statements.
 - No marketing budget funded by SPHS.
 - No paid development funded by on-chain SPHS.
 
@@ -125,8 +125,10 @@ tokens issued on Sophis. SPHS does **not** represent:
 - A redemption right against any party
 
 SPHS is a permissionless commodity-style native asset, in the lineage
-of BTC and XMR. The legal characterization the Sophis Project applies
-is documented in `project_legal_positioning.md`.
+of BTC and XMR. The Sophis Project's posture as an open-source
+protocol developer (not an issuer, custodian, or operator) is set out
+across this document and its companions `OPERATIONAL_BOUNDARIES.md`
+and `HARD_FORK_POLICY.md`.
 
 ## 8. Anti-rug invariants
 
@@ -143,14 +145,15 @@ without changing the chain's name:
    move SPHS from "to be mined" to "already allocated to X".
 5. **No on-chain treasury.** The protocol layer holds zero SPHS.
 
-Violating any of (1)-(5) is, by the test laid out in
-`project_legal_positioning.md`, a transition from open-source
-protocol developer to issuer-of-a-security. The Sophis Project does
-not make that transition.
+Violating any of (1)-(5) would, by the project's stated posture,
+constitute a transition from open-source protocol developer to
+issuer-of-a-security. The Sophis Project does not make that
+transition.
 
 ## 9. Reference
 
 - Implementation: `consensus/core/src/config/params.rs`,
   `consensus/src/processes/coinbase.rs`
-- Companion documents: `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`
-- Legal positioning: `project_legal_positioning.md` (memory)
+- Companion documents: `FOUNDER_SELF_RESTRICTION.md`,
+  `OPERATIONAL_BOUNDARIES.md`, `HARD_FORK_POLICY.md`,
+  `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`

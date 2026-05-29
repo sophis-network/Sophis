@@ -1,8 +1,8 @@
 # Sophis — Mainnet Launch Checklist (T-72h to T+24h)
 
 **Status:** v1, drafted 2026-05-06. Operational checklist binding the
-5 defensive actions from `project_mainnet_launch_defensive_actions.md`
-to the public timeline of the Sophis mainnet launch.
+5 defensive actions enumerated below to the public timeline of the
+Sophis mainnet launch.
 
 This checklist transforms the **24-hour founder restraint window** (the
 gap between genesis and the founder's first hash, decided 2026-05-04)
@@ -66,14 +66,14 @@ address) is automatically falsified.
 - [ ] Tag with `v1.0.0-mainnet` (or whichever version stamp ships)
 - [ ] Post the announcement (Twitter/X, GitHub Discussions, any
       relevant communities) with the commit hash + tag
-- [ ] Compute and publish SHA-256 hashes of the **three canonical
+- [ ] Compute and publish SHA-256 hashes of the **four canonical
       commitment docs**: `MONETARY_POLICY.md`,
-      `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`
-      (the ratified 2026-05-04 trio — Decisões 2/3/6). This file
-      (`LAUNCH_CHECKLIST.md`) is intentionally **excluded**: it is a
-      mutable operational runbook whose content changes during the
-      T-72h→T+24h window (items get checked off), so anchoring its hash
-      would produce false drift and no governance value. Anchor only the
+      `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`,
+      `HARD_FORK_POLICY.md`. This file (`LAUNCH_CHECKLIST.md`) is
+      intentionally **excluded** from the anchor: it is a mutable
+      operational runbook whose content changes during the T-72h→T+24h
+      window (items get checked off), so anchoring its hash would
+      produce false drift and no governance value. Anchor only the
       binding commitment statements.
 
 ---
@@ -240,8 +240,9 @@ commit, included in the T-72h announcement)
 - [ ] `FOUNDER_SELF_RESTRICTION.md` v1 frozen (no further edits
       pre-launch)
 - [ ] Compute `sha256sum FOUNDER_SELF_RESTRICTION.md`
-      (and similarly for `MONETARY_POLICY.md`, `OPERATIONAL_BOUNDARIES.md`,
-      this `LAUNCH_CHECKLIST.md`)
+      (and similarly for `MONETARY_POLICY.md`,
+      `OPERATIONAL_BOUNDARIES.md`, and `HARD_FORK_POLICY.md`).
+      `LAUNCH_CHECKLIST.md` is intentionally excluded — see § 1.2.
 - [ ] Commit a copy of the hashes to a separate file
       (`HASHES_T_72H.txt` or similar) to make the fingerprint
       publicly archive-friendly
@@ -285,13 +286,13 @@ inspirational.
 
 ## Reference
 
-- Original 5-action specification:
-  `project_mainnet_launch_defensive_actions.md` (memory)
+- 5-action specification: this document itself (§§ 1-5 above)
 - Founder address: declared in `FOUNDER_SELF_RESTRICTION.md` § 1
 - Founder restrictions: `FOUNDER_SELF_RESTRICTION.md`
 - Operational boundaries: `OPERATIONAL_BOUNDARIES.md`
 - Monetary policy: `MONETARY_POLICY.md`
-- Cap monitoring: `scripts/cap_5pct_monitor.py`
+- Hard-fork policy: `HARD_FORK_POLICY.md`
+- Cap-monitoring watchdog: `tools/sophis-cap-monitor/` (Rust binary)
 
 ---
 
