@@ -8,8 +8,9 @@ timestamp prior to the chain itself.
 This is the founder's **public, lifetime, irrevocable** statement on
 how they will participate in the Sophis network as a miner and as a
 project lead. It is binding to the founder personally; it is not a
-protocol rule and not a property of any legal entity (the Sophis
-Project has no legal entity — see `project_no_entity_decision.md`).
+protocol rule and not a property of any legal entity. The Sophis
+Project has no legal entity bound to its name — see § 5 of
+`OPERATIONAL_BOUNDARIES.md`.
 
 ---
 
@@ -62,18 +63,40 @@ After cessation, the founder:
 
 ### 2.3 Auto-pause at 4.9%
 
-A public monitoring script
-(`scripts/cap_5pct_monitor.py`) tracks the ratio
-`balance(founder_address) / total_emitted_supply` and **auto-pauses**
-the founder's `sophis-miner` process when the ratio crosses 4.9%. The
-0.1% margin absorbs block-acceptance race conditions. Once paused,
-the founder may only resume mining if the ratio drops back below 4.9%
-(e.g. because total supply continues to grow while the address balance
-is unchanged).
+The Sophis Project ships a public watchdog binary,
+`tools/sophis-cap-monitor`, that tracks the ratio
 
-The script is open-source. Operators (regulators, journalists, anyone)
-may run it independently against any Sophis full node and verify the
-ratio in real time.
+```
+ratio_bps = high_water_mark(balance(founder_address)) * 10000 /
+            circulating_sompi
+```
+
+and **auto-pauses** the founder's `sophis-miner` process when the
+ratio crosses 4.9% (490 basis points). The 0.1% margin below the 5%
+cap absorbs block-acceptance race conditions and brief settling
+periods around the tip.
+
+The denominator is `circulating_sompi` (issued minus burned), which
+is strictly more conservative than total issued: if anyone burns,
+the denominator shrinks and the watchdog trips earlier rather than
+later. The numerator is a **monotone high-water-mark** of the
+address balance, persisted to a JSON state file with atomic writes,
+so that spending from the address does not lower the effective cap.
+
+Once paused, the paused state is **terminal**. The founder must
+consciously delete the watchdog's state file to resume mining — there
+is no automatic resume even if the denominator (circulating supply)
+later grows past the threshold. A conscious override is on-record by
+definition.
+
+The watchdog binary is part of the public release and identical for
+everyone. Operators (regulators, journalists, anyone) may run it in
+`--dry-run` mode against any Sophis full node started with
+`--utxoindex` and verify the ratio in real time without any privileged
+access. Two independent runs against two independent nodes should
+produce identical `hwm_sompi` and `last_ratio_bps` (modulo short-term
+tip divergence), and either can be diffed against the founder's
+published state file.
 
 ### 2.4 Address change is forbidden
 
@@ -110,10 +133,10 @@ After month 12, any sale follows these rules:
 - No sales occur during the 30 days following any major Sophis
   announcement (release, RFC publication, security advisory, etc.).
 
-These rules implement the "Charlie Lee linear" disengagement plan from
-`project_disengagement_strategy.md` §1.2.B. They do not preclude the
-founder from the "Satoshi" plan (§1.3.A: never sell), only from
-deviating without prior disclosure.
+These rules implement a linear, publicly-disclosed disengagement
+schedule. They do not preclude the founder from a stricter posture
+(for example: selling nothing, indefinitely) — only from deviating
+from a publicly-disclosed schedule without re-announcing it first.
 
 ## 4. Governance restrictions
 
@@ -193,16 +216,25 @@ The founder commits to publishing, annually:
 
 ## 8. Verification
 
-Anyone may verify §2 (mining + cap) at any time:
+Anyone may verify § 2 (mining + cap) at any time by running the
+public watchdog binary in `--dry-run` mode against any Sophis full
+node started with `--utxoindex`:
 
-```python
-python scripts/cap_5pct_monitor.py --check-once
-# prints:  current_ratio = X.YY%   threshold = 4.9%   status = ok|paused
+```bash
+sophis-cap-monitor \
+  --address "sophis:q2sdls98vf40p3v53eyu2ylu3rnfyvjr3cw3gwmuhj8pwnkkgdn5677h7448r" \
+  --rpc-server "127.0.0.1:46110" \
+  --state-file ./verify-cap-state.json \
+  --interval-secs 3600 \
+  --dry-run
 ```
 
-`scripts/cap_5pct_monitor.py` is open-source. It computes the ratio
-against any Sophis full node accessible via gRPC. Auditors do not need
-the founder's permission to run it.
+`--dry-run` suppresses the kill action — the binary only logs and
+updates its own state file. The state file is plain JSON and shows
+the observed high-water-mark, the current `ratio_bps`, and whether
+the watchdog has tripped. Auditors do not need the founder's
+permission to run it; the binary is identical for everyone, and the
+source is in `tools/sophis-cap-monitor/` on `sophis-network/Sophis`.
 
 ## 9. Footing
 
@@ -219,9 +251,9 @@ formation under whatever process the community chooses.
 
 ## 10. Reference
 
-- Public address: declared in § 1 above and re-stated in `MONETARY_POLICY.md` § 4
-- Cap monitoring script: `scripts/cap_5pct_monitor.py`
-- Disengagement plan: `project_disengagement_strategy.md` (memory)
-- Legal posture: `project_legal_positioning.md` (memory)
+- Public address: declared in § 1 above and re-stated in
+  `MONETARY_POLICY.md` § 4
+- Cap-monitoring watchdog: `tools/sophis-cap-monitor/` (Rust binary,
+  ships with every release; usage in `tools/sophis-cap-monitor/README.md`)
 - Sister documents: `MONETARY_POLICY.md`, `OPERATIONAL_BOUNDARIES.md`,
-  `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`
+  `HARD_FORK_POLICY.md`, `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`

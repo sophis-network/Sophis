@@ -138,7 +138,7 @@ hard fork that:
 
 The reference miner (`sophis-miner`) ships with an **opt-in
 `--donate-percent` flag** for client-side coinbase splits to addresses
-chosen by the operator (commit `e54fcd9`, sub-fase 6.6 ABI).
+chosen by the operator (commit `e54fcd9`).
 
 > The reference miner ships with an opt-in `--donate-percent` flag for
 > client-side coinbase splits to addresses chosen by the operator. The
@@ -162,8 +162,9 @@ action, the Sophis Project's defense rests on:
   reserved rights to the publisher and includes an explicit
   patent-retaliation clause
 - The precedent set by the Bitcoin Core / Monero Project lines of
-  cases — 15 years, zero criminal prosecutions of upstream protocol
-  developers (see `project_legal_positioning.md`)
+  cases — over a decade and a half of jurisprudence in which
+  upstream protocol developers have not been prosecuted for the
+  conduct of independent operators using their software
 
 The Sophis Project does not represent third-party operators in legal
 proceedings, does not provide legal advice to them, and does not
@@ -171,8 +172,8 @@ indemnify them.
 
 ## 8. Reference
 
-- Disengagement plan: `project_disengagement_strategy.md` (memory)
-- Donation flag spec: `project_miner_donate_flag.md` (memory)
-- Legal posture: `project_legal_positioning.md` (memory)
+- Donation flag implementation: `miner/src/donate.rs` and
+  `miner/src/main.rs` (CLI args `--donate-to` + `--donate-percent`)
+- Cap-monitoring watchdog: `tools/sophis-cap-monitor/`
 - Sister documents: `MONETARY_POLICY.md`, `FOUNDER_SELF_RESTRICTION.md`,
-  `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`
+  `HARD_FORK_POLICY.md`, `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`
