@@ -152,11 +152,24 @@ non-doc matches for FHE — a clean state).
 
 ### 2.5 `devfund_keygen` rename
 
-CLAUDE.md confirms `devfund_keygen` was renamed to `wallet_keygen` on
-2026-05-06. **Verify:** `miner/src/bin/devfund_keygen.rs` no longer
-exists; no `[[bin]]` or `[[example]]` entry in `miner/Cargo.toml`
-references the old name; binaries at `target/{debug,release}/` are
-pruned in CI.
+**Closed 2026-05-28.** The pivot's keygen rename resolved to a full
+removal — there is no standalone `wallet_keygen` binary, and the
+underlying functionality is the `dilithium-wallet keygen` subcommand.
+Verified:
+
+- `miner/src/bin/devfund_keygen.rs`: does not exist (the entire
+  `miner/src/bin/` directory does not exist).
+- `miner/Cargo.toml`: declares only `[[bin]] name = "sophis-miner"`;
+  no `devfund_keygen` / `wallet_keygen` entry.
+- Repo-wide grep for `devfund_keygen` / `devfund-keygen`: matches only
+  this audit section (self-reference) — zero source/script/doc matches.
+- Repo-wide grep for `wallet_keygen` / `wallet-keygen`: matches only
+  this audit section.
+- The fair-launch keygen flow uses `dilithium-wallet keygen` with
+  network-specific mainnet plaintext rejection (`reject_mainnet_plaintext`
+  in `dilithium-wallet/src/main.rs`) and references
+  `mainnet-mining/WALLET-PROCEDURE.md` for the paper-only mnemonic
+  procedure.
 
 ---
 
