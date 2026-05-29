@@ -49,7 +49,7 @@
   }
 </style>
 </head>
-<body x-data="dashboard()" x-init="poll(); setInterval(poll, 10000)">
+<body x-data="dashboard()" x-init="init()">
 
 <!-- Sticky header with RPC health and theme toggle -->
 <header class="sticky top-0 z-10 bg-panel border-b border-border1 px-8 py-5 backdrop-blur">
@@ -72,6 +72,25 @@
 </header>
 
 <main class="max-w-6xl mx-auto px-8 py-8">
+
+  <!-- I1.5 — Sticky restraint-window violation banner.
+       Latches the first time founder balance is observed non-zero while the
+       24h wait window is active. Persists across reloads via localStorage so
+       the historical violation cannot be hidden by closing the tab.
+       Never auto-clears — a violation that happened is a violation forever. -->
+  <div x-show="restraintViolated"
+       class="card mb-6 border-2 border-danger bg-danger/10">
+    <div class="label text-danger">⚠ Restraint window violation detected</div>
+    <div class="value text-2xl text-danger">
+      Founder balance went non-zero during the 24h wait window.
+    </div>
+    <div class="sub mt-2 text-danger/80">
+      Detected at <span class="num" x-text="restraintViolationAt ? new Date(restraintViolationAt).toISOString() : '—'"></span>
+      · Observed balance: <span class="num" x-text="fmtSompi(restraintViolationBalance)"></span>.
+      This banner is sticky (localStorage-backed) and does not auto-clear, even if
+      the balance later returns to zero or the window closes.
+    </div>
+  </div>
 
   <!-- Hero — 24h founder window + cap status -->
   <div class="card mb-6"
@@ -284,6 +303,26 @@
         top_100_wallets: { entries: [], sampling_window_blocks: 0, refreshed_unix_ms: 0, approximate: true, caveat: '' },
       },
 
+      // I1.5 — sticky restraint-window violation latch. Once true, never clears.
+      restraintViolated: false,
+      restraintViolationAt: 0,
+      restraintViolationBalance: 0,
+
+      init() {
+        // Restore latched violation from previous sessions (localStorage).
+        try {
+          const raw = localStorage.getItem('sophis-restraint-violated');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            this.restraintViolated = true;
+            this.restraintViolationAt = parsed.at || 0;
+            this.restraintViolationBalance = parsed.balance || 0;
+          }
+        } catch (_) { /* ignore */ }
+        this.poll();
+        setInterval(() => this.poll(), 10000);
+      },
+
       async poll() {
         try {
           const res = await fetch('/metrics');
@@ -291,6 +330,23 @@
           this.m = Object.assign({}, this.m, await res.json());
         } catch (e) {
           this.m = Object.assign({}, this.m, { rpc_healthy: false, last_rpc_error: 'fetch /metrics: ' + e });
+        }
+        // I1.5 — latch on the first observed violation, persist to localStorage.
+        // Condition: founder is INSIDE the 24h wait window AND balance is non-zero.
+        // Latching is one-way: subsequent polls where balance returns to 0 or the
+        // window closes do not reset `restraintViolated`.
+        if (!this.restraintViolated
+            && this.m.founder_in_wait_window
+            && (this.m.founder_balance_sompi || 0) > 0) {
+          this.restraintViolated = true;
+          this.restraintViolationAt = Date.now();
+          this.restraintViolationBalance = this.m.founder_balance_sompi;
+          try {
+            localStorage.setItem('sophis-restraint-violated', JSON.stringify({
+              at: this.restraintViolationAt,
+              balance: this.restraintViolationBalance,
+            }));
+          } catch (_) { /* ignore quota errors */ }
         }
       },
 
