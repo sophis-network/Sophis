@@ -16,7 +16,7 @@
 #   docker run --rm sophis-audit-tier2 cat /tmp/tier2-test.log
 # ────────────────────────────────────────────────────────────────────────────
 
-FROM rust:1.95-bookworm AS audit
+FROM rust:1.96-bookworm AS audit
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       cmake \
