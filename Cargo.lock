@@ -201,7 +201,7 @@ dependencies = [
  "digest 0.10.7",
  "fnv",
  "merlin",
- "sha2",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -843,6 +843,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-buffer"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdd35008169921d80bc60d3d0ab416eecb028c4cd653352907921d95084790be"
+dependencies = [
+ "hybrid-array",
+]
+
+[[package]]
 name = "block2"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -907,7 +916,7 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
 dependencies = [
- "sha2",
+ "sha2 0.10.9",
  "tinyvec",
 ]
 
@@ -1844,7 +1853,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.10.4",
  "const-oid 0.9.6",
  "crypto-common 0.1.6",
  "subtle",
@@ -1856,6 +1865,7 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
+ "block-buffer 0.12.0",
  "const-oid 0.10.2",
  "crypto-common 0.2.2",
 ]
@@ -5588,7 +5598,7 @@ dependencies = [
  "directories",
  "hex",
  "rayon",
- "sha2",
+ "sha2 0.10.9",
  "tempfile",
 ]
 
@@ -5648,7 +5658,7 @@ dependencies = [
  "risc0-sys",
  "risc0-zkp",
  "serde",
- "sha2",
+ "sha2 0.10.9",
  "tracing",
  "zip",
 ]
@@ -5799,7 +5809,7 @@ dependencies = [
  "risc0-sys",
  "risc0-zkvm-platform",
  "serde",
- "sha2",
+ "sha2 0.10.9",
  "stability",
  "tracing",
 ]
@@ -5847,7 +5857,7 @@ dependencies = [
  "rzup",
  "semver",
  "serde",
- "sha2",
+ "sha2 0.10.9",
  "stability",
  "tempfile",
  "tracing",
@@ -6136,7 +6146,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_with",
- "sha2",
+ "sha2 0.10.9",
  "strum",
  "tempfile",
  "thiserror 2.0.18",
@@ -6402,13 +6412,24 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.8"
+version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.2.14",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -6632,7 +6653,7 @@ dependencies = [
  "rand 0.9.3",
  "rand_core 0.9.3",
  "serde",
- "sha2",
+ "sha2 0.11.0",
  "sophis-utils",
  "thiserror 2.0.18",
  "wasm-bindgen",
@@ -7844,7 +7865,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "smallvec",
  "sophis-addresses",
  "sophis-consensus-core",
@@ -7901,7 +7922,7 @@ dependencies = [
  "rlimit 0.11.0",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "smallvec",
  "sysinfo",
  "thiserror 2.0.18",
@@ -9579,7 +9600,7 @@ dependencies = [
  "rustc-demangle",
  "serde",
  "serde_derive",
- "sha2",
+ "sha2 0.10.9",
  "smallvec",
  "target-lexicon",
  "wasm-encoder 0.246.2",
@@ -10319,7 +10340,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "sha2",
+ "sha2 0.10.9",
  "syn 1.0.109",
  "workflow-macro-tools",
 ]
@@ -10489,7 +10510,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "sha2",
+ "sha2 0.10.9",
  "syn 1.0.109",
  "workflow-macro-tools",
 ]
