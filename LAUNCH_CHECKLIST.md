@@ -67,10 +67,17 @@ address) is automatically falsified.
 - [ ] Post the announcement (Twitter/X, GitHub Discussions, any
       relevant communities) with the commit hash + tag
 - [ ] Compute and publish SHA-256 hashes of the **four canonical
-      commitment docs**: `MONETARY_POLICY.md`,
+      commitment docs** via `scripts/sha256-anchor.sh` (POSIX) or
+      `scripts/sha256-anchor.ps1` (PowerShell): `MONETARY_POLICY.md`,
       `FOUNDER_SELF_RESTRICTION.md`, `OPERATIONAL_BOUNDARIES.md`,
-      `HARD_FORK_POLICY.md`. This file (`LAUNCH_CHECKLIST.md`) is
-      intentionally **excluded** from the anchor: it is a mutable
+      `HARD_FORK_POLICY.md`. The script hashes the **LF-normalized git
+      blob** (`git show <ref>:<file> | sha256sum`) — do NOT use naked
+      `sha256sum <file>` or `Get-FileHash` on a Windows working copy,
+      they hash CRLF bytes and produce a different value. Output is
+      committed as `HASHES_T_72H.txt` and posted in the announcement.
+      See `scripts/sha256-anchor.README.md` for design + verification
+      instructions for third parties. This file (`LAUNCH_CHECKLIST.md`)
+      is intentionally **excluded** from the anchor: it is a mutable
       operational runbook whose content changes during the T-72h→T+24h
       window (items get checked off), so anchoring its hash would
       produce false drift and no governance value. Anchor only the
@@ -237,15 +244,21 @@ commit, included in the T-72h announcement)
 
 ### 5.1 Pre-flight
 
-- [ ] `FOUNDER_SELF_RESTRICTION.md` v1 frozen (no further edits
-      pre-launch)
-- [ ] Compute `sha256sum FOUNDER_SELF_RESTRICTION.md`
-      (and similarly for `MONETARY_POLICY.md`,
-      `OPERATIONAL_BOUNDARIES.md`, and `HARD_FORK_POLICY.md`).
+- [ ] All four anchor docs frozen (no further edits pre-launch):
+      `MONETARY_POLICY.md`, `FOUNDER_SELF_RESTRICTION.md`,
+      `OPERATIONAL_BOUNDARIES.md`, `HARD_FORK_POLICY.md`.
       `LAUNCH_CHECKLIST.md` is intentionally excluded — see § 1.2.
-- [ ] Commit a copy of the hashes to a separate file
-      (`HASHES_T_72H.txt` or similar) to make the fingerprint
-      publicly archive-friendly
+- [ ] Compute the four anchor hashes against the frozen ref using
+      `bash scripts/sha256-anchor.sh <ref> > HASHES_T_72H.txt`
+      (POSIX / Git Bash) or
+      `pwsh scripts/sha256-anchor.ps1 <ref> > HASHES_T_72H.txt`
+      (PowerShell). Both variants are byte-identical and hash the
+      LF git blob, not the working-copy CRLF bytes — see
+      `scripts/sha256-anchor.README.md`.
+- [ ] Commit `HASHES_T_72H.txt` to the repository on the same ref
+      that produced it (chicken-and-egg: the hashes are computed
+      against the parent commit; `HASHES_T_72H.txt` is published in
+      the announcement commit on top of it).
 
 ### 5.2 Execution
 
