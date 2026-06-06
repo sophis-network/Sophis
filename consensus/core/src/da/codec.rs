@@ -429,7 +429,13 @@ mod tests {
         // parse_carrier_header's rule-7 check. Must error, not panic (slot OOB).
         let script = vec![0u8; CARRIER_HEADER_LEN + 4];
         let input = ReassembleInput {
-            header: CarrierHeader { flags: 0, fragment_count: 1, fragment_index: 5, data_len: 4, bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN] },
+            header: CarrierHeader {
+                flags: 0,
+                fragment_count: 1,
+                fragment_index: 5,
+                data_len: 4,
+                bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN],
+            },
             script: &script,
         };
         match reassemble(&[input]) {
@@ -444,7 +450,13 @@ mod tests {
         // slice out of bounds.
         let script = vec![0u8; CARRIER_HEADER_LEN + 2];
         let input = ReassembleInput {
-            header: CarrierHeader { flags: 0, fragment_count: 1, fragment_index: 0, data_len: 9999, bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN] },
+            header: CarrierHeader {
+                flags: 0,
+                fragment_count: 1,
+                fragment_index: 0,
+                data_len: 9999,
+                bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN],
+            },
             script: &script,
         };
         match reassemble(&[input]) {
