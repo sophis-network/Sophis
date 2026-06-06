@@ -51,10 +51,13 @@ const FEE_RATE_PER_GRAM: u64 = 1;
 const MINIMUM_FEE: u64 = 1_000;
 
 fn calc_storage_mass_integer(inputs: &[(TransactionOutpoint, UtxoEntry)], send: u64, change: u64) -> u64 {
-    let out_send = STORAGE_MASS_PARAMETER.div_ceil(send);
+    // F-37 — make this total (no divide-by-zero panic on edge inputs such as
+    // `--amount 0`, mirroring the consensus-side F-22 fix). A zero-value output
+    // or input contributes zero mass here.
+    let out_send = if send > 0 { STORAGE_MASS_PARAMETER.div_ceil(send) } else { 0 };
     let out_change = if change > 0 { STORAGE_MASS_PARAMETER.div_ceil(change) } else { 0 };
-    let sum_out = out_send + out_change;
-    let sum_in: u64 = inputs.iter().map(|(_, e)| STORAGE_MASS_PARAMETER / e.amount).sum();
+    let sum_out = out_send.saturating_add(out_change);
+    let sum_in: u64 = inputs.iter().map(|(_, e)| if e.amount > 0 { STORAGE_MASS_PARAMETER / e.amount } else { 0 }).sum();
     sum_out.saturating_sub(sum_in)
 }
 

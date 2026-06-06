@@ -140,6 +140,39 @@ impl Address {
         }
 
         let payload_u8 = conv5to8(payload_u5);
+        // F-33 — a short (8- or 9-char) but checksum-valid address string
+        // decodes to an empty payload (`conv5to8` of <2 u5 symbols yields 0
+        // bytes), which would panic at `payload_u8[0]`. This path is reachable
+        // from untrusted RPC/serde input (`Address: Deserialize`), so guard the
+        // version-byte index and return a clean error instead of aborting.
+        if payload_u8.is_empty() {
+            return Err(AddressError::BadPayload);
+        }
         Ok(Self::new(prefix, payload_u8[0].try_into()?, payload_u8[1..].into()))
+    }
+}
+
+#[cfg(test)]
+mod f33_tests {
+    use super::{CHARSET, checksum, conv8to5};
+    use crate::{Address, AddressError, Prefix};
+    use alloc::string::String;
+
+    /// F-33 regression: an 8-char address body carrying a VALID checksum for an
+    /// EMPTY payload previously panicked at `payload_u8[0]` (index out of
+    /// bounds), and the path is reachable from untrusted RPC/serde input
+    /// (`Address: Deserialize`). It must now return `Err(BadPayload)` rather
+    /// than aborting the thread. The checksum is computed exactly the way
+    /// `decode_payload` recomputes it for a body with no payload symbols, so it
+    /// passes the checksum gate and exercises the new empty-payload guard.
+    #[test]
+    fn short_checksum_valid_address_returns_err_not_panic() {
+        let prefix = Prefix::Testnet;
+        let fivebit_prefix = || prefix.as_str().as_bytes().iter().copied().map(|c| c & 0x1f);
+        let cs = checksum(&[], fivebit_prefix());
+        let body: String = conv8to5(&cs.to_be_bytes()[3..]).iter().map(|c| CHARSET[*c as usize] as char).collect();
+        assert_eq!(body.len(), 8, "empty-payload body is just the 8 checksum chars");
+        let res = Address::decode_payload(prefix, &body);
+        assert!(matches!(res, Err(AddressError::BadPayload)), "expected BadPayload, got {res:?}");
     }
 }

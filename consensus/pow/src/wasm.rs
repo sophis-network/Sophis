@@ -32,7 +32,10 @@ pub fn calculate_target(difficulty: f32) -> Result<BigInt> {
 
     buf[start] = new_mantissa << remainder;
     if start < 3 {
-        buf[start + 1] = new_mantissa >> (64 - remainder);
+        // F-37 — when `remainder == 0` the carry shift would be `>> 64`, which
+        // panics in debug and wraps in release. In that case the mantissa fits
+        // entirely in `buf[start]` and the high word carries nothing.
+        buf[start + 1] = if remainder == 0 { 0 } else { new_mantissa >> (64 - remainder) };
     } else if new_mantissa.leading_zeros() < remainder as u32 {
         return Err(Error::custom("Target is too big"));
     }

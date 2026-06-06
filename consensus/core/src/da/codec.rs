@@ -167,6 +167,12 @@ pub enum ReassembleError {
     MissingFragmentIndex(u8),
     /// Two fragments had the same `fragment_index`.
     DuplicateFragmentIndex(u8),
+    /// A fragment's `fragment_index` was >= `fragment_count` (F-37 — a
+    /// hand-built `CarrierHeader` can carry an out-of-range slot index).
+    FragmentIndexOutOfRange { index: u8, count: u8 },
+    /// A fragment's `data_len` exceeded its backing `script` length (F-37 —
+    /// would otherwise slice out of bounds).
+    FragmentDataOutOfRange { index: u8 },
     /// SHA3-384 of the reassembled body did not equal the claimed bundle_id.
     BundleHashMismatch,
 }
@@ -181,6 +187,10 @@ impl std::fmt::Display for ReassembleError {
             Self::BundleIdMismatch => write!(f, "fragments carry different bundle_ids"),
             Self::MissingFragmentIndex(i) => write!(f, "fragment index {i} is missing from the input set"),
             Self::DuplicateFragmentIndex(i) => write!(f, "fragment index {i} appears more than once"),
+            Self::FragmentIndexOutOfRange { index, count } => {
+                write!(f, "fragment index {index} is out of range for fragment_count {count}")
+            }
+            Self::FragmentDataOutOfRange { index } => write!(f, "fragment {index} data_len exceeds its script length"),
             Self::BundleHashMismatch => write!(f, "SHA3-384 of reassembled bytes does not match claimed bundle_id"),
         }
     }
@@ -217,11 +227,21 @@ pub fn reassemble(inputs: &[ReassembleInput<'_>]) -> Result<Vec<u8>, ReassembleE
     let mut slots: Vec<Option<&[u8]>> = vec![None; count as usize];
     for input in inputs {
         let idx = input.header.fragment_index as usize;
+        // F-37 — `reassemble` is `pub` and callable with hand-built
+        // `ReassembleInput`s whose header fields bypass `parse_carrier_header`'s
+        // rule-7 check; guard the slot index and the data slice so a malformed
+        // header returns an error instead of panicking (index/slice OOB).
+        if idx >= count as usize {
+            return Err(ReassembleError::FragmentIndexOutOfRange { index: input.header.fragment_index, count });
+        }
         if slots[idx].is_some() {
             return Err(ReassembleError::DuplicateFragmentIndex(input.header.fragment_index));
         }
         let data_start = CARRIER_HEADER_LEN;
         let data_end = data_start + input.header.data_len as usize;
+        if data_end > input.script.len() {
+            return Err(ReassembleError::FragmentDataOutOfRange { index: input.header.fragment_index });
+        }
         slots[idx] = Some(&input.script[data_start..data_end]);
     }
 
@@ -399,6 +419,49 @@ mod tests {
         match parse_and_reassemble(&dup) {
             Err(ReassembleError::DuplicateFragmentIndex(0)) => {}
             other => panic!("expected DuplicateFragmentIndex(0), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reassemble_rejects_out_of_range_fragment_index() {
+        // F-37 — the raw `reassemble` entry point is `pub` and can be fed a
+        // hand-built header with fragment_index >= fragment_count, which bypasses
+        // parse_carrier_header's rule-7 check. Must error, not panic (slot OOB).
+        let script = vec![0u8; CARRIER_HEADER_LEN + 4];
+        let input = ReassembleInput {
+            header: CarrierHeader {
+                flags: 0,
+                fragment_count: 1,
+                fragment_index: 5,
+                data_len: 4,
+                bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN],
+            },
+            script: &script,
+        };
+        match reassemble(&[input]) {
+            Err(ReassembleError::FragmentIndexOutOfRange { index: 5, count: 1 }) => {}
+            other => panic!("expected FragmentIndexOutOfRange, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reassemble_rejects_data_len_overrun() {
+        // F-37 — data_len exceeding the backing script length must error, not
+        // slice out of bounds.
+        let script = vec![0u8; CARRIER_HEADER_LEN + 2];
+        let input = ReassembleInput {
+            header: CarrierHeader {
+                flags: 0,
+                fragment_count: 1,
+                fragment_index: 0,
+                data_len: 9999,
+                bundle_id: [0u8; CARRIER_PAYLOAD_HASH_LEN],
+            },
+            script: &script,
+        };
+        match reassemble(&[input]) {
+            Err(ReassembleError::FragmentDataOutOfRange { index: 0 }) => {}
+            other => panic!("expected FragmentDataOutOfRange, got {other:?}"),
         }
     }
 

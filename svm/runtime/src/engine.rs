@@ -24,8 +24,18 @@ impl SvmEngine {
         wt_config.cranelift_nan_canonicalization(true);
 
         // SIMD allowed — float SIMD opcodes are rejected by validate_bytecode before
-        // compilation; integer SIMD is deterministic; NaN canonicalization above covers edge cases.
+        // compilation; plain integer SIMD is deterministic; NaN canonicalization above covers edge cases.
         // Threads and component model disabled by not including those cargo features.
+        //
+        // F-30 — relaxed SIMD must be forced deterministic. Wasmtime enables the
+        // relaxed-SIMD proposal by default with non-deterministic (platform-native)
+        // lowering, and validate_bytecode only rejects the *float* relaxed ops — the
+        // pure-integer relaxed ops (relaxed_swizzle / relaxed_laneselect /
+        // relaxed_q15mulr / relaxed_dot) would otherwise produce x86-vs-ARM-divergent
+        // results, forking consensus across a heterogeneous validator set. Forcing
+        // deterministic lowering makes every relaxed op produce the canonical,
+        // architecture-independent result regardless of the host CPU.
+        wt_config.relaxed_simd_deterministic(true);
 
         // Memory limits enforced per-Store, not globally
         wt_config.max_wasm_stack(512 * 1024); // 512 KiB call stack
