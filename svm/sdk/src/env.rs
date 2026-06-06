@@ -4,9 +4,16 @@ use crate::utxo::{TxOutput, UtxoEntry};
 use borsh::BorshDeserialize;
 
 // Maximum size of a single borsh-serialised UTXO passed from the host.
-// Generous upper bound — typical UTXOs are < 100 bytes.
+// F-35 — must exceed the maximum serialized `UtxoEntry`: a consensus-legal
+// UTXO can carry a script_public_key up to `max_script_public_key_len`
+// (10_000 bytes), so the borsh encoding reaches ~10_023 bytes
+// (8 amount + 2 version + 4 len-prefix + 10_000 script + 8 daa + 1 coinbase).
+// The previous 8192 was below that, so the host (which writes the full
+// serialized length, bounded only against total linear memory) could
+// over-write past this buffer and the read-back below could slice out of
+// bounds and trap. 16 KiB comfortably contains any legal UTXO.
 #[cfg(target_arch = "wasm32")]
-const UTXO_BUF_SIZE: usize = 8192;
+const UTXO_BUF_SIZE: usize = 16384;
 
 // Host imports — only visible in WASM builds.
 // The Sophis sVM runtime registers all functions under module "env".
@@ -162,6 +169,12 @@ impl Env {
             if ok != 1 {
                 return None;
             }
+            // F-35 — defensive bound: never index past the buffer even if the
+            // host reports a length larger than the declared capacity (mirrors
+            // the guard `alt_lookup` already carries).
+            if len as usize > UTXO_BUF_SIZE {
+                return None;
+            }
             UtxoEntry::try_from_slice(&buf[..len as usize]).ok()
         }
         #[cfg(not(target_arch = "wasm32"))]
@@ -179,6 +192,12 @@ impl Env {
             let mut len: u32 = 0;
             let ok = unsafe { get_output_utxo(index as i32, buf.as_mut_ptr() as i32, &mut len as *mut u32 as i32) };
             if ok != 1 {
+                return None;
+            }
+            // F-35 — defensive bound: never index past the buffer even if the
+            // host reports a length larger than the declared capacity (mirrors
+            // the guard `alt_lookup` already carries).
+            if len as usize > UTXO_BUF_SIZE {
                 return None;
             }
             TxOutput::try_from_slice(&buf[..len as usize]).ok()

@@ -72,8 +72,10 @@ impl<TS: AsRef<TickService>> Monitor<TS> {
                 fd_num,
                 disk_io_read_bytes,
                 disk_io_write_bytes,
-                disk_io_read_per_sec: read_delta as f64 * 1000.0 / time_delta.as_millis() as f64,
-                disk_io_write_per_sec: write_delta as f64 * 1000.0 / time_delta.as_millis() as f64,
+                // F-37 — clamp the divisor to >= 1 ms so a sub-millisecond
+                // sampling interval yields 0 rather than `inf` telemetry.
+                disk_io_read_per_sec: read_delta as f64 * 1000.0 / time_delta.as_millis().max(1) as f64,
+                disk_io_write_per_sec: write_delta as f64 * 1000.0 / time_delta.as_millis().max(1) as f64,
             };
             self.counters.update(counters_snapshot);
             if let Some(ref cb) = self.fetch_callback {
