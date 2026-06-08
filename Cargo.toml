@@ -309,7 +309,7 @@ textwrap = "0.16.0"
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["sync", "rt-multi-thread"] }
 tokio-stream = "0.1.18"
-reqwest = { version = "0.12.8", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 
 # Plonky3 (Phase 5 ZK-Oracle prover)
 p3-air         = "0.5.3"
