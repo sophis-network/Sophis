@@ -218,6 +218,12 @@ pub fn encode_field_value<'a>(
             if (*w as usize) != bits {
                 return Err(TypedDataError::InvalidIntBitWidth(*w as usize));
             }
+            // F-37 — range-check the value against the declared bit width so an
+            // out-of-range value is rejected, not silently encoded. (bits >= 128:
+            // any u128 already fits in the low 128 bits of the 256-bit word.)
+            if bits < 128 && *v >= (1u128 << bits) {
+                return Err(TypedDataError::ValueOutOfRange(bits));
+            }
             let mut out = [0u8; 32];
             out[16..32].copy_from_slice(&v.to_be_bytes());
             Ok(out)
@@ -236,6 +242,15 @@ pub fn encode_field_value<'a>(
             };
             if (*w as usize) != bits {
                 return Err(TypedDataError::InvalidIntBitWidth(*w as usize));
+            }
+            // F-37 — signed range-check: -2^(bits-1) <= v <= 2^(bits-1)-1.
+            // (bits >= 128: any i128 fits in a 128-bit two's-complement word.)
+            if bits < 128 {
+                let max = (1i128 << (bits - 1)) - 1;
+                let min = -(1i128 << (bits - 1));
+                if *v < min || *v > max {
+                    return Err(TypedDataError::ValueOutOfRange(bits));
+                }
             }
             // Sign-extend the i128 into a 32-byte big-endian word.
             let mut out = if *v < 0 { [0xFFu8; 32] } else { [0u8; 32] };
@@ -384,6 +399,21 @@ mod tests {
         let mut expected_lower = [0u8; 16];
         expected_lower[12..].copy_from_slice(&0x12345u32.to_be_bytes());
         assert_eq!(&t[16..], &expected_lower[..]);
+    }
+
+    #[test]
+    fn f37_value_out_of_declared_width_is_rejected() {
+        // uint8 = 256 overflows 8 bits → rejected, not silently encoded.
+        let f = TypedField { name: "x".into(), type_str: "uint8".into() };
+        let r = encode_field_value(&f, &TypedValue::Uint(256, 8), &no_lookup());
+        assert!(matches!(r, Err(TypedDataError::ValueOutOfRange(8))), "got {r:?}");
+        // 255 fits.
+        assert!(encode_field_value(&f, &TypedValue::Uint(255, 8), &no_lookup()).is_ok());
+        // int8 = 128 overflows the signed range [-128, 127] → rejected; 127 fits.
+        let g = TypedField { name: "y".into(), type_str: "int8".into() };
+        assert!(matches!(encode_field_value(&g, &TypedValue::Int(128, 8), &no_lookup()), Err(TypedDataError::ValueOutOfRange(8))));
+        assert!(encode_field_value(&g, &TypedValue::Int(127, 8), &no_lookup()).is_ok());
+        assert!(encode_field_value(&g, &TypedValue::Int(-128, 8), &no_lookup()).is_ok());
     }
 
     #[test]

@@ -628,13 +628,17 @@ fn write_to_memory(caller: &mut Caller<ExecutionContext>, bytes: &[u8], out_ptr:
     };
     let data = mem.data_mut(caller.as_context_mut());
     let ptr = out_ptr as usize;
-    if ptr + bytes.len() > data.len() {
-        return 0;
+    // F-37 — `checked_add` so a near-usize::MAX `out_ptr` cannot wrap the bound
+    // check and let the copy below run out of bounds (the prior `ptr + len`
+    // could overflow and spuriously pass the `> data.len()` test).
+    match ptr.checked_add(bytes.len()) {
+        Some(end) if end <= data.len() => {}
+        _ => return 0,
     }
     data[ptr..ptr + bytes.len()].copy_from_slice(bytes);
     if out_len_ptr >= 0 {
         let lp = out_len_ptr as usize;
-        if lp + 4 <= data.len() {
+        if lp.checked_add(4).is_some_and(|end| end <= data.len()) {
             data[lp..lp + 4].copy_from_slice(&(bytes.len() as u32).to_le_bytes());
         }
     }

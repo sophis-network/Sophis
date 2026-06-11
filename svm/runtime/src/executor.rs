@@ -61,7 +61,10 @@ impl ContractExecutor {
         let fuel_remaining = store.get_fuel().unwrap_or(0);
         let fuel_used = fuel_budget.saturating_sub(fuel_remaining);
         let ratio = store.data().gas_config.wasm_fuel_ratio;
-        let gas_used = Gas(fuel_used * ratio);
+        // F-37 — `saturating_mul` so a large fuel_used × ratio cannot wrap u64
+        // (a config-dependent overflow would underreport gas); saturating to
+        // u64::MAX deterministically exceeds any gas budget → the tx is rejected.
+        let gas_used = Gas(fuel_used.saturating_mul(ratio));
 
         // Recover the post-execution context to extract any events the
         // contract emitted via `sophis_emit_event` (J4). For contracts

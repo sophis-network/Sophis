@@ -10,7 +10,7 @@ use sophis_addresses::{Address, Prefix};
 use sophis_bip39::{Language, Mnemonic, WordCount};
 use sophis_consensus_core::hashing::sighash::SigHashReusedValuesUnsync;
 use sophis_consensus_core::{
-    config::params::DEVNET_PARAMS,
+    config::params::{DEVNET_PARAMS, MAINNET_PARAMS, TESTNET_PARAMS},
     constants::{SCRIPT_VERSION_CARRIER, SOMPI_PER_SOPHIS, TX_VERSION},
     da::{CarrierDomain, encode_bundle},
     hashing::sighash_type::SIG_HASH_ALL,
@@ -964,7 +964,7 @@ fn cmd_pskt_combine(input_paths: &[PathBuf], output_path: &PathBuf) {
 
 /// Finalize and extract the underlying Transaction from a signed PSBS,
 /// writing it as JSON to `output_path` for downstream broadcast.
-fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf) {
+fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf, network: &str) {
     let serialized = std::fs::read_to_string(input_path).expect("read PSBS file");
     let bundle = Bundle::deserialize(&serialized).expect("deserialize bundle");
     if bundle.0.is_empty() {
@@ -1005,7 +1005,16 @@ fn cmd_pskt_extract(input_path: &PathBuf, output_path: &PathBuf) {
         .expect("finalize");
 
     let extractor = finalized.extractor().expect("extractor");
-    let mutable_tx = extractor.extract_tx(&DEVNET_PARAMS).expect("extract_tx");
+    // F-37 — extract/validate under the params of the TARGET network, not a
+    // hardcoded devnet constant. Mass parameters and script flags can differ
+    // per network, so a wrong set could finalize a tx the destination network
+    // rejects (or accept a wrong mass).
+    let params = match network {
+        "mainnet" => &MAINNET_PARAMS,
+        "testnet" => &TESTNET_PARAMS,
+        _ => &DEVNET_PARAMS,
+    };
+    let mutable_tx = extractor.extract_tx(params).expect("extract_tx");
     let tx = mutable_tx.tx;
     let tx_id = {
         let mut t = tx.clone();
@@ -1247,7 +1256,8 @@ async fn main() {
                     Command::new("extract")
                         .about("Finaliza + extrai Transaction de PSBS assinado (single-sig path)")
                         .arg(Arg::new("input").long("input").short('i').required(true).help("Arquivo .psbs assinado de entrada"))
-                        .arg(Arg::new("output").long("output").short('o').required(true).help("Arquivo .json de tx de saída")),
+                        .arg(Arg::new("output").long("output").short('o').required(true).help("Arquivo .json de tx de saída"))
+                        .arg(network_arg()),
                 ),
         )
         .subcommand(
@@ -1357,7 +1367,8 @@ async fn main() {
             Some(("extract", ssub)) => {
                 let i = PathBuf::from(ssub.get_one::<String>("input").unwrap());
                 let o = PathBuf::from(ssub.get_one::<String>("output").unwrap());
-                cmd_pskt_extract(&i, &o);
+                let net = ssub.get_one::<String>("network").unwrap();
+                cmd_pskt_extract(&i, &o, net);
             }
             _ => unreachable!(),
         },

@@ -41,6 +41,10 @@ pub enum TypedDataError {
     #[error("invalid integer bit width: {0} (must be multiple of 8 in 8..=256)")]
     InvalidIntBitWidth(usize),
 
+    /// F-37 — a `uintN`/`intN` value does not fit in its declared `N` bits.
+    #[error("value out of range for the declared {0}-bit integer width")]
+    ValueOutOfRange(usize),
+
     /// Unrecognised type string (could not parse as primitive, array, or
     /// known struct reference).
     #[error("unrecognised type string `{0}`")]

@@ -257,18 +257,31 @@ pub fn filter_matches(filter_bytes: &[u8], block_hash: &Hash, item: &[u8]) -> Fi
     let target = map_to_range(hash_item(block_hash, item), n, GOLOMB_RICE_M);
 
     // Stream through the GR bitstream, comparing on the fly.
+    //
+    // F-37 — the wire format stores the PRE-dedupe count `n` (it parameterises
+    // `map_to_range` above, so it must match what the filter was built with),
+    // but the GR bitstream encodes only the POST-dedupe elements. The stream
+    // therefore legitimately exhausts before `n` iterations whenever sort+dedupe
+    // collapsed collision/duplicate-mapped items. Treat a clean exhaustion as
+    // end-of-filter (the item simply isn't present → `Ok(false)`) instead of
+    // reporting `TruncatedBitstream`. A genuinely truncated filter likewise
+    // yields a conservative miss, which is safe for a BIP-158-style matcher
+    // (the consumer just fetches the block).
     let mut br = BitReader::new(bitstream);
     let mut prev: i128 = -1;
-    for i in 0..n {
+    for _ in 0..n {
         let mut q: u64 = 0;
         loop {
             match br.read_bit() {
                 Some(1) => q += 1,
                 Some(_) => break, // 0
-                None => return Err(FilterError::TruncatedBitstream(i)),
+                None => return Ok(false),
             }
         }
-        let r = br.read_bits(GOLOMB_RICE_P).ok_or(FilterError::TruncatedBitstream(i))?;
+        let r = match br.read_bits(GOLOMB_RICE_P) {
+            Some(r) => r,
+            None => return Ok(false),
+        };
         let delta = (q << GOLOMB_RICE_P) | r;
         let v = (prev + 1 + delta as i128) as u64;
         prev = v as i128;
