@@ -6,7 +6,7 @@
 **Format:** Monolithic report (per founder decision 2026-05-14)
 **Cadence:** Multi-session (1-2 weeks)
 
-> **Status:** ✅ **PRE-TESTNET AUDIT CLOSED & APPROVED — TESTNET ✅ + MAINNET ✅** (final verdict 2026-05-16; §6 ledger 24/24 terminal, 0 open / 0 partial). Sessions 1–16 + post-final F-1 Option-3; §10 coverage snapshot + §11 `unsafe` block-by-block audit added 2026-05-17. **Post-cleanup behavioral validation green:** the full CI `Tests` run on the post-`f21b5af` (orphan-dep cleanup) tree passed — **all 10 jobs** (2051-test suite + `Test Suite (svm-zk)` + WASM + Lints + Build Linux + …), CI run 25988792347. **➡️ Next step: the real public Testnet.** Pre-testnet work is done; everything remaining is **operational-only** (soak Stage 2/3/4, testnet ≥30 d, bug bounty, founder ops setup) — **decoupled from the static audit**, validated *in* the testnet phase (§9.5 / §10.2). The verdict was never coverage-%-gated.
+> **Status (updated 2026-06-05):** ✅ TESTNET APPROVED / ⚠️ **MAINNET GATED** — Deep analytical re-audit (§12, 2026-06-05) found 11 new findings F-27..F-37 in areas the original test-battery never covered. Both P0s fixed (`7ad5a3e` F-27 ALT fork, `5b73150` F-28 rollup drain disabled). **Open mainnet gates: F-31 (P1 — SPV full PoW-verify not yet built) + F-29 crypto-owner sign-off on LtHash16 params.** F-34 (P2) is post-mainnet tech debt. See §12 for full ledger. Original 24/24 static audit (Sessions 1–16, 2026-05-14→16) and §10–§11 are unchanged below.
 
 ---
 
@@ -1892,6 +1892,43 @@ deployed contract contributes unsafe.
 Session-1 token grep that included the excluded non-production matches above.
 The production surface is the A–K categories (≈40 sites); all sound, one
 residual (A) = the closed F-2. §6 ledger unchanged: 0 open / 0 partial.
+
+---
+
+## 12. Deep Re-Audit (2026-06-05) — F-27..F-37
+
+### 12.1 Context
+
+The original audit (Sessions 1–16, §1–§11) was a test-battery and static analysis covering 24 findings F-1..F-24, all closed. On 2026-06-05 a deep analytical re-audit was conducted — function-by-function reading of areas the original audit explicitly deprioritized (rollup bridge, ALT pipeline internals, UTXO commitment crypto, SPV trust model, oracle quorum logic). The re-audit used a multi-agent workflow (wf_3786c367); verifier agents flaked (StructuredOutput under load), but 7 of 23 units completed and surfaced real candidates. All findings below were **confirmed by direct code reading** by the auditor before being classified.
+
+This re-audit vindicated the decision to go beyond the test battery: the original AUDIT_REPORT §6 line for `crypto/muhash` still read "Multiplicative hash" — the additive rewrite (F-29) was never audited. Both P0 findings (F-27, F-28) were in consensus paths the original audit scoped as "validate in testnet operation."
+
+### 12.2 Findings — F-27..F-37
+
+| ID | Tier | Severity | Title | Status |
+|---|---|---|---|---|
+| **F-27** | 0 | **P0** | ALT rule-15 consensus fork — `check_alt_references` reads flat global `alt_store`, populated monotone-add, never reverted on reorg → online-during-reorg vs IBD-after-reorg nodes permanently diverge | ✅ **FIXED** `7ad5a3e` — selected-chain membership check via `selected_chain_store.get_by_hash`; consensus 160/0 |
+| **F-28** | 2 | **P0-class** | Rollup withdrawal drain — `bridge_withdrawal` trusted attacker-supplied `sequencer_vk` (line 85), no recipient binding, no nullifier → anyone drains any BRIDGE_VAULT_VERSION vault. Bridge is dormant scaffolding (no genesis deploy). | ✅ **DISABLED** `5b73150` — returns `false` unconditionally; bridge does not ship at genesis; redesign required before any future activation |
+| **F-29** | 0 | **P1** | MuHash UTXO commitment is additive mod-2^256 (AdHash/subset-sum) — classically broken by lattice/Wagner k-tree far below 128-bit; syncing node verifies imported pruning-point UTXO set against a forgeable commitment | ✅ **FIXED (code)** `41f8f9c` — replaced with LtHash16 (1024×16-bit, counter-mode blake2b, finalize via MuHashFinalizeHash → header stays 32 B); §7 storage opt; soak-validated; benchmark ≤ Dilithium cost per block. **⏳ PENDING: crypto-owner sign-off on params (n, b, expansion choice)** |
+| **F-30** | 1 | **P1** | Relaxed-SIMD determinism fork — Wasmtime engine did not set `relaxed_simd_deterministic(true)`; x86 vs ARM produce different results for integer relaxed-SIMD ops | ✅ **FIXED** PR #60 `e797aef` |
+| **F-31** | 1 | **P1** | SPV light client no PoW anchoring — server can feed a fake chain; `blue_work` alone is forgeable without full RandomX verification | ❌ **OPEN** — founder chose full RandomX PoW-verify (not checkpoints); not yet implemented; substantial feature build |
+| **F-32** | 2 | **P1** | Phase 9 oracle quorum used MAX (burst satisfies quorum with no ongoing coverage) + `read_price` served arbitrarily stale data after flip | ✅ **FIXED** `21b8624` — MAX→MIN; staleness gate on Phase 9 branch; 9/9 |
+| **F-33** | 0 | **P2** | Address decode panic — short-but-checksum-valid bech32 address → index OOB on empty payload, reachable from untrusted RPC deserialization | ✅ **FIXED** PR #60 `e797aef` — `payload_u8.is_empty()` guard + regression test |
+| **F-34** | 0 | **P2** | RandomX 256 MB epoch cache built pre-validation — keyed by unvalidated `header.daa_score` before daa/parent/PoW checks → asymmetric memory DoS | ❌ **OPEN** — design-grade; naive daa_score isolation bound broke 8 consensus tests (daa_score ⊥ timestamp in current protocol); reverted; needs contextual/post-parent approach + owner review. **P2 — post-mainnet tech debt** |
+| **F-35** | 1 | **P2** | SDK `input_utxo`/`output_utxo` used fixed 8192-byte buffer vs consensus-legal ~10 023-byte max serialized UtxoEntry → host over-write + SDK trap | ✅ **FIXED (SDK-side)** PR #60 — UTXO_BUF_SIZE 8192→16384 + `len > BUF_SIZE → None` guard. Host-side capacity-honor intentionally unchanged (would break all existing contracts using `len=0` capacity convention) |
+| **F-36** | 1 | **P2** | `--donate-to`/`--donate-percent` coinbase-rewrite path caused consensus to reject every donate coinbase by exact-hash check — feature broken end-to-end, never caught because original audit reviewed `donate.rs` in isolation | ✅ **FIXED** (removed) `a9b30db` — flag, rewrite path, and `miner/src/donate.rs` deleted; `OPERATIONAL_BOUNDARIES.md` §6 + `docs/FEE_PRIORITY.md` updated `d8a64d3` |
+| **F-37** | mixed | **P3** | Mechanical cluster: `da::reassemble` index OOB, wasm `calculate_target` shift-by-64, wallet fee div-by-zero on `--amount 0`, `multisig_redeem_script` emits unspendable OP_CHECKMULTISIG script, `pskt extract` hardcodes DEVNET_PARAMS, `write_to_memory` usize-add wrap, SVM fuel×ratio overflow, typed-data silent truncation, filter TruncatedBitstream on clean exhaustion | ✅ **FIXED (safe subset)** `0e5db66` — all 9 items addressed; some (SVM host-ABI, filter) required design-first; all crate tests green |
+
+### 12.3 Updated verdict
+
+| Network | Verdict | Gate |
+|---|---|---|
+| **Testnet** | ✅ **APPROVED** (unchanged) | Testnet live since 2026-05-24; ≥30d gate clears 2026-06-23 |
+| **Mainnet** | ⚠️ **GATED** | F-31 (P1 — SPV full PoW-verify) must ship; F-29 crypto sign-off required |
+
+Post-mainnet tech debt (not blocking): F-34 (RandomX pre-validation cache, P2).
+
+The original F-1..F-26 verdict (24/24 terminal, 0 open) is **unchanged** — F-27..F-37 are new findings in areas not covered by Sessions 1–16, not regressions.
 
 ---
 
