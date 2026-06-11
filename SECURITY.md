@@ -13,7 +13,7 @@ Report privately through either:
 1. **GitHub private vulnerability reporting** (preferred) — the
    "Report a vulnerability" button under this repository's *Security*
    tab.
-2. **Email** — `security@sophis.org`. Encryption is preferred; the
+2. **Email** — `team@sophis.org`. Encryption is preferred; the
    public key is published in this file when available.
    - PGP fingerprint: `<TO BE PUBLISHED HERE>`
 

@@ -191,6 +191,20 @@ indexers.
 
 ---
 
+## 📬 Contact
+
+| Purpose | Channel |
+|---|---|
+| General inquiries, integrations, partnerships | [team@sophis.org](mailto:team@sophis.org) |
+| Security vulnerabilities | GitHub "Report a vulnerability" (Security tab) — see [SECURITY.md](SECURITY.md) |
+| Bug reports & feature requests | GitHub Issues |
+| Protocol proposals | Open a SIP draft PR — see [SIPS/SIP-0-process.md](SIPS/SIP-0-process.md) |
+
+The core team does **not** operate a pool, exchange, custodial service, or bridge.
+No other email, Telegram, Discord, or social account is an official channel.
+
+---
+
 ## Index maintenance
 
 If you add a new `.md`, add a one-line entry under the matching
