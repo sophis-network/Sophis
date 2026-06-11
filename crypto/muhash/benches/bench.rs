@@ -52,7 +52,7 @@ fn bench_muhash(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("MuHash::serialize", |b| b.iter(|| black_box(rand_set.clone()).serialize()));
+    c.bench_function("MuHash::serialize", |b| b.iter(|| black_box(rand_set.clone()).to_bytes()));
 
     c.bench_function("MuHash::finalize", |b| {
         b.iter(|| black_box(rand_set.clone()).finalize());

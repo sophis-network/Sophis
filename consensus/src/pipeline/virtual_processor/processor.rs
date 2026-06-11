@@ -37,7 +37,7 @@ use crate::{
             statuses::{DbStatusesStore, StatusesStore, StatusesStoreBatchExtensions, StatusesStoreReader},
             tips::{DbTipsStore, TipsStoreReader},
             utxo_diffs::{DbUtxoDiffsStore, UtxoDiffsStoreReader},
-            utxo_multisets::{DbUtxoMultisetsStore, UtxoMultisetsStoreReader},
+            utxo_multisets::{DbUtxoMultisetsStore, UtxoMultisetsStore, UtxoMultisetsStoreReader},
             virtual_state::{LkgVirtualState, VirtualState, VirtualStateStoreReader, VirtualStores},
         },
     },
@@ -421,6 +421,17 @@ impl VirtualStateProcessor {
             )
             .expect("all possible rule errors are unexpected here");
 
+        // F-29 / SIP §7 — the LtHash multiset state is ~2 KiB per chain block
+        // (vs the old 32-byte additive accumulator). Once a chain block is
+        // below the finality point it can never be reverted (reorgs are
+        // finality-bounded) and its full state is never read again — the only
+        // readers are the sink and a committing block's selected-parent, both
+        // at the chain frontier, and the 32-byte commitment lives in the block
+        // header. Free the dead state now instead of holding it until
+        // `pruning_depth` (which would add ~2 GiB; the pruning processor stays
+        // the backstop for anything skipped on reorgs/restart).
+        self.prune_finalized_multiset(finality_point);
+
         let compact_sink_ghostdag_data = if let Some(sink_ghostdag_data) = Lazy::get(&sink_ghostdag_data) {
             // If we had to retrieve the full data, we convert it to compact
             sink_ghostdag_data.to_compact()
@@ -624,6 +635,42 @@ impl VirtualStateProcessor {
             );
         } else {
             info!("Orphan rate: {:.2}% over last {} mergeset entries", orphan_rate * 100.0, window_total);
+        }
+    }
+
+    /// F-29 / SIP §7 — delete the LtHash multiset state of a chain block that
+    /// has fallen below the finality point (plus a `SAFETY_MARGIN` buffer).
+    /// Such a block is final (reorgs are finality-bounded, so it can never be
+    /// reverted) and its full 2 KiB state is never read again — the only
+    /// readers are the sink and a committing block's selected-parent, both at
+    /// the chain frontier; only the 32-byte commitment matters thereafter and
+    /// that lives in the header. This bounds the resident `UtxoMultisetsStore`
+    /// to ~the finality window at steady state.
+    ///
+    /// Storage-only and best-effort: deleting an absent key is a no-op, and any
+    /// multiset skipped here (e.g. on a multi-block reorg or after a restart) is
+    /// still reclaimed by the pruning processor at `pruning_depth`. Never
+    /// panics — a cleanup failure must not stall consensus.
+    fn prune_finalized_multiset(&self, finality_point: Hash) {
+        use crate::model::stores::selected_chain::SelectedChainStoreReader;
+
+        /// Extra blocks of full state kept below the finality point as a buffer.
+        const SAFETY_MARGIN: u64 = 100;
+
+        let target = {
+            let chain = self.selected_chain_store.read();
+            let Ok(fp_index) = chain.get_by_hash(finality_point) else { return };
+            let Some(target_index) = fp_index.checked_sub(SAFETY_MARGIN) else { return };
+            if target_index == 0 {
+                return;
+            }
+            match chain.get_by_index(target_index) {
+                Ok(hash) => hash,
+                Err(_) => return,
+            }
+        };
+        if let Err(e) = self.utxo_multisets_store.delete(target) {
+            warn!("F-29: failed to delete finalized multiset for {target}: {e}");
         }
     }
 
