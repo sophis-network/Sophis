@@ -151,12 +151,6 @@ is no fee split, no protocol-level burn, no devfund (decision
 fees to users, they can truthfully state: "this fee goes entirely to
 the block producer".
 
-The `--donate-to`/`--donate-percent` flags on the reference miner
-are a **client-side** opt-in coinbase split. They do not affect tx
-fees the user pays — they only redirect part of the miner's *own*
-coinbase reward. See `bridge/docs/README.md` and the miner
-documentation for details.
-
 ## 7. Reference
 
 - Code: `mining/src/feerate/mod.rs`,

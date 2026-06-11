@@ -134,23 +134,7 @@ hard fork that:
 - Establishes an official cross-chain bridge in the protocol layer
 - Creates a foundation / legal entity bound to the project's name
 
-## 6. Donation flag — opt-in only
-
-The reference miner (`sophis-miner`) ships with an **opt-in
-`--donate-percent` flag** for client-side coinbase splits to addresses
-chosen by the operator (commit `e54fcd9`).
-
-> The reference miner ships with an opt-in `--donate-percent` flag for
-> client-side coinbase splits to addresses chosen by the operator. The
-> core team does not curate, host, or recommend any donation address
-> list, and the default behavior is **OFF** (100% of the coinbase
-> reward goes to the miner).
-
-This is the canonical wording. Any third party hosting a list of
-donation addresses does so independently; the Sophis Project does not
-endorse such lists.
-
-## 7. Defense against third-party-operator liability
+## 6. Defense against third-party-operator liability
 
 If a third party operates a pool, bridge, exchange, or custodial
 service using Sophis software and is the subject of a regulatory
@@ -170,10 +154,8 @@ The Sophis Project does not represent third-party operators in legal
 proceedings, does not provide legal advice to them, and does not
 indemnify them.
 
-## 8. Reference
+## 7. Reference
 
-- Donation flag implementation: `miner/src/donate.rs` and
-  `miner/src/main.rs` (CLI args `--donate-to` + `--donate-percent`)
 - Cap-monitoring watchdog: `tools/sophis-cap-monitor/`
 - Sister documents: `MONETARY_POLICY.md`, `FOUNDER_SELF_RESTRICTION.md`,
   `HARD_FORK_POLICY.md`, `SUCCESSION.md`, `LAUNCH_CHECKLIST.md`

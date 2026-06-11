@@ -216,7 +216,7 @@ Phase 3 complete. Seven crates:
 - `rollup/sequencer` — mempool, `Sequencer<C>`, `BatchTrigger`, `L1Client` trait, HTTP RPC (19 tests)
 - `rollup/node` — CLI binary: `start` + `gen-key`; HTTP :9944; key file = 3872 bytes (2560 SK ‖ 1312 VK)
 - `rollup/bridge/deposit` — `DepositRecord`, `BRIDGE_VAULT_VERSION=3`; L1 vault UTXO helpers
-- `rollup/bridge/withdrawal` — sVM WASM contract: validates `WithdrawalClaim` before releasing SPHS (11 tests)
+- `rollup/bridge/withdrawal` — sVM WASM contract: **DISABLED at genesis** (F-28: sequencer_vk unpinned, no nullifier; returns false unconditionally until redesigned). Crate builds and tests pass (11/11). Bridge does NOT ship at genesis.
 
 `rollup/guest/` is a **separate Cargo workspace** (RISC-V target isolated from the main workspace). Build it with its own `cargo build` inside `rollup/guest/`.
 
