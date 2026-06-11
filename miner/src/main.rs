@@ -1,12 +1,10 @@
-mod donate;
-
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use clap::{Arg, Command};
 use rayon::prelude::*;
 use sophis_addresses::Address;
-use sophis_consensus_core::{header::Header, merkle::calc_hash_merkle_root, tx::Transaction};
+use sophis_consensus_core::header::Header;
 use sophis_core::{info, warn};
 use sophis_grpc_client::GrpcClient;
 use sophis_notify::subscription::context::SubscriptionContext;
@@ -103,8 +101,7 @@ fn mine_template(state: &State, template_refresh_ms: u64) -> Option<u64> {
 async fn main() {
     sophis_core::log::init_logger(None, "");
 
-    let m =
-        Command::new("sophis-miner")
+    let m = Command::new("sophis-miner")
             .about("Sophis CPU Miner — devnet/testnet")
             .arg(
                 Arg::new("rpcserver")
@@ -132,22 +129,13 @@ async fn main() {
                     .action(clap::ArgAction::SetTrue)
                     .help("Ativa RandomX Fast Mode (~2 GB RAM, ~10x hashrate). Requer ~2 min de inicializacao por epoch."),
             )
-            .arg(Arg::new("donate-to").long("donate-to").value_name("ADDRESS").action(clap::ArgAction::Append).help(
-                "Endereco Sophis que recebe parte da recompensa coinbase (cliente-side, opt-in). \
-                     Pode ser repetido para split entre varias causas. Requer --donate-percent na mesma ordem. \
-                     Sem lista oficial: o operador escolhe livremente.",
-            ))
-            .arg(
-                Arg::new("donate-percent")
-                    .long("donate-percent")
-                    .value_name("N")
-                    .value_parser(clap::value_parser!(u8))
-                    .action(clap::ArgAction::Append)
-                    .help(
-                        "Percentual da recompensa que vai para a entrada --donate-to correspondente (0-100, inteiro). \
-                     A soma deve ser <= 100. Default: nenhum (100% pro minerador).",
-                    ),
-            )
+            // F-36 — the `--donate-to/--donate-percent` client-side coinbase
+            // rewrite was REMOVED: consensus verifies the coinbase by exact
+            // tx-hash against a deterministically rebuilt expected coinbase
+            // (virtual_processor/utxo_validation.rs), so any rewritten split
+            // produced `BadCoinbaseTransaction` — the flag never produced an
+            // accepted block. Donations must be a normal post-maturity spend,
+            // not a coinbase rewrite.
             .get_matches();
 
     let rpc_server = m.get_one::<String>("rpcserver").unwrap().clone();
@@ -164,25 +152,6 @@ async fn main() {
     // Endereço de mineração — `--mining-address` é obrigatório (clap enforces).
     let addr_str = m.get_one::<String>("mining-address").expect("clap garante --mining-address obrigatorio");
     let pay_address = Address::try_from(addr_str.clone()).expect("Endereco de mineracao invalido");
-
-    // Donations (cliente-side, opt-in). Default: nenhuma → 100% pro minerador.
-    let donate_addrs: Vec<String> = m.get_many::<String>("donate-to").map(|v| v.cloned().collect()).unwrap_or_default();
-    let donate_pcts: Vec<u8> = m.get_many::<u8>("donate-percent").map(|v| v.copied().collect()).unwrap_or_default();
-    let donations = match donate::parse_donations(&donate_addrs, &donate_pcts, pay_address.prefix) {
-        Ok(d) => d,
-        Err(e) => {
-            eprintln!("Erro ao processar flags --donate-*: {}", e);
-            std::process::exit(1);
-        }
-    };
-    if !donations.is_empty() {
-        let total_pct: u32 = donations.iter().map(|d| d.percent as u32).sum();
-        info!("Donations cliente-side ATIVAS — {}% do bloco pra {} endereco(s):", total_pct, donations.len());
-        for d in &donations {
-            info!("  {}% -> {}", d.percent, String::from(&d.address));
-        }
-        info!("(Convencao: split aplicado por bloco; arredondamento acumula no minerador. Sem lista oficial.)");
-    }
 
     if fast_mode {
         info!("Fast Mode ativado. Dataset sera construido (~2 GB RAM, ~2 min) no primeiro bloco recebido.");
@@ -208,7 +177,7 @@ async fn main() {
         // pra evitar bloqueio indefinido.
         let template_fut =
             rpc.get_block_template_call(None, GetBlockTemplateRequest::new(pay_address.clone(), b"sophis-miner".to_vec()));
-        let mut template = match tokio::time::timeout(RPC_CALL_TIMEOUT, template_fut).await {
+        let template = match tokio::time::timeout(RPC_CALL_TIMEOUT, template_fut).await {
             Ok(Ok(t)) => t,
             Ok(Err(e)) => {
                 warn!("get_block_template falhou: {}. Retry em 2s...", e);
@@ -221,28 +190,6 @@ async fn main() {
                 continue;
             }
         };
-
-        // Aplica donation split na coinbase (cliente-side, antes de minerar).
-        // O nó devolve a coinbase como transactions[0]. Reescrevemos seus
-        // outputs para incluir as doações configuradas e recomputamos o
-        // hash_merkle_root do header — caso contrário o bloco fica
-        // inválido após submit_block.
-        if !donations.is_empty() && !template.block.transactions.is_empty() {
-            donate::rewrite_coinbase_outputs(&mut template.block.transactions[0], &donations);
-            // Recompute merkle root: convert each RpcTransaction → Transaction.
-            let txs: Result<Vec<Transaction>, _> = template.block.transactions.iter().cloned().map(Transaction::try_from).collect();
-            match txs {
-                Ok(txs_internal) => {
-                    let new_root = calc_hash_merkle_root(txs_internal.iter());
-                    template.block.header.hash_merkle_root = new_root;
-                }
-                Err(e) => {
-                    warn!("Conversao de tx para recomputar merkle root falhou: {}. Skipping bloco.", e);
-                    sleep(Duration::from_millis(100)).await;
-                    continue;
-                }
-            }
-        }
 
         // Converte header para tipo interno
         let header = match Header::try_from(&template.block.header) {
