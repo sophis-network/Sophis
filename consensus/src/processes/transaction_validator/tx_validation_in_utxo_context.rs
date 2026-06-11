@@ -232,6 +232,22 @@ impl TransactionValidator {
                     return Err(TxRuleError::AltReferenceMalformed(i, format!("alt_store error: {e}")));
                 }
             };
+            // F-27 — deterministic existence. The ALT registry's `entries` are
+            // permanent + content-addressed (design §4.4), so a bare global
+            // `get_entry` is arrival-order-dependent: a handle created in a
+            // block that was later reorged out of the selected chain lingers in
+            // a node that processed that block but is absent on a node that
+            // synced afterwards → the two nodes disagree on the reference's
+            // validity → consensus fork. Gate on the creating block being a
+            // member of the consensus-agreed selected chain (all honest nodes
+            // share it), so the verdict is a pure function of the selected
+            // chain, not of per-node indexing history.
+            if let Some(chain) = self.svm.as_ref().and_then(|svm| svm.selected_chain_store.as_ref()) {
+                use crate::model::stores::selected_chain::SelectedChainStoreReader;
+                if chain.read().get_by_hash(entry.creating_block_hash).is_err() {
+                    return Err(TxRuleError::AltReferenceDanglingHandle(i, Self::fmt_hex_handle(&r.handle)));
+                }
+            }
             // Rule 16 — index must be strictly less than entry_count.
             let count = entry.entry_count();
             if (r.index as u16) >= count {
