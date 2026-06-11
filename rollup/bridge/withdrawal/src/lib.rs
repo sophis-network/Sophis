@@ -28,7 +28,6 @@
 //! the monotonically increasing `sequence` in the journal.
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use sophis_bridge_deposit::BRIDGE_VAULT_VERSION;
 use sophis_rollup_core::{BatchJournal, Withdrawal};
 use sophis_sdk::prelude::*;
 
@@ -59,63 +58,21 @@ pub struct WithdrawalClaim {
 
 #[sophis_contract]
 pub fn bridge_withdrawal(env: Env) -> bool {
-    // --- Read inputs ---
-    let vault = match env.input_utxo(0) {
-        Some(u) => u,
-        None => return false,
-    };
-    let claim_utxo = match env.input_utxo(1) {
-        Some(u) => u,
-        None => return false,
-    };
-
-    // Vault must be a bridge vault
-    if vault.script_public_key.version != BRIDGE_VAULT_VERSION {
-        return false;
-    }
-
-    // --- Decode claim ---
-    let claim: WithdrawalClaim = match borsh::from_slice(&claim_utxo.script_public_key.script) {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-
-    // --- Verify sequencer signature: sig covers SHA3-384(journal_bytes) ---
-    let journal_hash = env.sha3_384(&claim.journal_bytes);
-    if !env.verify_dilithium(&claim.sequencer_vk, &journal_hash, &claim.sequencer_sig) {
-        return false;
-    }
-
-    // --- Decode journal ---
-    let journal: BatchJournal = match borsh::from_slice(&claim.journal_bytes) {
-        Ok(j) => j,
-        Err(_) => return false,
-    };
-
-    // --- Verify withdrawals hash ---
-    // Compute SHA3-384("sophis-l2-withdrawals:" || borsh(withdrawals)) and
-    // compare with journal.withdrawals_hash to prove the list is not tampered.
-    if !verify_withdrawals_integrity(&env, &claim.withdrawals, &journal) {
-        return false;
-    }
-
-    // --- Get the claimed withdrawal ---
-    let withdrawal = match get_withdrawal(&claim) {
-        Some(w) => w,
-        None => return false,
-    };
-
-    // --- Amount checks ---
-    let output0 = match env.output_utxo(0) {
-        Some(o) => o,
-        None => return false,
-    };
-
-    if !check_amounts(vault.amount, output0.value, withdrawal.amount) {
-        return false;
-    }
-
-    true
+    // F-28 — DISABLED. The Phase 3 L1↔L2 bridge does NOT ship at genesis.
+    // This contract is unsafe as written (audit F-28): it trusts the
+    // `sequencer_vk` supplied IN the attacker-built claim instead of pinning
+    // the canonical sequencer key, binds neither the recipient nor the vault
+    // UTXO, and carries no nullifier — so a single self-signed journal could
+    // drain every BRIDGE_VAULT_VERSION vault. It is gated OFF (rejects every
+    // withdrawal) until the bridge is properly redesigned + reviewed. The
+    // verification helpers below are retained for that future redesign.
+    // Rejects every withdrawal. The unsafe orchestration was removed; a
+    // future redesign re-implements it against the retained pure helpers
+    // (`verify_withdrawals_integrity`, `get_withdrawal`, `check_amounts`)
+    // PLUS a pinned canonical sequencer key + recipient/vault binding + a
+    // nullifier — none of which the original had.
+    let _ = &env;
+    false
 }
 
 // ---------------------------------------------------------------------------
