@@ -152,7 +152,7 @@ fn run_snapshot(m: &ArgMatches) -> Result<(), String> {
             FeedSource::Unavailable => "Unavailable".to_string(),
         };
         let price = ix
-            .read_price(aid)
+            .read_price(aid, now, policy.stale_after_secs)
             .map(|r| format!("price_e8={} conf_e8={} ts={}", r.price_e8, r.conf_e8, r.publish_ts))
             .unwrap_or_else(|| "price=<none>".to_string());
         let decision = ix.last_decision(aid).map(|d| format!("{d:?}")).unwrap_or_else(|| "<none>".to_string());

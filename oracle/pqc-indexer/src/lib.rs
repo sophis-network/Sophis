@@ -251,14 +251,23 @@ impl Indexer {
     /// Source-routed current price for an asset:
     /// Phase9 → latest finalized round; Phase5 → latest Phase5 sample
     /// (conf unknown → 0); Unavailable / untracked → `None`.
-    pub fn read_price(&self, asset_id: &[u8; 32]) -> Option<PriceReading> {
+    pub fn read_price(&self, asset_id: &[u8; 32], now: u64, stale_after_secs: u64) -> Option<PriceReading> {
         let st = self.assets.get(asset_id)?;
         match self.registry.get(asset_id).unwrap_or(FeedSource::Phase5) {
-            FeedSource::Phase9 { .. } => st.rounds.last().map(|r| PriceReading {
-                price_e8: r.price_e8,
-                conf_e8: r.conf_e8,
-                publish_ts: r.publish_ts,
-                source: FeedSource::Phase9 { active_since_ts: 0 },
+            // F-32 — a flipped Phase 9 feed must NOT serve an arbitrarily old
+            // price if its publishers stop. Gate on the same staleness window
+            // the flip logic uses (SIP-11 D5, `stale_after_secs`): a Phase 9
+            // round older than that yields `None`, not a stale reading.
+            FeedSource::Phase9 { .. } => st.rounds.last().and_then(|r| {
+                if now.saturating_sub(r.publish_ts) > stale_after_secs {
+                    return None;
+                }
+                Some(PriceReading {
+                    price_e8: r.price_e8,
+                    conf_e8: r.conf_e8,
+                    publish_ts: r.publish_ts,
+                    source: FeedSource::Phase9 { active_since_ts: 0 },
+                })
             }),
             FeedSource::Phase5 => st.phase5.last().map(|s| PriceReading {
                 price_e8: s.price_e8,
@@ -304,13 +313,17 @@ fn lower_median_u64(sorted: &[u64]) -> u64 {
 
 /// Distinct publishers contributing to rounds within the consistency
 /// window ending at `now`. Used as `FlipInputs.phase9_publisher_count`.
-/// Approximated from finalized rounds' publisher counts (max within
-/// window) — the indexer does not retain raw per-round fingerprints
-/// post-finalization in v1; the max round size in-window is a sound
-/// lower-bound-respecting proxy for "≥ min_publishers sustained".
+///
+/// F-32 — "sustained quorum" (SIP-11 D6) requires that EVERY round in the
+/// window met the publisher floor, so the proxy must be the **minimum** round
+/// size in-window, not the maximum. The previous `.max()` let a single
+/// high-publisher burst satisfy the quorum for the whole window even if later
+/// rounds dropped below it (premature/manipulable flip); `.min()` instead
+/// reports the worst round, so the flip only fires when quorum is genuinely
+/// sustained. An empty window reports 0 (no flip).
 fn distinct_publishers_in_window(rounds: &[Round], _st: &AssetState, policy: &FlipPolicy, now: u64) -> u8 {
     let window_start = now.saturating_sub(policy.min_consistency_window_secs);
-    rounds.iter().filter(|r| r.publish_ts >= window_start).map(|r| r.publishers.min(u8::MAX as u32) as u8).max().unwrap_or(0)
+    rounds.iter().filter(|r| r.publish_ts >= window_start).map(|r| r.publishers.min(u8::MAX as u32) as u8).min().unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -401,7 +414,7 @@ mod tests {
         // Phase 5 sample present; no Phase 9 yet → source Phase5, price from P5.
         ix.ingest_phase5(aid, PriceSample { publish_ts: now - 10, price_e8: 3_400_00000000 });
         ix.reevaluate(aid, now, &pol);
-        let pr = ix.read_price(&aid).unwrap();
+        let pr = ix.read_price(&aid, now, pol.stale_after_secs).unwrap();
         assert_eq!(pr.source, FeedSource::Phase5);
         assert_eq!(pr.price_e8, 3_400_00000000);
 
@@ -424,9 +437,24 @@ mod tests {
         let d = ix2.reevaluate(aid, now, &pol);
         assert_eq!(d, FlipDecision::Flip);
         assert!(matches!(ix2.feed_source(&aid), FeedSource::Phase9 { .. }));
-        let pr2 = ix2.read_price(&aid).unwrap();
+        // This history is artificially compressed (a 7-day window sampled at
+        // hourly rounds), so the last *finalized* round is ~1 h old — which the
+        // F-32 staleness gate would (correctly) treat as stale. This assertion
+        // is about flip routing + lower-median price, not staleness, so read
+        // with the gate effectively disabled. The gate itself is covered by
+        // `flipped_phase9_stale_round_reads_none` below.
+        let pr2 = ix2.read_price(&aid, now, u64::MAX).unwrap();
         assert!(matches!(pr2.source, FeedSource::Phase9 { .. }));
         assert_eq!(pr2.price_e8, 65_000_10000000); // lower-median of the 3
+
+        // F-32 staleness gate: the last finalized round is ~1 h old, so with the
+        // realistic SIP-11 D5 threshold (stale_after_secs=300) the flipped feed
+        // must report None rather than an arbitrarily old price...
+        assert!(ix2.read_price(&aid, now, pol.stale_after_secs).is_none(), "stale Phase9 round → None");
+        // ...while a read whose `now` is within the staleness window of the last
+        // round still returns the price.
+        let last_ts = pr2.publish_ts;
+        assert!(ix2.read_price(&aid, last_ts + pol.stale_after_secs, pol.stale_after_secs).is_some(), "fresh Phase9 round → Some");
 
         // A later Stay must NOT revert an effected Phase9 flip (one-way).
         let d2 = ix2.reevaluate(aid, now + 1, &pol);
@@ -445,7 +473,7 @@ mod tests {
             }
             ix.aggregate_due_rounds(now + 120, &pol);
             let aid = asset_id_from_symbol(b"BTC/USD");
-            ix.read_price(&aid).map(|r| (r.price_e8, r.conf_e8))
+            ix.read_price(&aid, now, pol.stale_after_secs).map(|r| (r.price_e8, r.conf_e8))
         };
         assert_eq!(run(), run(), "indexer is deterministic over identical inputs");
         let _ = DILITHIUM_PUBKEY_SIZE;
@@ -455,7 +483,7 @@ mod tests {
     fn default_indexer_is_empty() {
         let ix = Indexer::default();
         assert!(ix.tracked_assets().next().is_none());
-        assert!(ix.read_price(&[9u8; 32]).is_none(), "untracked asset → None");
+        assert!(ix.read_price(&[9u8; 32], 0, 300).is_none(), "untracked asset → None");
         // unknown asset: default source Phase5, no decision yet.
         assert_eq!(ix.feed_source(&[9u8; 32]), FeedSource::Phase5);
         assert!(ix.last_decision(&[9u8; 32]).is_none());
@@ -473,7 +501,7 @@ mod tests {
         let d = ix.reevaluate(aid, now, &pol);
         assert!(matches!(d, FlipDecision::StaleSource { .. }));
         assert_eq!(ix.feed_source(&aid), FeedSource::Unavailable);
-        assert!(ix.read_price(&aid).is_none(), "Unavailable source → read_price None");
+        assert!(ix.read_price(&aid, now, pol.stale_after_secs).is_none(), "Unavailable source → read_price None");
         assert_eq!(ix.last_decision(&aid), Some(d));
     }
 
