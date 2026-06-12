@@ -337,7 +337,7 @@ wasm-bindgen-test = "0.3.50"
 web-sys = "=0.3.77"
 xxhash-rust = { version = "0.8.7", features = ["xxh3"] }
 zeroize = { version = "1.8.2", default-features = false, features = ["alloc"] }
-wasmtime = { version = "44.0.1", default-features = false, features = ["cranelift", "runtime", "gc-null"] }
+wasmtime = { version = "45.0.1", default-features = false, features = ["cranelift", "runtime", "gc-null"] }
 wasmparser = "0.224"
 pin-project-lite = "0.2.17"
 tower-http = { version = "0.6.11", features = [
