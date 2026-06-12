@@ -2,6 +2,8 @@ use super::*;
 use crate::constants;
 use crate::errors::{BlockProcessResult, RuleError};
 use crate::model::services::reachability::ReachabilityService;
+use crate::model::stores::headers::HeaderStoreReader;
+use crate::model::stores::headers_selected_tip::HeadersSelectedTipStoreReader;
 use crate::model::stores::statuses::StatusesStoreReader;
 use sophis_consensus_core::BlockLevel;
 use sophis_consensus_core::blockhash::BlockHashExtensions;
@@ -100,8 +102,34 @@ impl HeaderProcessor {
     }
 
     fn check_pow_and_calc_block_level(&self, header: &Header) -> BlockProcessResult<BlockLevel> {
+        // F-34: Bound header.daa_score before building the 256 MB RandomX epoch cache.
+        // An attacker flooding distinct-epoch headers forces a new cache rebuild per epoch;
+        // this gate limits damage to O(finality_depth / EPOCH_LENGTH) distinct epochs.
+        // Skipped when skip_proof_of_work is true (tests use synthetic daa_score values).
+        if !self.skip_proof_of_work {
+            self.check_daa_score_pre_pow(header)?;
+        }
         let state = sophis_pow::State::new(header);
         let (passed, pow) = state.check_pow(header.nonce);
         if passed || self.skip_proof_of_work { Ok(calc_level_from_pow(pow, self.max_block_level)) } else { Err(RuleError::InvalidPoW) }
+    }
+
+    fn check_daa_score_pre_pow(&self, header: &Header) -> BlockProcessResult<()> {
+        // Soft-fail on store errors — don't turn infrastructure failure into a false rejection.
+        let Ok(tip) = self.headers_selected_tip_store.read().get() else {
+            return Ok(());
+        };
+        let Ok(tip_daa) = self.headers_store.get_daa_score(tip.hash) else {
+            return Ok(());
+        };
+        // Allow headers within finality_depth (~21 epochs) behind and 2 epochs ahead of the tip.
+        // Headers outside this window are physically impossible to validate and are almost
+        // certainly from a DoS flood or a deeply-desynchronised peer.
+        let min_daa = tip_daa.saturating_sub(sophis_pow::EPOCH_LENGTH * 22);
+        let max_daa = tip_daa.saturating_add(sophis_pow::EPOCH_LENGTH * 2);
+        if header.daa_score < min_daa || header.daa_score > max_daa {
+            return Err(RuleError::DaaScoreOutOfPlausibleRange(header.daa_score, min_daa, max_daa));
+        }
+        Ok(())
     }
 }

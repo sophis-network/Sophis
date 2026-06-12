@@ -129,6 +129,12 @@ pub enum RuleError {
     #[error("block has invalid proof-of-work")]
     InvalidPoW,
 
+    /// F-34: daa_score is outside the plausible window for the current chain tip.
+    /// Checked before building the 256 MB RandomX epoch cache to prevent asymmetric
+    /// memory DoS. Skipped when skip_proof_of_work is true (test/devnet).
+    #[error("header daa_score {0} outside pre-PoW plausible window [{1}, {2}]")]
+    DaaScoreOutOfPlausibleRange(u64, u64, u64),
+
     #[error("expected header pruning point is {0} but got {1}")]
     WrongHeaderPruningPoint(Hash, Hash),
 
@@ -256,6 +262,7 @@ mod tests {
             RuleError::WrongSubsidy(100, 99),
             RuleError::DuplicateTransactions(h(11)),
             RuleError::InvalidPoW,
+            RuleError::DaaScoreOutOfPlausibleRange(9_999_999, 0, 8_192),
             RuleError::WrongHeaderPruningPoint(h(12), h(13)),
             RuleError::UnexpectedIndirectParents(TwoDimVecDisplay(vec![vec![h(1)]]), TwoDimVecDisplay(vec![vec![h(2)]])),
             RuleError::BadUTXOCommitment(h(14), h(15), h(16)),
@@ -275,7 +282,7 @@ mod tests {
         }
         // Guard: bump this when a RuleError variant is added/removed so a
         // new variant cannot ship without Display coverage.
-        assert_eq!(variants.len(), 44, "all RuleError variants enumerated");
+        assert_eq!(variants.len(), 45, "all RuleError variants enumerated");
     }
 
     #[test]
