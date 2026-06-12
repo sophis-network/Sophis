@@ -34,6 +34,8 @@ pub mod scan;
 pub use checkpoint::SyncCheckpoint;
 pub use filter_chain::{FilterChain, FilterChainEntry, FilterChainError};
 pub use header_chain::{HeaderChainError, MinHeader, validate_header_link};
+#[cfg(feature = "randomx")]
+pub use header_chain::{validate_header_link_and_pow, verify_pow};
 pub use scan::{ScanResult, WalletScan};
 // Re-exported for convenience: light clients verify per-tx proofs
 // against block headers' `hash_merkle_root` via this function.

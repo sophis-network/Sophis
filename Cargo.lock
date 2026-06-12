@@ -7665,8 +7665,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sophis-compact-filters",
+ "sophis-consensus-core",
  "sophis-hashes",
  "sophis-merkle",
+ "sophis-pow",
  "thiserror 2.0.18",
 ]
 

@@ -11,12 +11,19 @@ repository.workspace = true
 edition.workspace = true
 include.workspace = true
 
+[features]
+# Enable full RandomX PoW verification in the SPV header-chain validator.
+# Pulls in sophis-pow (native only; does not compile to wasm32).
+randomx = ["dep:sophis-pow", "sophis-pow/randomx", "dep:sophis-consensus-core"]
+
 [dependencies]
 sophis-hashes.workspace = true
 sophis-merkle.workspace = true
 sophis-compact-filters.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+sophis-pow = { workspace = true, optional = true, default-features = false }
+sophis-consensus-core = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex.workspace = true
