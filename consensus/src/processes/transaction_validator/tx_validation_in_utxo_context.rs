@@ -277,8 +277,7 @@ impl TransactionValidator {
                         //     point; finalized blocks are stripped even though they remain
                         //     permanently canonical.  Accept when creating_daa_score is
                         //     strictly less than the current pruning-point DAA score.
-                        let in_current_batch =
-                            svm.pending_chain_blocks.contains(&entry.creating_block_hash);
+                        let in_current_batch = svm.pending_chain_blocks.contains(&entry.creating_block_hash);
                         let below_horizon = !in_current_batch
                             && svm
                                 .pruning_point_store
@@ -287,10 +286,7 @@ impl TransactionValidator {
                                 .and_then(|pp_hash| svm.headers_store.as_ref()?.get_daa_score(pp_hash).ok())
                                 .map_or(false, |pp_daa| entry.creating_daa_score < pp_daa);
                         if !in_current_batch && !below_horizon {
-                            return Err(TxRuleError::AltReferenceDanglingHandle(
-                                i,
-                                Self::fmt_hex_handle(&r.handle),
-                            ));
+                            return Err(TxRuleError::AltReferenceDanglingHandle(i, Self::fmt_hex_handle(&r.handle)));
                         }
                     }
                 }

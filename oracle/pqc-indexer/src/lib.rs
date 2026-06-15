@@ -277,12 +277,7 @@ impl Indexer {
                 if now.saturating_sub(s.publish_ts) > stale_after_secs {
                     return None;
                 }
-                Some(PriceReading {
-                    price_e8: s.price_e8,
-                    conf_e8: 0,
-                    publish_ts: s.publish_ts,
-                    source: FeedSource::Phase5,
-                })
+                Some(PriceReading { price_e8: s.price_e8, conf_e8: 0, publish_ts: s.publish_ts, source: FeedSource::Phase5 })
             }),
             FeedSource::Unavailable => None,
         }
