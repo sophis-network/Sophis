@@ -258,40 +258,36 @@ impl TransactionValidator {
             // reorged (finality guarantee). If the pruning-point stores are not
             // wired (test / lite builds) the comparison degrades to false →
             // same reject behaviour as before the fix.
-            if let Some(svm) = self.svm.as_ref() {
-                if let Some(chain) = svm.selected_chain_store.as_ref() {
-                    use crate::model::stores::selected_chain::SelectedChainStoreReader;
-                    if chain.read().get_by_hash(entry.creating_block_hash).is_err() {
-                        // Block not in selected_chain_store — three ways it can still be
-                        // canonical, checked in order of cheapest to most expensive:
-                        //
-                        // (b) F-27-B: in the current resolve_virtual batch.
-                        //     selected_chain_store isn't flushed until commit_virtual_state,
-                        //     which runs after ALL commit_utxo_state calls.  The processor
-                        //     inserts each block into pending_chain_blocks after
-                        //     index_alt_creations succeeds, so cross-block ALT references
-                        //     within the same pass are accepted without spurious rejection.
-                        //
-                        // (a) F-27-A: below the pruning horizon.
-                        //     selected_chain_store only retains entries above the pruning
-                        //     point; finalized blocks are stripped even though they remain
-                        //     permanently canonical.  Accept when creating_daa_score is
-                        //     strictly less than the current pruning-point DAA score.
-                        let in_current_batch =
-                            svm.pending_chain_blocks.contains(&entry.creating_block_hash);
-                        let below_horizon = !in_current_batch
-                            && svm
-                                .pruning_point_store
-                                .as_ref()
-                                .and_then(|pp| pp.read().pruning_point().ok())
-                                .and_then(|pp_hash| svm.headers_store.as_ref()?.get_daa_score(pp_hash).ok())
-                                .map_or(false, |pp_daa| entry.creating_daa_score < pp_daa);
-                        if !in_current_batch && !below_horizon {
-                            return Err(TxRuleError::AltReferenceDanglingHandle(
-                                i,
-                                Self::fmt_hex_handle(&r.handle),
-                            ));
-                        }
+            if let Some(svm) = self.svm.as_ref()
+                && let Some(chain) = svm.selected_chain_store.as_ref()
+            {
+                use crate::model::stores::selected_chain::SelectedChainStoreReader;
+                if chain.read().get_by_hash(entry.creating_block_hash).is_err() {
+                    // Block not in selected_chain_store — three ways it can still be
+                    // canonical, checked in order of cheapest to most expensive:
+                    //
+                    // (b) F-27-B: in the current resolve_virtual batch.
+                    //     selected_chain_store isn't flushed until commit_virtual_state,
+                    //     which runs after ALL commit_utxo_state calls.  The processor
+                    //     inserts each block into pending_chain_blocks after
+                    //     index_alt_creations succeeds, so cross-block ALT references
+                    //     within the same pass are accepted without spurious rejection.
+                    //
+                    // (a) F-27-A: below the pruning horizon.
+                    //     selected_chain_store only retains entries above the pruning
+                    //     point; finalized blocks are stripped even though they remain
+                    //     permanently canonical.  Accept when creating_daa_score is
+                    //     strictly less than the current pruning-point DAA score.
+                    let in_current_batch = svm.pending_chain_blocks.contains(&entry.creating_block_hash);
+                    let below_horizon = !in_current_batch
+                        && svm
+                            .pruning_point_store
+                            .as_ref()
+                            .and_then(|pp| pp.read().pruning_point().ok())
+                            .and_then(|pp_hash| svm.headers_store.as_ref()?.get_daa_score(pp_hash).ok())
+                            .is_some_and(|pp_daa| entry.creating_daa_score < pp_daa);
+                    if !in_current_batch && !below_horizon {
+                        return Err(TxRuleError::AltReferenceDanglingHandle(i, Self::fmt_hex_handle(&r.handle)));
                     }
                 }
             }

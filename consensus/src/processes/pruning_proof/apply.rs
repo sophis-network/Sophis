@@ -208,7 +208,9 @@ impl PruningProofManager {
                 // pow passing has already been checked during validation
                 if header.daa_score > daa_upper {
                     return Err(sophis_consensus_core::errors::pruning::PruningImportError::ProofHeaderDaaScoreOutOfRange(
-                        header.hash, header.daa_score, daa_upper,
+                        header.hash,
+                        header.daa_score,
+                        daa_upper,
                     ));
                 }
                 let block_level = calc_block_level(&header, self.max_block_level);

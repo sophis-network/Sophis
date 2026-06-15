@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_empty_hash() {
-        let mut empty = MuHash::new();
+        let empty = MuHash::new();
         assert_eq!(empty.finalize(), EMPTY_MUHASH);
     }
 
@@ -382,7 +382,7 @@ mod tests {
         mh.add_element(&element_from_byte(2));
         let ser = mh.to_bytes();
         assert_eq!(ser.len(), SERIALIZED_MUHASH_SIZE);
-        let mut deserialized = MuHash::from_bytes(ser);
+        let deserialized = MuHash::from_bytes(ser);
         assert_eq!(mh.finalize(), deserialized.finalize());
     }
 
@@ -391,8 +391,8 @@ mod tests {
         let mut mh = MuHash::new();
         mh.add_element(&element_from_byte(7));
         let bytes = bincode::serialize(&mh).unwrap();
-        let mut back: MuHash = bincode::deserialize(&bytes).unwrap();
-        let mut mh2 = mh.clone();
+        let back: MuHash = bincode::deserialize(&bytes).unwrap();
+        let mh2 = mh.clone();
         assert_eq!(mh2.finalize(), back.finalize());
     }
 

@@ -248,9 +248,7 @@ pub fn compute_expected_bits(window: &[MinHeader], params: &SpvDaaParams) -> u32
     let new_target = average_target * measured_duration / expected_duration;
 
     let max_target = Uint320::from(Uint256::from_compact_target_bits(params.max_difficulty_target_bits));
-    Uint256::try_from(new_target.min(max_target))
-        .expect("clamped to max_difficulty_target < Uint256::MAX")
-        .compact_target_bits()
+    Uint256::try_from(new_target.min(max_target)).expect("clamped to max_difficulty_target < Uint256::MAX").compact_target_bits()
 }
 
 /// Verifies that a block header's nonce satisfies its declared RandomX
@@ -392,7 +390,7 @@ mod tests {
     #[cfg(feature = "randomx")]
     mod pow_tests {
         use super::*;
-        use sophis_consensus_core::{header::Header, subnets::SUBNETWORK_ID_COINBASE};
+        use sophis_consensus_core::header::Header;
         use sophis_hashes::Hash;
 
         fn zero_hash() -> Hash {
