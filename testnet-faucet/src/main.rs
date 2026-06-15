@@ -658,7 +658,7 @@ async fn main() {
                         .long("network")
                         .short('n')
                         .default_value("testnet")
-                        .value_parser(["devnet", "testnet", "simnet", "mainnet"]),
+                        .value_parser(["devnet", "testnet", "simnet"]),
                 ),
         )
         .subcommand(
@@ -688,7 +688,7 @@ async fn main() {
                         .long("network")
                         .short('n')
                         .default_value("testnet")
-                        .value_parser(["devnet", "testnet", "simnet", "mainnet"]),
+                        .value_parser(["devnet", "testnet", "simnet"]),
                 )
                 .arg(Arg::new("history").long("history").default_value("faucet_history.json").help("Path to drip history file")),
         )
@@ -698,6 +698,10 @@ async fn main() {
         Some(("generate-wallet", sub)) => {
             let path = PathBuf::from(sub.get_one::<String>("wallet").unwrap());
             let network = sub.get_one::<String>("network").unwrap();
+            if network == "mainnet" {
+                eprintln!("Error: testnet-faucet cannot operate on mainnet.");
+                std::process::exit(1);
+            }
             if let Err(e) = generate_wallet(&path, network) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
@@ -707,9 +711,17 @@ async fn main() {
             let wallet_path = PathBuf::from(sub.get_one::<String>("wallet").unwrap());
             let rpc_server = sub.get_one::<String>("rpcserver").unwrap().clone();
             let amount_sompi = *sub.get_one::<u64>("amount").unwrap();
+            if amount_sompi == 0 {
+                eprintln!("Error: --amount must be at least 1 sompi.");
+                std::process::exit(1);
+            }
             let cooldown_secs = *sub.get_one::<u64>("cooldown").unwrap();
             let port = *sub.get_one::<u16>("port").unwrap();
             let network = sub.get_one::<String>("network").unwrap().clone();
+            if network == "mainnet" {
+                eprintln!("Error: testnet-faucet cannot operate on mainnet.");
+                std::process::exit(1);
+            }
             let history_file = PathBuf::from(sub.get_one::<String>("history").unwrap());
 
             let (wallet_address, vk_bytes, sk_bytes) = match load_wallet(&wallet_path) {
@@ -724,10 +736,10 @@ async fn main() {
             let history = load_history(&history_file);
             let rpc = connect_rpc(&rpc_server).await;
 
-            let coinbase_maturity = if network == "testnet" {
-                TESTNET_PARAMS.blockrate.coinbase_maturity
-            } else {
-                sophis_consensus_core::config::params::DEVNET_PARAMS.blockrate.coinbase_maturity
+            let coinbase_maturity = match network.as_str() {
+                "testnet" => TESTNET_PARAMS.blockrate.coinbase_maturity,
+                "simnet" => sophis_consensus_core::config::params::SIMNET_PARAMS.blockrate.coinbase_maturity,
+                _ => sophis_consensus_core::config::params::DEVNET_PARAMS.blockrate.coinbase_maturity,
             };
 
             let config = Arc::new(Config {

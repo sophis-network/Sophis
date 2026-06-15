@@ -469,13 +469,12 @@ network adversary, and a CRQC adversary.
 Coinbase outputs MUST NOT use `version = 5`. The coinbase rule remains
 "100% to miner" (see `coinbase.rs` after the 2026-05-04 pivot, commit
 `cffe1d1`). Carriers attach to spendable transactions only. Reason: keep
-the coinbase rule simple and non-controversial; donate flag (`e54fcd9`)
-already covers founder-discretion edge cases.
+the coinbase rule simple and non-controversial.
 
 ### 10.2 Donate flag (miner)
 
-Unaffected. The donate flag rewrites the coinbase tx, which has no V3
-outputs.
+Removed pre-launch (commit `a9b30db`, 2026-06-11). No interaction with
+V5 carriers.
 
 ### 10.3 Phase 3 ZK-Rollup
 

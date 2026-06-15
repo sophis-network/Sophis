@@ -33,7 +33,6 @@ For Sophis the choice is Stratum V2:
 
 - Mining is CPU-friendly (RandomX), so the miner pool of potential participants is larger than Bitcoin's ASIC-dominated pool. More small miners = greater attack surface for hostile pool operators. V2's encryption and template validation matter.
 - Sophis is post-quantum at consensus. The coinbase is signed with Dilithium ML-DSA-44, not secp256k1 / Schnorr. V1's coinbase format does not accommodate Dilithium's 2.4 KB signatures cleanly; V2 already supports variable-length coinbase, requiring only field-format adjustments.
-- The donation flag (`--donate-to`, see whitepaper §5.6) needs pool-side awareness: when a miner using `--donate-to` joins a pool, the pool must either honor the donation split or reject the miner. V2's clean separation of "what to mine" (template) from "where rewards go" (payout) maps to this well.
 
 This SIP specifies the Sophis-specific deviations from Stratum V2. **It does not duplicate the canonical V2 spec.** Implementers should read Braiins's V2 documentation first; SIP-15 is the diff.
 
@@ -64,43 +63,12 @@ Stratum V2 was specified for Bitcoin's SHA-256d. Sophis uses **RandomX** (memory
 
 #### 3.2.2 Coinbase format — Dilithium signature
 
-Sophis coinbases include a `ScriptPublicKey` with version `2` (Dilithium P2SH). The coinbase outputs the block reward to the miner's configured Dilithium-derived address. When the miner uses the `--donate-to` flag, the coinbase has multiple outputs: one to the miner, one or more to donation recipients.
+Sophis coinbases include a `ScriptPublicKey` with version `2` (Dilithium P2SH). The coinbase outputs 100% of the block reward to a single Dilithium-derived address. For pool mining:
 
-For pool mining:
+- The **pool** configures the coinbase output to the pool's payout address; per-miner accounting is the pool's internal concern.
+- The **miner** is informed of the coinbase structure via the Stratum V2 template message and verifies that the coinbase encodes a fair-share output to their configured payout address.
 
-- The **pool** (the entity submitting blocks on behalf of the miner pool) configures the coinbase outputs according to the pool's payout policy.
-- The **miner** (the individual hasher) is informed of the coinbase structure via the Stratum V2 template message; the miner verifies that the coinbase encodes a fair-share output to their configured payout address.
-- When the miner uses `--donate-to` at solo-mining time but joins a pool, the pool either:
-  - **Honors the donation:** pool configures the miner's payout fraction to be split between the miner's address and the donation address(es), per the miner's declared percentages, encoded in the pool's payout-policy negotiation message (see §3.2.3).
-  - **Rejects the miner:** pool refuses the connection at handshake time, with a `SetupConnection.Error` carrying a Sophis-specific error code `DONATION_NOT_HONORED`.
-  - Pool MAY allow but ignore the donation flag, paying only the miner; the miner SHOULD detect this and disconnect (the pool is violating the miner's intent).
-
-#### 3.2.3 Payout policy negotiation
-
-Stratum V2 does not specify a standard message for "pool, please honor my donation flag". SIP-15 adds a new optional message type:
-
-```
-SophisPayoutPolicy {
-    miner_address: sophis_address (variable, bech32 string),
-    donations: Vec<DonationEntry>,
-}
-
-DonationEntry {
-    address: sophis_address,
-    percent: u8,                           // 0..=100, sum across all entries must be ≤ 100
-    label: Option<string>,                 // free-form, max 64 chars, advisory
-}
-```
-
-The miner sends this message after channel setup and before the first `SubmitShares`. The pool responds with one of:
-
-- `SophisPayoutPolicy.Accept` — pool will honor the policy for all blocks won via this miner's shares.
-- `SophisPayoutPolicy.Negotiate { counter_offer: ... }` — pool proposes alternative terms (e.g., reduced percentage, capped donations).
-- `SophisPayoutPolicy.Reject { reason }` — pool refuses; miner SHOULD disconnect and find another pool.
-
-Pools that do not support the `--donate-to` flag respond with `Reject { reason: "donation_not_supported" }`; the miner falls back to solo mining or finds a different pool.
-
-#### 3.2.4 Block template construction
+#### 3.2.3 Block template construction
 
 In Stratum V2, the miner (in some channel types) can construct or modify the block template. For Sophis:
 
@@ -129,7 +97,7 @@ Stratum V1 has three structural weaknesses for Sophis specifically:
 
 1. **No transport encryption.** ISP-level adversaries can read pool↔miner traffic, learning miner hashrate and pool affiliation. V2's Noise protocol fixes this.
 2. **No template validation.** V1 miners receive job parameters but cannot verify that the resulting block, if found, pays them correctly. V2 provides header-coverage messages letting the miner reconstruct and verify the entire block.
-3. **Variable-length coinbase is awkward.** V1 was designed around Bitcoin's small coinbase scripts. Dilithium's 2.4 KB signatures and Sophis's multi-output coinbase (for donation splits) sit better in V2's binary message format.
+3. **Variable-length coinbase is awkward.** V1 was designed around Bitcoin's small coinbase scripts. Dilithium's 2.4 KB signatures sit better in V2's binary message format.
 
 V2 has been in production at Braiins Pool, Foundry, and others since 2021. Adopting V2 lets Sophis pool operators reuse existing Stratum V2 libraries instead of writing wire protocols from scratch.
 
@@ -143,13 +111,7 @@ P2Pool is a decentralized pool (a P2P network of miners that itself forms a side
 
 P2Pool is not rejected by this SIP — an independent operator could publish a Sophis-P2Pool spec as a future SIP. SIP-15 covers Stratum V2 because it is the dominant non-custodial pool protocol in active development and has clear upgrade paths from existing V1 deployments.
 
-### 4.3 Why a new payout-policy message instead of overloading existing V2 messages
-
-Stratum V2 was specified for Bitcoin, where the per-miner payout is fully determined by the pool's own bookkeeping (no on-chain coinbase split). Sophis's `--donate-to` flag is a client-side mechanism with on-chain consequences (the coinbase has multiple outputs). The pool MUST honor or explicitly reject it; the existing V2 messages do not have semantics for this.
-
-Adding a SIP-15-specific message (`SophisPayoutPolicy`) is the smallest deviation that respects Stratum V2's modular extension pattern: V2 supports extension messages with reserved type IDs, and Sophis-specific behavior lives in a clearly-namespaced message type.
-
-### 4.4 Why "forward-looking" status
+### 4.3 Why "forward-looking" status
 
 As of this SIP's submission, no Sophis pool operates yet. Pool emergence depends on Sophis hashrate growing to a level where solo-mining variance is operationally painful for a meaningful fraction of miners. At 10 BPS and small-network early-mainnet hashrate, this threshold may be months or years away.
 
@@ -175,13 +137,11 @@ Implementation effort is estimated at 4–8 weeks for one experienced developer,
 
 ### 7.1 Threat model
 
-- **Hostile pool operator.** Pool changes the coinbase to pay only itself, ignoring the miner's `--donate-to` policy. **Defense:** V2's header-coverage messages let the miner reconstruct the block and validate the coinbase. If the coinbase disagrees with the negotiated payout policy, the miner refuses to submit valid shares and disconnects. This shifts the trust model from "miner trusts pool" to "miner verifies pool's templates".
+- **Hostile pool operator.** Pool changes the coinbase to pay only itself, ignoring the miner's declared payout address. **Defense:** V2's header-coverage messages let the miner reconstruct the block and validate the coinbase. If the coinbase disagrees with the negotiated payout address, the miner refuses to submit valid shares and disconnects. This shifts the trust model from "miner trusts pool" to "miner verifies pool's templates".
 - **Pool steals shares.** Pool credits the miner less than their fair contribution. **Defense:** out of scope for the protocol — this is a payout-accounting issue that requires either trust in the pool or a P2Pool-style sidechain. SIP-15 does not solve it; miners SHOULD choose pools with reputational track records.
 - **Pool runs invalid templates.** Pool serves templates that, if mined, would produce blocks rejected by Sophis consensus (e.g., wrong difficulty target, invalid Dilithium signature on coinbase). **Defense:** miners running a local `sophisd` node SHOULD validate templates against the node before mining; this is the highest-trust mode.
 - **Eavesdropping.** Network-level adversary observes pool↔miner traffic. **Defense:** V2's Noise protocol encryption.
 - **MITM at handshake.** Adversary intercepts the initial Noise handshake. **Defense:** miners SHOULD pin pool public keys on first observation (TOFU) or use out-of-band key distribution.
-- **Donation policy stripping.** Pool accepts the miner's `SophisPayoutPolicy` then ignores it when actually producing the coinbase. **Defense:** miner-side template validation as above. The miner sees the coinbase before submitting shares; if it does not honor the policy, the miner disconnects.
-
 ### 7.2 Cryptographic assumptions
 
 - Noise NX is secure for transport encryption (standard cryptographic assumption).
@@ -222,7 +182,7 @@ Concrete vectors are out of scope for SIP-15 Draft status; they accompany the re
 - P2Pool (https://github.com/p2pool/p2pool) — alternative decentralized pool architecture; out of scope here but referenced as prior art
 - `OPERATIONAL_BOUNDARIES.md` §6 — binding constraint that the core team does not operate any pool
 - `FOUNDER_SELF_RESTRICTION.md` §2 — founder may mine solo or via a third-party pool, but never via a team-operated pool
-- Whitepaper §5.6 — opt-in `--donate-to` flag, which SIP-15's `SophisPayoutPolicy` message coordinates with
+- Whitepaper §5.6 — coinbase allocation policy (100% to miner; voluntary redirection removed pre-launch)
 
 ## 10. Copyright
 

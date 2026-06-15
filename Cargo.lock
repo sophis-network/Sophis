@@ -7660,6 +7660,7 @@ dependencies = [
  "sophis-compact-filters",
  "sophis-consensus-core",
  "sophis-hashes",
+ "sophis-math",
  "sophis-merkle",
  "sophis-pow",
  "thiserror 2.0.18",

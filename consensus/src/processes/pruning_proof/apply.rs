@@ -110,7 +110,7 @@ impl PruningProofManager {
             level_proof.sort_by(|a, b| a.blue_work.cmp(&b.blue_work));
         });
 
-        self.populate_reachability_and_headers(&expanded_proof);
+        self.populate_reachability_and_headers(&expanded_proof)?;
 
         // sanity check
         {
@@ -193,13 +193,24 @@ impl PruningProofManager {
         Ok(())
     }
 
-    pub fn populate_reachability_and_headers(&self, proof: &PruningPointProof) {
+    pub fn populate_reachability_and_headers(&self, proof: &PruningPointProof) -> PruningImportResult<()> {
+        // F-34-pruning: bound proof-header daa_score before building epoch caches.
+        // All valid proof headers are ancestors of the PP, so their daa_score must
+        // be ≤ pp_daa. We allow 2 extra epochs of slack for edge cases.
+        let pp_daa = proof[0].last().map(|h| h.daa_score).unwrap_or(u64::MAX);
+        let daa_upper = pp_daa.saturating_add(sophis_pow::EPOCH_LENGTH * 2);
+
         let capacity_estimate = self.estimate_proof_unique_size(proof);
         let mut dag = BlockHashMap::with_capacity(capacity_estimate);
         let mut up_heap = BinaryHeap::with_capacity(capacity_estimate);
         for header in proof.iter().flatten().cloned() {
             if let Vacant(e) = dag.entry(header.hash) {
                 // pow passing has already been checked during validation
+                if header.daa_score > daa_upper {
+                    return Err(sophis_consensus_core::errors::pruning::PruningImportError::ProofHeaderDaaScoreOutOfRange(
+                        header.hash, header.daa_score, daa_upper,
+                    ));
+                }
                 let block_level = calc_block_level(&header, self.max_block_level);
                 self.headers_store.insert(header.hash, header.clone(), block_level).unwrap();
 
@@ -283,5 +294,6 @@ impl PruningProofManager {
             drop(reachability_write);
             drop(reachability_relations_write);
         }
+        Ok(())
     }
 }

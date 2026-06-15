@@ -47,7 +47,7 @@ third-party services.
 
 | Service | Status | Constraints |
 |---|---|---|
-| **Faucet** | Maintained | ≤ 0.1 SPHS per drip, captcha, 1/24h per IP, no KYC, funded as personal donation by the founder, monthly budget published |
+| **Faucet** | Maintained | ≤ 0.1 SPHS per drip, 24h per-address cooldown, IP-level rate limiting via Cloudflare/nginx (deployment layer), no KYC, funded as personal donation by the founder, monthly budget published |
 | **Block explorer** | Maintained | View-only — no broadcasting via the interface, no personal-data collection, no per-address labeling |
 | **DNS seeders** | Maintained and expanded | Domains TBD; aiming to recruit 2–3 independent operators before mainnet |
 | **`sophis-stratum-bridge`** | Code maintained, no instance operated | README explicit: "local-only use" |

@@ -87,6 +87,12 @@ pub enum PruningImportError {
     #[error("got trusted block {0} in the future of the pruning point {1}")]
     TrustedBlockInPruningPointFuture(Hash, Hash),
 
+    /// F-34-pruning: a proof header's daa_score exceeds the PP's daa_score by more
+    /// than 2 epochs, indicating a maliciously-crafted proof or deeply desynchronised peer.
+    /// Rejected before building the RandomX epoch cache to prevent CPU DoS.
+    #[error("proof header {0} daa_score {1} exceeds PP upper bound {2}")]
+    ProofHeaderDaaScoreOutOfRange(Hash, u64, u64),
+
     /// Audit/F-18 (Session 7, 2026-05-15): `apply_proof` must be called on a
     /// pristine consensus DB (typically a `StagingConsensus`); the proof
     /// itself contains the genesis header at level 0 and the apply loop

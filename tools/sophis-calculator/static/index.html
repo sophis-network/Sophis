@@ -13,8 +13,6 @@
     <p class="lede">
       Estimate the energy footprint of your <strong>sophis-miner</strong>
       operation and the cost to offset it via voluntary carbon credits.
-      Then choose how much of your coinbase to redirect with
-      <code>--donate-percent</code>.
     </p>
     <p class="muted">
       Computation runs entirely in your browser. No data leaves this page.
@@ -53,16 +51,6 @@
         <input id="creditprice" type="number" min="0" step="1" value="50">
         <p class="hint">Voluntary market midpoint. Override per provider.</p>
       </div>
-      <div class="field">
-        <label for="coinbase">Expected coinbase (SPHS / month)</label>
-        <input id="coinbase" type="number" min="0" step="1" value="0">
-        <p class="hint">Optional. Leave blank to skip suggested-percent line.</p>
-      </div>
-      <div class="field">
-        <label for="sphsprice">SPHS price (USD)</label>
-        <input id="sphsprice" type="number" min="0" step="0.01" value="0">
-        <p class="hint">Optional. Required for suggested-percent.</p>
-      </div>
     </div>
   </section>
 
@@ -84,21 +72,6 @@
     </div>
   </section>
 
-  <section class="card suggestion" id="suggestion-card" hidden>
-    <h2>Suggested compensation</h2>
-    <p>
-      To offset 100% of your monthly CO2-eq impact, redirect approximately
-      <strong><span id="pct-out">0</span>%</strong> of your coinbase via:
-    </p>
-    <pre><code>sophis-miner --mining-address &lt;your-address&gt; \
-  --donate-to &lt;recipient-of-your-choice&gt; \
-  --donate-percent <span id="pct-cmd">0</span></code></pre>
-    <p class="muted">
-      The recipient is your choice. Sophis core team does not curate
-      destinations. See <a href="https://github.com/sophis-network/Sophis/blob/main/OPERATIONAL_BOUNDARIES.md">OPERATIONAL_BOUNDARIES.md</a>.
-    </p>
-  </section>
-
   <section class="card notes">
     <h2>Notes</h2>
     <ul>
@@ -107,8 +80,6 @@
       <li><strong>Privacy:</strong> all math runs in your browser. No
         request leaves this page. No tracking, no cookies, no analytics.</li>
       <li><strong>One month = 30 days</strong> for arithmetic simplicity.</li>
-      <li>For the canonical formulas, defaults, and rationale see
-        <a href="https://github.com/sophis-network/Sophis/blob/main/docs/H1_CALCULATOR_DESIGN.md">H1_CALCULATOR_DESIGN.md</a>.</li>
     </ul>
   </section>
 
@@ -117,10 +88,9 @@
 <footer>
   <div class="container">
     <p>
-      Part of the Sophis voluntary energy compensation pillar
-      (component #1 of 6). See
-      <a href="https://github.com/sophis-network/Sophis">repository</a>
-      for the other components.
+      Part of the Sophis voluntary energy compensation pillar.
+      See <a href="https://github.com/sophis-network/Sophis">repository</a>
+      for more information.
     </p>
   </div>
 </footer>

@@ -8,7 +8,8 @@ pub mod tx_validation_in_isolation;
 pub mod tx_validation_in_utxo_context;
 use std::sync::Arc;
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
+use sophis_hashes::Hash;
 use sophis_svm_core::ContractStore;
 use sophis_svm_runtime::context::BufferedEvent;
 use sophis_svm_runtime::{ContractExecutor, RuntimeConfig, SvmEngine};
@@ -24,6 +25,8 @@ use parking_lot::RwLock;
 
 use crate::model::stores::alt::DbAltStore;
 use crate::model::stores::da::DbDaStore;
+use crate::model::stores::headers::DbHeadersStore;
+use crate::model::stores::pruning::DbPruningStore;
 use crate::model::stores::selected_chain::DbSelectedChainStore;
 use crate::model::stores::virtual_state::LkgVirtualState;
 
@@ -40,6 +43,13 @@ use crate::model::stores::virtual_state::LkgVirtualState;
 /// `Arc` so cheap clones can be shared across the validator and the
 /// virtual processor without lifetime gymnastics.
 pub type EventsCollector = Arc<DashMap<TransactionId, Vec<BufferedEvent>>>;
+/// F-27-B — in-memory set of chain blocks whose ALT creations have been
+/// committed (in `commit_utxo_state`) but whose `selected_chain_store`
+/// entries have not yet been flushed (happens in `commit_virtual_state`,
+/// after all per-block commits in a `resolve_virtual` pass).  Shared
+/// between the virtual processor (writer) and the transaction validator
+/// (reader) via a single `Arc`, same pattern as `EventsCollector`.
+pub type PendingChainBlocks = Arc<DashSet<Hash>>;
 
 /// sVM execution context held by the validator.
 /// `None` means no contracts deployed yet — Contract UTXOs return ContractNotDeployed.
@@ -75,6 +85,26 @@ pub struct SvmContext {
     /// validators MUST set this; otherwise `vrf_random_at` returns -6
     /// (unknown chain_index) for every call.
     pub selected_chain_store: Option<Arc<RwLock<DbSelectedChainStore>>>,
+    /// F-27-A — pruning-stable ALT oracle.  `selected_chain_store` only
+    /// retains entries above the pruning point; blocks below are finalized
+    /// and stripped from that store.  These two handles let
+    /// `check_alt_references` accept such blocks by comparing the ALT
+    /// entry's `creating_daa_score` against the pruning-point DAA score
+    /// (strictly less ↔ below the finality horizon ↔ permanently canonical).
+    /// Both are `None` in test / lite builds — the check degrades gracefully
+    /// to the pre-fix behaviour (unknown horizon → reject on KeyNotFound).
+    pub headers_store: Option<Arc<DbHeadersStore>>,
+    pub pruning_point_store: Option<Arc<RwLock<DbPruningStore>>>,
+    /// F-27-B fix — TOCTOU ordering gap.  The virtual processor inserts
+    /// a chain-block hash here after `index_alt_creations` succeeds (ALT
+    /// in DB) but before `commit_virtual_state` flushes the chain into
+    /// `selected_chain_store`.  `check_alt_references` consults this set
+    /// when `selected_chain_store` misses and the block is above the
+    /// pruning horizon, so cross-block ALT references within the same
+    /// `resolve_virtual` pass are accepted without a spurious fork.
+    /// Initialised to an empty set in `SvmContext::new()`; the processor
+    /// calls `.clear()` after `commit_virtual_state` returns.
+    pub pending_chain_blocks: PendingChainBlocks,
 }
 
 impl SvmContext {
@@ -88,6 +118,9 @@ impl SvmContext {
             alt_store: None,
             events_collector: Arc::new(DashMap::new()),
             selected_chain_store: None,
+            headers_store: None,
+            pruning_point_store: None,
+            pending_chain_blocks: Arc::new(DashSet::new()),
         })
     }
 
@@ -121,6 +154,18 @@ impl SvmContext {
     /// fall back to `StubVrf` (every VRF query returns -6 unknown_index).
     pub fn with_selected_chain_store(mut self, store: Arc<RwLock<DbSelectedChainStore>>) -> Self {
         self.selected_chain_store = Some(store);
+        self
+    }
+
+    /// F-27-A — attach the headers store for pruning-stable ALT validation.
+    pub fn with_headers_store(mut self, store: Arc<DbHeadersStore>) -> Self {
+        self.headers_store = Some(store);
+        self
+    }
+
+    /// F-27-A — attach the pruning-point store for ALT pruning-horizon check.
+    pub fn with_pruning_point_store(mut self, store: Arc<RwLock<DbPruningStore>>) -> Self {
+        self.pruning_point_store = Some(store);
         self
     }
 }

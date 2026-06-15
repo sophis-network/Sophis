@@ -269,11 +269,20 @@ impl Indexer {
                     source: FeedSource::Phase9 { active_since_ts: 0 },
                 })
             }),
-            FeedSource::Phase5 => st.phase5.last().map(|s| PriceReading {
-                price_e8: s.price_e8,
-                conf_e8: 0,
-                publish_ts: s.publish_ts,
-                source: FeedSource::Phase5,
+            // ORACLE-A1: Phase5 fallback must also gate on staleness.
+            // Without this check a stalled Phase5 publisher serves
+            // arbitrarily old prices even when `reevaluate` hasn't yet
+            // transitioned the source to Unavailable.
+            FeedSource::Phase5 => st.phase5.last().and_then(|s| {
+                if now.saturating_sub(s.publish_ts) > stale_after_secs {
+                    return None;
+                }
+                Some(PriceReading {
+                    price_e8: s.price_e8,
+                    conf_e8: 0,
+                    publish_ts: s.publish_ts,
+                    source: FeedSource::Phase5,
+                })
             }),
             FeedSource::Unavailable => None,
         }
@@ -488,6 +497,20 @@ mod tests {
         assert_eq!(ix.feed_source(&[9u8; 32]), FeedSource::Phase5);
         assert!(ix.last_decision(&[9u8; 32]).is_none());
         assert!(ix.registry().is_empty());
+    }
+
+    #[test]
+    fn stale_phase5_without_reevaluate_returns_none() {
+        // ORACLE-A1: stale Phase5 sample must return None even when reevaluate
+        // has NOT been called (source is still Phase5, not Unavailable).
+        let pol = FlipPolicy::default();
+        let now = 1_700_000_000u64;
+        let aid = asset_id_from_symbol(b"SOL/USD");
+        let mut ix = Indexer::default();
+        // Phase5 sample older than stale window; no reevaluate called.
+        ix.ingest_phase5(aid, PriceSample { publish_ts: now - pol.stale_after_secs - 1, price_e8: 100_00000000 });
+        assert_eq!(ix.feed_source(&aid), FeedSource::Phase5, "no reevaluate → still Phase5");
+        assert!(ix.read_price(&aid, now, pol.stale_after_secs).is_none(), "stale Phase5 → None even without reevaluate");
     }
 
     #[test]

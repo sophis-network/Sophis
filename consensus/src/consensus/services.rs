@@ -171,7 +171,9 @@ impl ConsensusServices {
                         .with_da_store(storage.da_store.clone())
                         .with_lkg_virtual_state(storage.lkg_virtual_state.clone())
                         .with_alt_store(storage.alt_store.clone())
-                        .with_selected_chain_store(storage.selected_chain_store.clone()),
+                        .with_selected_chain_store(storage.selected_chain_store.clone())
+                        .with_headers_store(storage.headers_store.clone())
+                        .with_pruning_point_store(storage.pruning_point_store.clone()),
                 ),
                 Err(e) => {
                     log::warn!("sVM initialisation failed — contracts disabled: {e}");

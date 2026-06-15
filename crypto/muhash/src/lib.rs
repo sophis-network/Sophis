@@ -91,8 +91,11 @@ impl MuHash {
     }
 
     /// The 32-byte commitment for the header: `MuHashFinalizeHash(state)`.
+    ///
+    /// Takes `&self` — calling `finalize` does not mutate the accumulator.
+    /// After finalization the accumulator should not be used further.
     #[inline]
-    pub fn finalize(&mut self) -> Hash {
+    pub fn finalize(&self) -> Hash {
         let mut h = MuHashFinalizeHash::new();
         h.write(self.to_bytes());
         h.finalize()
@@ -145,10 +148,19 @@ fn accumulate(data: &[u8], adding: bool, lanes: &mut [u16; LTHASH_LANES]) {
 /// adds/subtracts the expanded lane-vector on `finalize`. Elements are small
 /// (a serialized UTXO), so buffering is cheap and keeps the counter-mode
 /// expansion identical to the one-shot `add_element` path.
+///
+/// **Must call `finalize()`** — dropping without it is a silent no-op that
+/// loses the element, which is a consensus bug (double-spend vector).
+/// `#[must_use]` catches unused temporaries at compile time; the `Drop`
+/// guard catches the remaining cases at runtime.
+#[must_use = "MuHashElementBuilder has no effect unless finalize() is called"]
 pub struct MuHashElementBuilder<'a> {
     lanes: &'a mut [u16; LTHASH_LANES],
     buf: Vec<u8>,
     adding: bool,
+    /// Set to `true` by `finalize()` so the `Drop` guard can distinguish a
+    /// clean teardown from a forgotten call.
+    finalized: bool,
 }
 
 impl HasherBase for MuHashElementBuilder<'_> {
@@ -160,11 +172,23 @@ impl HasherBase for MuHashElementBuilder<'_> {
 
 impl<'a> MuHashElementBuilder<'a> {
     fn new(lanes: &'a mut [u16; LTHASH_LANES], adding: bool) -> Self {
-        Self { lanes, buf: Vec::new(), adding }
+        Self { lanes, buf: Vec::new(), adding, finalized: false }
     }
 
-    pub fn finalize(self) {
+    pub fn finalize(mut self) {
+        self.finalized = true;
         accumulate(&self.buf, self.adding, self.lanes);
+    }
+}
+
+impl Drop for MuHashElementBuilder<'_> {
+    fn drop(&mut self) {
+        // LTHASH-13: dropping without finalize() silently discards the element.
+        // In production this is a consensus bug (the UTXO multiset diverges from
+        // the committed state, enabling double-spend). Panic loudly instead.
+        if !self.finalized {
+            panic!("MuHashElementBuilder dropped without calling finalize() — element lost");
+        }
     }
 }
 

@@ -122,9 +122,11 @@ impl HeaderProcessor {
         let Ok(tip_daa) = self.headers_store.get_daa_score(tip.hash) else {
             return Ok(());
         };
-        // Allow headers within finality_depth (~21 epochs) behind and 2 epochs ahead of the tip.
-        // Headers outside this window are physically impossible to validate and are almost
-        // certainly from a DoS flood or a deeply-desynchronised peer.
+        // Allow headers within 22 epochs (~45 056 blocks, ≈ 75 min) behind the tip and 2 epochs
+        // ahead. Note: this window is NOT finality_depth (which is ~211 epochs / 12 h); it was
+        // chosen to bound the number of distinct epoch caches an attacker can force, not to
+        // match the reorg safety horizon. Headers outside this window are physically impossible
+        // to validate honestly and are almost certainly from a DoS flood or a deeply-desynchronised peer.
         let min_daa = tip_daa.saturating_sub(sophis_pow::EPOCH_LENGTH * 22);
         let max_daa = tip_daa.saturating_add(sophis_pow::EPOCH_LENGTH * 2);
         if header.daa_score < min_daa || header.daa_score > max_daa {

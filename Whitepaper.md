@@ -249,85 +249,17 @@ The donation address, when published, will live in the project's `README.md` and
 
 These three wallets are operational hygiene, not protocol features: nothing in consensus depends on them, and the segregation is enforced by the founder's procedure rather than by the chain.
 
-### 5.6 Voluntary coinbase redirection as energy-compensation infrastructure
+### 5.6 Voluntary coinbase redirection (removed pre-launch)
 
-Sophis ships a client-side mechanism by which any miner may, **at the miner's sole discretion**, redirect a portion of their coinbase reward to one or more recipient addresses chosen by that miner. The mechanism is implemented in the reference miner (`sophis-miner`) as the `--donate-to` and `--donate-percent` flags. It rewrites the coinbase transaction and recomputes the block's `hash_merkle_root` before the block is submitted to the network.
+A voluntary coinbase-redirection mechanism was designed and documented in earlier versions of this whitepaper. It would have allowed any miner to allocate a portion of their coinbase reward to self-chosen addresses via `--donate-to` and `--donate-percent` flags in the reference miner.
 
-This is **not a consensus rule.** The protocol does not require, recognize, or distinguish redirected coinbases from non-redirected ones. The full coinbase reward continues to be paid to whatever set of outputs the miner constructs, and §5.2 — "every block's subsidy plus transaction fees go entirely to the miner who produced the block" — remains unchanged at the consensus layer. The redirection is a property of how an individual miner *chooses* to construct their coinbase transaction, not a property of the protocol that constructs it for them.
+**The feature was removed from `sophis-miner` before mainnet launch** (commit `a9b30db`, 2026-06-11). The implementation had a fundamental incompatibility with the block-validity rules: the coinbase rewrite changed the coinbase transaction, which changed the block's `hash_merkle_root`, which caused the consensus layer to reject the resulting block. The feature was broken end-to-end and could not be corrected without redesigning the coinbase commitment scheme — a change to consensus-level invariants incompatible with the pre-mainnet timeline.
 
-#### 5.6.1 Why this is in the reference miner
+**Current state:** `sophis-miner` does not ship `--donate-to`, `--donate-percent`, or any coinbase-redirection mechanism. Every block the reference miner produces allocates 100 % of the coinbase to the `--mining-address` declared at startup, consistent with §5.2.
 
-The `--donate-to` flag exists to give miners a low-friction way to direct part of their reward toward causes they care about — environmental compensation, open-source funding, education, humanitarian aid, research, or any other category of their choosing. It is positioned as **infrastructure for voluntary action**, not as a curated philanthropy program.
+Miners wishing to redirect a portion of their reward to an address of their choosing may do so by constructing a coinbase transaction with multiple outputs using any Sophis-compatible transaction tool. Nothing in the protocol prevents this; the consensus rules are agnostic to coinbase output structure provided the total value equals subsidy plus fees. The reference miner does not provide a convenience flag for it.
 
-Sophis is a Proof-of-Work chain, and PoW imposes a real energy cost. A miner who wishes to internalize that cost — for example, by directing 1–5 % of their reward to a verified renewable-energy or carbon-offset organization of their choice — can do so directly, in a single command-line flag, without using a smart contract, an intermediary service, a treasury vote, or any custodial party.
-
-To the best of the authors' knowledge, no other Proof-of-Work blockchain ships a native client-side mechanism for this purpose. Bitcoin would require a fork to add it; Monero does not have it; Proof-of-Stake chains can offer it, but PoS is not the design space Sophis occupies.
-
-#### 5.6.2 Default is OFF
-
-The flag is **opt-in.** A miner who does nothing receives 100 % of every coinbase they win. The default behaviour of the reference miner is to write a single output paying the full reward to the miner's mining address, identical to what the protocol would do in the absence of the flag.
-
-A miner activating the flag explicitly declares the recipients and percentages on the command line:
-
-```
-sophis-miner --mining-address sophis:qx... \
-  --donate-to sophis:qy... --donate-percent 3 \
-  --donate-to sophis:qz... --donate-percent 2
-```
-
-Validations run at miner startup, before any RPC connection: the sum of declared percentages must not exceed 100, every donation address must share the address prefix of the mining address (preventing accidental cross-network redirection), and the maximum number of donation outputs is capped at 8. Rounding is deterministic via `floor(reward · pct / 100)`, with the remainder paid to the miner. Dust-zero outputs are auto-skipped. Full mechanics are documented in the reference miner's `--help` output and in the project README.
-
-#### 5.6.3 No curation, no recommended list, no team endorsement
-
-The Sophis core team **does not** maintain, endorse, or recommend any list of donation addresses. There is no official directory of "approved" recipients. The reference miner ships with no default donation list and no preconfigured beneficiary. The team's commitment to operate non-custodially (see §11) extends to not playing intermediary in the choice of recipient.
-
-For donors who wish to verify that a given wallet address belongs to a specific organization before sending value, Sophis publishes a small open specification — the `.well-known/sophis-wallet.json` pattern — for organizations to self-attest a binding between a public DNS domain and one or more Sophis addresses. The format builds on IETF RFC 8615 (`.well-known/` URI prefix, already used by ACME, OpenID Connect, security.txt and similar standards) and combines two independent proofs: TLS proves that the file was served from the organization's actual domain, and a Dilithium ML-DSA-44 signature inside the file proves possession of the private key controlling the declared wallet.
-
-Two reference artifacts ship with the project to make adoption trivial:
-
-- **Specification:** `SIPS/SIP-6-WALLET-VERIFICATION.md` — the v1 file format (`version`, `domain`, `issued_at`, `expires_at`, `addresses[]`, `signature`), the canonical signing procedure, mandatory verifier checks, and rotation / revocation semantics.
-- **Template:** `docs/well-known-sophis-wallet.template.json` — a ready-to-use JSON template the operator copies, fills in, signs with their Dilithium key, and hosts.
-
-**Procedure for an organization that wants to be verifiable** (any NGO, software collective, individual maintainer):
-
-1. Copy `docs/well-known-sophis-wallet.template.json` and remove the `_comment` field.
-2. Fill in `domain`, `issued_at`, `expires_at`, and one or more `{address, purpose, label, categories}` entries.
-3. Sign the canonical serialization of the file (excluding the `signature.value` field) using the Dilithium ML-DSA-44 key corresponding to the declared address, via the project's `dilithium-wallet` CLI.
-4. Host the resulting JSON at exactly `https://<your-domain>/.well-known/sophis-wallet.json` over TLS. The verifier MUST refuse plain HTTP and MUST NOT follow HTTPS→HTTP redirects.
-
-**Procedure for a donor who wants to verify before sending**:
-
-1. Fetch the file from `https://<organization-domain>/.well-known/sophis-wallet.json`. The HTTPS certificate, validated by the donor's browser or wallet, is the first proof — it attests that the file was served from the actual domain the donor recognizes.
-2. Parse the JSON, locate the address of interest in `addresses[]`, and check `issued_at` ≤ now ≤ `expires_at`.
-3. Verify the Dilithium signature in `signature` against the canonical serialization of the covered fields, using the `public_key` declared in the same file. A passing signature is the second proof — it attests that whoever published the file controls the private key for the declared address.
-4. If both checks pass, the donor has a cryptographic binding between the recognized domain and the on-chain address.
-
-**Sophis does not host, audit, endorse, or maintain any such file.** The specification and the template are provided as community infrastructure; the publication is done by each organization on its own domain, and the verification is done by each donor on their own terms. Cross-checking the legal name on the domain's WHOIS or on the appropriate national registry — Receita Federal in Brazil, IRS in the United States, Charity Commission in the United Kingdom, and equivalents elsewhere — is also the donor's responsibility, never the project's.
-
-To reduce category-label fragmentation without reopening any core-team curation responsibility, an **independent community-governed repository** — `sophis-network/community-labels` — maintains a recommended vocabulary of category labels with an explicit `others` fallback. The repo is opt-in for publishers, opt-in for verifiers, and non-authoritative: the core team neither curates the list nor adjudicates label disputes; PRs are reviewed by community maintainers with documented criteria. A label being on or off the recommended list carries no protocol-level meaning and does not constitute endorsement of any particular address. The separation — protocol layer stays free-form, vocabulary lives in a community repo — preserves the §11 Operational Boundaries posture while giving the ecosystem a Schelling point to converge on. See `SIPS/SIP-6-WALLET-VERIFICATION.md` §4.2.
-
-#### 5.6.4 What the protocol provides, and what it does not
-
-The protocol provides:
-
-- A consensus rule (§5.2) that 100 % of every coinbase belongs to the miner who produced the block.
-- A reference miner that supports a client-side redirection flag, by the miner's choice.
-- An sVM environment in which any third party may, at their own initiative and risk, deploy registry, verification, or directory contracts. **The Sophis core team will not deploy or operate any such contract.** An on-chain identity layer is intentionally outside the protocol scope (see §10).
-
-The protocol does **not** provide:
-
-- A list of approved beneficiaries.
-- A consensus-encoded charity address, "voluntary" or otherwise. Such a thing would be indistinguishable in form from a developer fund, and §5.2 forbids it.
-- Any custodial or escrow service.
-- Any team-operated frontend that intermediates the donation choice.
-
-#### 5.6.5 Honest framing
-
-This mechanism is not a claim that Proof-of-Work's energy cost is solved. It is a claim that the protocol provides the most direct possible mechanism — a single command-line flag, no intermediary, no fork required — by which an individual miner can act on their own conscience about that cost. Whether and how that mechanism is used is, by design, outside the core team's control, and so is its measurement.
-
-Aggregation and visualization of donation flows are intentionally **not** provided by the Sophis core team. The protocol exposes the necessary on-chain data — every coinbase transaction is public, every multi-output coinbase is an observable donation event, and recipient addresses can opt into identity attestation via the `.well-known/sophis-wallet.json` specification (§5.5 and `SIPS/SIP-6-WALLET-VERIFICATION.md`) cross-referenced with the community-maintained category vocabulary (§5.5 and the `sophis-network/community-labels` repository). Building dashboards, indexers, and analytic frontends on top of that data is the role of independent third parties, operated under their own governance, at their own discretion, with their own discovery sources and methodology. The Sophis project does not maintain, host, or endorse any particular donation dashboard, just as it does not operate a block explorer, a mining pool, or an exchange listing. A reference architecture specification for community implementers is staged as `donation-dashboard-template/`; the core team does not ship the visualization itself.
-
-The intended outcome is plural visibility rather than authoritative measurement: multiple independent dashboards may exist with different aggregation choices, different discovery sources, and different visualizations, and no single one is canonical. Users compare and choose; the project does not adjudicate.
+The `.well-known/sophis-wallet.json` wallet-attestation specification (`SIPS/SIP-6-WALLET-VERIFICATION.md`) noted in earlier versions of this document remains available as general-purpose address-verification infrastructure, usable by any address holder independent of any donation context.
 
 ---
 
@@ -533,7 +465,7 @@ The Sophis core team commits to operating only **non-custodial infrastructure**:
 
 | Service | Status | Notes |
 |---|---|---|
-| Faucet | Operate, with limits | ≤ US$ 1 equivalent / user, captcha + 24h IP rate-limit, no KYC, monthly budget cap, funded from founder personal wallet, framed as "personal donation in faucet form" |
+| Faucet | Operate, with limits | ≤ 0.1 SPHS per drip, 24h per-address cooldown, IP-level rate limiting via Cloudflare/nginx, no KYC, monthly budget cap, funded from founder personal wallet, framed as "personal donation in faucet form" |
 | Block explorer | Operate, view-only | No tx broadcasting through UI, no PII collection, no per-address labeling |
 | DNS seeders | Operate `sophisnet.org`, `sophisd.net`, `sophis.ws` | Recruiting 2–3 independent operators for additional seeders post-mainnet |
 | `sophis-stratum-bridge` (software) | Maintain code | README explicitly warns "local-only use — do not run as a service to third parties without licensure"; no team-operated instance |

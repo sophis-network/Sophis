@@ -12,8 +12,13 @@ edition.workspace = true
 include.workspace = true
 
 [features]
+default = ["randomx"]
 # Enable full RandomX PoW verification in the SPV header-chain validator.
 # Pulls in sophis-pow (native only; does not compile to wasm32).
+# Disable with `default-features = false` for wasm32 or environments
+# where RandomX C++ deps cannot be compiled. Without this feature,
+# `validate_header_link_and_pow` and DAA target recomputation are
+# unavailable, leaving only structural chain validation.
 randomx = ["dep:sophis-pow", "sophis-pow/randomx", "dep:sophis-consensus-core"]
 
 [dependencies]
@@ -22,6 +27,7 @@ sophis-merkle.workspace = true
 sophis-compact-filters.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+sophis-math.workspace = true
 sophis-pow = { workspace = true, optional = true, default-features = false }
 sophis-consensus-core = { workspace = true, optional = true }
 

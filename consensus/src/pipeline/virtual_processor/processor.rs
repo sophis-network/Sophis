@@ -213,6 +213,13 @@ pub struct VirtualStateProcessor {
     /// it (per-tx removal) at commit time. Sparse map; cheap when no
     /// contracts emit. See `processes::transaction_validator::EventsCollector`.
     pub(super) events_collector: crate::processes::transaction_validator::EventsCollector,
+    /// F-27-B — shared with the validator's SvmContext (same Arc). This
+    /// processor inserts each chain-block hash after `index_alt_creations`
+    /// completes (ALT committed to DB) so that `check_alt_references` can
+    /// accept cross-block ALT references within the same `resolve_virtual`
+    /// pass, before `commit_virtual_state` flushes `selected_chain_store`.
+    /// Cleared once `commit_virtual_state` returns.
+    pub(super) pending_chain_blocks: crate::processes::transaction_validator::PendingChainBlocks,
     pub(super) virtual_stores: Arc<RwLock<VirtualStores>>,
     pub(super) pruning_meta_stores: Arc<RwLock<PruningMetaStores>>,
     /// Anti long-range attack — the virtual processor is responsible for
@@ -311,6 +318,15 @@ impl VirtualStateProcessor {
                 .as_ref()
                 .map(|svm| svm.events_collector.clone())
                 .unwrap_or_else(|| Arc::new(dashmap::DashMap::new())),
+            // F-27-B: share the same Arc as the validator's SvmContext so the
+            // processor can mark chain blocks as committed and the validator can
+            // consult the set without any extra synchronisation cost.
+            pending_chain_blocks: services
+                .transaction_validator
+                .svm
+                .as_ref()
+                .map(|svm| svm.pending_chain_blocks.clone())
+                .unwrap_or_else(|| Arc::new(dashmap::DashSet::new())),
             virtual_stores: storage.virtual_stores.clone(),
             pruning_meta_stores: storage.pruning_meta_stores.clone(),
             max_chain_work_seen_store: storage.max_chain_work_seen_store.clone(),
@@ -725,6 +741,12 @@ impl VirtualStateProcessor {
         self.db.write(batch).unwrap();
         // Calling the drops explicitly after the batch is written in order to avoid possible errors.
         drop(write_guard);
+        // F-27-B: mark this chain block as having its ALTs committed to DB.
+        // The validator's check_alt_references checks this set when
+        // selected_chain_store returns KeyNotFound, allowing cross-block ALT
+        // references within the same resolve_virtual pass.  The set is cleared
+        // in calculate_and_commit_virtual_state after commit_virtual_state runs.
+        self.pending_chain_blocks.insert(current);
     }
 
     /// Phase 6 — extracts every V5 carrier output from the transactions
@@ -987,6 +1009,11 @@ impl VirtualStateProcessor {
             accumulated_diff,
         )?;
         self.commit_virtual_state(virtual_read, new_virtual_state.clone(), accumulated_diff, chain_path);
+        // F-27-B: selected_chain_store is now flushed to DB.  Any validator
+        // running after this point will find creating blocks via get_by_hash
+        // directly.  Clear the pending set so the next resolve_virtual pass
+        // starts clean and doesn't accumulate stale entries.
+        self.pending_chain_blocks.clear();
         Ok(new_virtual_state)
     }
 
@@ -1610,7 +1637,7 @@ impl VirtualStateProcessor {
     pub fn import_pruning_point_utxo_set(
         &self,
         new_pruning_point: Hash,
-        mut imported_utxo_multiset: MuHash,
+        imported_utxo_multiset: MuHash,
     ) -> PruningImportResult<()> {
         info!("Importing the UTXO set of the pruning point {}", new_pruning_point);
         let new_pruning_point_header = self.headers_store.get_header(new_pruning_point).unwrap();

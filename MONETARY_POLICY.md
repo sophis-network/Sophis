@@ -89,22 +89,23 @@ following self-imposed restrictions in addition to the protocol rules:
 
 The full text of these restrictions is in `FOUNDER_SELF_RESTRICTION.md`.
 
-## 5. Donations and tipping
+## 5. Voluntary coinbase redirection (removed pre-launch)
 
-Operators of the reference miner (`sophis-miner`) MAY split their own
-coinbase reward to additional addresses they choose, via the opt-in
-`--donate-to <address> --donate-percent <N>` flags (commit `e54fcd9`).
+A `--donate-to`/`--donate-percent` mechanism was designed and referenced
+in earlier versions of this document. It was **removed from `sophis-miner`
+before mainnet launch** (commit `a9b30db`, 2026-06-11).
 
-This is **client-side** — it is not a consensus rule. It rewrites the
-miner's own coinbase transaction before submitting the block. The
-default is **off**; with the flag unset, 100% of the coinbase reward
-goes to the miner.
+The implementation had a fundamental incompatibility with the
+block-validity rules: rewriting the coinbase transaction changed the
+block's `hash_merkle_root`, which caused the consensus layer to reject
+the block outright. The feature was broken end-to-end.
 
-The Sophis core team does **not curate, host, or recommend** any
-donation address list. The flag exists so operators can route part of
-their own rewards to causes of their choice (development, charity, an
-independent maintainer). Whatever they choose is their personal
-decision. See `OPERATIONAL_BOUNDARIES.md` §3 for the canonical wording.
+**Current state:** `sophis-miner` does not ship `--donate-to` or
+`--donate-percent`. Every block the reference miner produces allocates
+100 % of the coinbase to the `--mining-address` declared at startup,
+consistent with §2 above. Miners may construct a multi-output coinbase
+manually using any compatible transaction tool; the protocol does not
+prevent it, but the reference miner provides no convenience flag for it.
 
 ## 6. Halvings
 
