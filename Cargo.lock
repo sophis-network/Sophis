@@ -4511,36 +4511,23 @@ dependencies = [
 
 [[package]]
 name = "p3-fri"
-version = "0.5.3"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb728959a6e6bd646238d9de49e873c886c66b74d36e7bff6e1edd567b0c15b4"
+checksum = "32ea6753da59cef42a3f2beedad3e5911171dc02b70f4cc5aa6a22f066654932"
 dependencies = [
  "itertools 0.14.0",
- "p3-challenger 0.5.3",
- "p3-commit 0.5.3",
- "p3-dft 0.5.3",
- "p3-field 0.5.3",
- "p3-interpolation",
- "p3-matrix 0.5.3",
- "p3-maybe-rayon 0.5.3",
- "p3-util 0.5.3",
+ "p3-challenger 0.6.1",
+ "p3-commit 0.6.1",
+ "p3-dft 0.6.1",
+ "p3-field 0.6.1",
+ "p3-matrix 0.6.1",
+ "p3-maybe-rayon 0.6.1",
+ "p3-util 0.6.1",
  "rand 0.10.1",
  "serde",
- "spin 0.10.0",
+ "spin 0.12.0",
  "thiserror 2.0.18",
  "tracing",
-]
-
-[[package]]
-name = "p3-interpolation"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "506c480fb775bb6399e49053a8e05b5e04ea67d47e430f4d4d3e5257a4f47da5"
-dependencies = [
- "p3-field 0.5.3",
- "p3-matrix 0.5.3",
- "p3-maybe-rayon 0.5.3",
- "p3-util 0.5.3",
 ]
 
 [[package]]
