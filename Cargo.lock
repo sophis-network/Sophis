@@ -4373,6 +4373,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "p3-air"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3e18b22bf85451382098e54da526733c7f390f83d4141b3b8b93e98e805df55"
+dependencies = [
+ "p3-field 0.6.1",
+ "p3-matrix 0.6.1",
+ "tracing",
+]
+
+[[package]]
 name = "p3-baby-bear"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4527,6 +4538,27 @@ dependencies = [
  "rand 0.10.1",
  "serde",
  "spin 0.10.0",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "p3-fri"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32ea6753da59cef42a3f2beedad3e5911171dc02b70f4cc5aa6a22f066654932"
+dependencies = [
+ "itertools 0.14.0",
+ "p3-challenger 0.6.1",
+ "p3-commit 0.6.1",
+ "p3-dft 0.6.1",
+ "p3-field 0.6.1",
+ "p3-matrix 0.6.1",
+ "p3-maybe-rayon 0.6.1",
+ "p3-util 0.6.1",
+ "rand 0.10.1",
+ "serde",
+ "spin 0.12.0",
  "thiserror 2.0.18",
  "tracing",
 ]
@@ -4769,18 +4801,20 @@ dependencies = [
 
 [[package]]
 name = "p3-uni-stark"
-version = "0.5.3"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "751bb3d740a7795a0da12ae86749df4bc12bd996d0bfd3c6f7ee62652db0e0c3"
+checksum = "14e2195220ed01aa53e149836b3011c76fe347b54e5eb16beb8de8aac72fff3b"
 dependencies = [
  "itertools 0.14.0",
- "p3-air",
- "p3-challenger 0.5.3",
- "p3-commit 0.5.3",
- "p3-field 0.5.3",
- "p3-matrix 0.5.3",
- "p3-maybe-rayon 0.5.3",
- "p3-util 0.5.3",
+ "libm",
+ "p3-air 0.6.1",
+ "p3-challenger 0.6.1",
+ "p3-commit 0.6.1",
+ "p3-field 0.6.1",
+ "p3-fri 0.6.1",
+ "p3-matrix 0.6.1",
+ "p3-maybe-rayon 0.6.1",
+ "p3-util 0.6.1",
  "serde",
  "thiserror 2.0.18",
  "tracing",
@@ -7470,13 +7504,13 @@ version = "1.1.0"
 dependencies = [
  "bincode",
  "borsh",
- "p3-air",
+ "p3-air 0.5.3",
  "p3-baby-bear",
  "p3-challenger 0.5.3",
  "p3-commit 0.6.1",
  "p3-dft 0.5.3",
  "p3-field 0.5.3",
- "p3-fri",
+ "p3-fri 0.5.3",
  "p3-matrix 0.5.3",
  "p3-merkle-tree",
  "p3-symmetric 0.5.3",
