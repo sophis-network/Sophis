@@ -390,7 +390,7 @@ mod tests {
     #[cfg(feature = "randomx")]
     mod pow_tests {
         use super::*;
-        use sophis_consensus_core::{header::Header, subnets::SUBNETWORK_ID_COINBASE};
+        use sophis_consensus_core::header::Header;
         use sophis_hashes::Hash;
 
         fn zero_hash() -> Hash {
