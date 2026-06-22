@@ -55,7 +55,7 @@ chrono = { workspace = true }
 include_dir = "0.7"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_Console"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Console"] }
 
 # For musl builds, we declare mimalloc without 'override' to override sophis-alloc's version
 # The .cargo/config.toml linker flag handles any remaining conflicts
