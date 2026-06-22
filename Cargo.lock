@@ -1235,12 +1235,6 @@ checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "convert_case"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
-
-[[package]]
-name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
@@ -1778,19 +1772,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab63b0e2bf4d5928aff72e83a7dace85d7bba5fe12dcc3c5a572d78caffd3f3c"
 dependencies = [
  "derive_builder_core",
- "syn 2.0.117",
-]
-
-[[package]]
-name = "derive_more"
-version = "0.99.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
-dependencies = [
- "convert_case 0.4.0",
- "proc-macro2",
- "quote",
- "rustc_version",
  "syn 2.0.117",
 ]
 
@@ -3672,7 +3653,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "chrono",
- "derive_more 2.1.1",
+ "derive_more",
  "flate2",
  "fnv",
  "humantime",
@@ -5514,7 +5495,7 @@ dependencies = [
  "anyhow",
  "borsh",
  "bytemuck",
- "derive_more 2.1.1",
+ "derive_more",
  "elf",
  "lazy_static",
  "postcard",
@@ -5594,7 +5575,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8eae53a7bf1c09828dfd46ed5c942cefbf4bef3c4400f6758001569a834c462"
 dependencies = [
  "cc",
- "derive_more 2.1.1",
+ "derive_more",
  "glob",
  "risc0-build-kernel",
  "risc0-core",
@@ -5649,7 +5630,7 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "cfg-if",
- "derive_more 2.1.1",
+ "derive_more",
  "enum-map",
  "gdbstub",
  "gdbstub_arch",
@@ -5679,7 +5660,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69d677ec41e475534e18e58889ef0626dcdabf5e918804ef847da0c0bbf300b3"
 dependencies = [
  "cc",
- "derive_more 2.1.1",
+ "derive_more",
  "glob",
  "risc0-build-kernel",
  "risc0-core",
@@ -5790,7 +5771,7 @@ dependencies = [
  "borsh",
  "bytemuck",
  "bytes",
- "derive_more 2.1.1",
+ "derive_more",
  "elf",
  "enum-map",
  "gdbstub",
@@ -6807,7 +6788,7 @@ version = "1.1.0"
 dependencies = [
  "async-channel 2.5.0",
  "cfg-if",
- "derive_more 0.99.18",
+ "derive_more",
  "futures",
  "log",
  "paste",
@@ -7082,7 +7063,7 @@ version = "1.1.0"
 dependencies = [
  "async-channel 2.5.0",
  "async-trait",
- "derive_more 0.99.18",
+ "derive_more",
  "futures",
  "log",
  "paste",
@@ -7241,7 +7222,7 @@ dependencies = [
  "async-trait",
  "borsh",
  "criterion",
- "derive_more 0.99.18",
+ "derive_more",
  "futures",
  "futures-util",
  "indexmap 2.14.0",
@@ -7560,7 +7541,7 @@ dependencies = [
  "async-trait",
  "borsh",
  "cfg-if",
- "derive_more 0.99.18",
+ "derive_more",
  "downcast",
  "faster-hex 0.9.0",
  "hex",
