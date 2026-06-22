@@ -266,7 +266,7 @@ mac_address = "1.1.8"
 # `into_limbs_asc` from u64 to u32 limbs. `sophis-math/src/uint.rs` translates
 # at the boundary so callers continue to use u64 storage.
 malachite-base = "0.4.4"
-malachite-nz = "0.4.4"
+malachite-nz = "0.9.0"
 num = "0.4.1"
 num_cpus = "1.17.0"
 num-traits = "0.2.17"
