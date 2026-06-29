@@ -42,7 +42,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache risc0 toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.risc0
           key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
@@ -131,7 +131,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache risc0 toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.risc0
           key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
@@ -203,7 +203,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache risc0 toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.risc0
           key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
@@ -311,7 +311,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache risc0 toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.risc0
           key: ${{ runner.os }}-risc0-${{ hashFiles('**/Cargo.lock') }}
