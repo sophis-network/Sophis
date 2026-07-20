@@ -494,7 +494,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -563,7 +563,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: Install NodeJS
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
