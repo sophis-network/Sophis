@@ -1,3 +1,7 @@
+> 📣 **Sophis is looking for its next stewards.** The founder is invoking voluntary cessation (§6.1) before mainnet genesis. See [issue #85](https://github.com/sophis-network/Sophis/issues/85) for details and how to volunteer.
+
+---
+
 # Sophis ($SPHS)
 
 ## A Fair-Launch, Post-Quantum Layer-1 BlockDAG
